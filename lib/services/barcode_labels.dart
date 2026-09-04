@@ -1,0 +1,201 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:barcode/barcode.dart';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../models/product.dart';
+import 'pos_repository.dart';
+
+/// Generate barcode PNG with **full product name under the bars**.
+/// Uses Flutter canvas so CJK names render (system fonts).
+class BarcodeLabelService {
+  BarcodeLabelService(this.repo);
+  final PosRepository repo;
+
+  Barcode _codecFor(String code) {
+    final digits = code.replaceAll(RegExp(r'\D'), '');
+    if ((digits.length == 12 || digits.length == 13) && digits == code) {
+      try {
+        return Barcode.ean13();
+      } catch (_) {}
+    }
+    return Barcode.code128();
+  }
+
+  Future<String> autoGenerateBarcode() async {
+    final ts = DateTime.now().millisecondsSinceEpoch.toString();
+    var base = ts.substring(ts.length - 12);
+    int checkDigit(String b) {
+      var sum = 0;
+      for (var i = 0; i < 12; i++) {
+        final d = int.parse(b[i]);
+        sum += (i % 2 == 0) ? d : d * 3;
+      }
+      return (10 - (sum % 10)) % 10;
+    }
+
+    var code = '$base${checkDigit(base)}';
+    var n = 0;
+    while (await repo.findByBarcodeOrSku(code) != null && n < 30) {
+      final next =
+          (int.parse(base) + 1 + n).toString().padLeft(12, '0').substring(0, 12);
+      base = next;
+      code = '$base${checkDigit(base)}';
+      n++;
+    }
+    return code;
+  }
+
+  /// PNG: bars + human-readable code + full product name underneath.
+  Future<Uint8List> renderPng({
+    required String barcode,
+    required String productName,
+    int width = 640,
+    int barHeight = 168,
+  }) async {
+    final code = barcode.trim();
+    if (code.isEmpty) throw StateError('barcode empty');
+    final name = productName.trim().isEmpty ? code : productName.trim();
+
+    final codec = _codecFor(code);
+    final svg = codec.toSvg(
+      code,
+      width: width.toDouble(),
+      height: barHeight.toDouble(),
+      drawText: false,
+    );
+    final rectRe = RegExp(
+      r'<rect[^>]*x="([\d.]+)"[^>]*y="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="([\d.]+)"',
+    );
+    final rects = <Rect>[];
+    for (final m in rectRe.allMatches(svg)) {
+      rects.add(Rect.fromLTWH(
+        double.parse(m.group(1)!),
+        double.parse(m.group(2)!),
+        double.parse(m.group(3)!),
+        double.parse(m.group(4)!),
+      ));
+    }
+
+    final nameStyle = const TextStyle(
+      color: Colors.black,
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+      height: 1.25,
+    );
+    final namePainter = TextPainter(
+      text: TextSpan(text: name, style: nameStyle),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 3,
+      ellipsis: '…',
+    )..layout(maxWidth: width - 32.0);
+
+    final codePainter = TextPainter(
+      text: TextSpan(
+        text: code,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: width - 24.0);
+
+    final footerH = 12 + codePainter.height + 8 + namePainter.height + 16;
+    final height = (barHeight + footerH).ceil();
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      Paint()..color = Colors.white,
+    );
+    final barPaint = Paint()..color = Colors.black;
+    for (final r in rects) {
+      canvas.drawRect(r, barPaint);
+    }
+    var y = barHeight + 12.0;
+    codePainter.paint(canvas, Offset((width - codePainter.width) / 2, y));
+    y += codePainter.height + 8;
+    namePainter.paint(canvas, Offset((width - namePainter.width) / 2, y));
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(width, height);
+    final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (bd == null) throw StateError('png encode failed');
+    return bd.buffer.asUint8List();
+  }
+
+  Future<Directory> _exportDir() async {
+    Directory base;
+    try {
+      base = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      base = Directory.systemTemp;
+    }
+    final d = Directory(p.join(base.path, 'barcode_exports'));
+    if (!await d.exists()) await d.create(recursive: true);
+    return d;
+  }
+
+  Future<File> exportPngFile(Product product) async {
+    final code = product.barcode.trim();
+    if (code.isEmpty) throw StateError('商品无条码 / Product has no barcode');
+    final bytes = await renderPng(barcode: code, productName: product.nameZh);
+    final dir = await _exportDir();
+    final safe = code.replaceAll(RegExp(r'[^\w\-]'), '_');
+    final idBit =
+        product.id.length >= 8 ? product.id.substring(0, 8) : product.id;
+    final file =
+        File(p.join(dir.path, 'barcode_${safe}_$idBit.png'));
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
+  }
+
+  Future<List<File>> exportMany(List<Product> products) async {
+    final out = <File>[];
+    for (final product in products) {
+      if (product.barcode.trim().isEmpty) continue;
+      out.add(await exportPngFile(product));
+    }
+    return out;
+  }
+
+  Future<void> shareFiles(List<File> files) async {
+    if (files.isEmpty) return;
+    await Share.shareXFiles(
+      [for (final f in files) XFile(f.path, mimeType: 'image/png')],
+      subject: 'CNKH barcodes',
+      text: '条码图片（条码+完整品名）/ Barcode + full product name',
+    );
+  }
+
+  Future<void> enqueue(Product product, {int copies = 1}) async {
+    if (product.barcode.trim().isEmpty) {
+      throw StateError('商品无条码 / Product has no barcode');
+    }
+    await repo.enqueueBarcodePrint(
+      productId: product.id,
+      barcode: product.barcode,
+      productName: product.nameZh,
+      sku: product.sku,
+      priceCents: product.priceCents,
+      copies: copies,
+    );
+  }
+
+  Future<void> enqueueMany(List<Product> products, {int copies = 1}) async {
+    for (final product in products) {
+      if (product.barcode.trim().isEmpty) continue;
+      await enqueue(product, copies: copies);
+    }
+  }
+}

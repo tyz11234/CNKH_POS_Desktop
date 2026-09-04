@@ -1,0 +1,6 @@
+[
+  {"id":"s1","name":"United Fasteners Sdn Bhd","phone":"03-12345678","email":"sales@united.my","notes":"Bolts & nuts"},
+  {"id":"s2","name":"PipeMaster Trading","phone":"03-87654321","email":"order@pipemaster.my","notes":"PVC"},
+  {"id":"s3","name":"ElectroMart Wholesale","phone":"03-55551234","email":"ws@electromart.my","notes":"Cables"},
+  {"id":"s4","name":"ToolHub Asia","phone":"03-99887766","email":"asia@toolhub.com","notes":""}
+]
