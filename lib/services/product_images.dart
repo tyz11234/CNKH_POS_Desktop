@@ -76,7 +76,7 @@ class ProductImageStore {
       {String ext = 'jpg'}) async {
     try {
       final bytes = base64Decode(b64);
-      return saveBytes(productId, bytes, ext: ext);
+      return await saveBytes(productId, bytes, ext: ext);
     } catch (_) {
       return null;
     }
