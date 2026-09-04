@@ -10,6 +10,7 @@ import '../../services/e_receipt.dart';
 import '../../widgets/money_text.dart';
 import '../sales_list_screen.dart';
 import 'products_admin.dart';
+import 'purchase_create_screen.dart';
 
 class AdminHub extends StatelessWidget {
   final AppUser user;
@@ -304,92 +305,73 @@ class _PurchasesPageState extends State<PurchasesPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _create() async {
-    final suppliers = await widget.repo.listSuppliers();
-    final products = await widget.repo.searchProducts('', limit: 50);
-    if (!mounted || suppliers.isEmpty || products.isEmpty) return;
-    var supplier = suppliers.first;
-    var product = products.first;
-    final qty = TextEditingController(text: '10');
-    final cost = TextEditingController(
-        text: centsToRm(product.costCents).toStringAsFixed(2));
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('简易进货 / Simple purchase'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButton<Supplier>(
-                isExpanded: true,
-                value: supplier,
-                items: [
-                  for (final s in suppliers)
-                    DropdownMenuItem(value: s, child: Text(s.name)),
-                ],
-                onChanged: (v) => setLocal(() => supplier = v!),
-              ),
-              DropdownButton<Product>(
-                isExpanded: true,
-                value: product,
-                items: [
-                  for (final p in products)
-                    DropdownMenuItem(value: p, child: Text(p.nameZh)),
-                ],
-                onChanged: (v) => setLocal(() {
-                  product = v!;
-                  cost.text = centsToRm(product.costCents).toStringAsFixed(2);
-                }),
-              ),
-              TextField(controller: qty, decoration: const InputDecoration(labelText: '数量')),
-              TextField(controller: cost, decoration: const InputDecoration(labelText: '成本 RM', prefixText: 'RM ')),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
-          ],
+  Future<void> _openCreate() async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PurchaseCreateScreen(
+          repo: widget.repo,
+          user: widget.user,
         ),
       ),
     );
-    if (ok != true) return;
-    final q = double.tryParse(qty.text.trim()) ?? 0;
-    final unitCost = rmToCents(double.tryParse(cost.text.trim()) ?? 0);
-    final total = (unitCost * q).round();
-    await widget.repo.createPurchase(
-      supplierId: supplier.id,
-      supplierName: supplier.name,
-      lines: [
-        {
-          'productId': product.id,
-          'name': product.nameZh,
-          'qty': q,
-          'unitCostCents': unitCost,
-          'subtotalCents': total,
-        }
-      ],
-      totalCents: total,
-      operator: widget.user.username,
-    );
-    await _load();
+    if (ok == true) await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     return _ScaffoldPage(
       title: '进货 / Purchases',
-      actions: [IconButton(onPressed: _create, icon: const Icon(Icons.add))],
-      body: ListView.builder(
-        itemCount: _rows.length,
-        itemBuilder: (context, i) {
-          final r = _rows[i];
-          return ListTile(
-            title: Text('${r['purchase_no']} · ${r['supplier_name']}'),
-            subtitle: Text('${r['purchased_at']}'),
-            trailing: MoneyText(amountCents: r['total_cents'] as int, fontSize: 14),
-          );
-        },
+      actions: [
+        IconButton(
+          tooltip: '扫码/单据进货',
+          onPressed: _openCreate,
+          icon: const Icon(Icons.qr_code_scanner),
+        ),
+        IconButton(
+          tooltip: '新建进货',
+          onPressed: _openCreate,
+          icon: const Icon(Icons.add),
+        ),
+      ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _openCreate,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('扫码进货 / 识别进货单'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _rows.isEmpty
+                ? const Center(
+                    child: Text(
+                      '暂无进货单\n点上方「扫码进货」开始',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: CnkhColors.muted, height: 1.4),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _rows.length,
+                    itemBuilder: (context, i) {
+                      final r = _rows[i];
+                      return ListTile(
+                        title: Text('${r['purchase_no']} · ${r['supplier_name']}'),
+                        subtitle: Text('${r['purchased_at']}'),
+                        trailing: MoneyText(
+                            amountCents: r['total_cents'] as int, fontSize: 14),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -508,31 +490,169 @@ class ReportsPage extends StatefulWidget {
 }
 
 class _ReportsPageState extends State<ReportsPage> {
-  Map<String, int>? _r;
+  Map<String, int>? _pay;
+  Map<String, Object?>? _profit;
+  late String _startDay;
+  late String _endDay;
+  bool _loading = true;
+
   @override
   void initState() {
     super.initState();
     final day = DateTime.now().toIso8601String().substring(0, 10);
-    widget.repo.reportByPayment(startDay: day, endDay: day).then((v) {
-      if (mounted) setState(() => _r = v);
+    _startDay = day;
+    _endDay = day;
+    _reload();
+  }
+
+  Future<void> _reload() async {
+    setState(() => _loading = true);
+    final pay = await widget.repo.reportByPayment(
+      startDay: _startDay,
+      endDay: _endDay,
+    );
+    final profit = await widget.repo.reportProfit(
+      startDay: _startDay,
+      endDay: _endDay,
+    );
+    if (!mounted) return;
+    setState(() {
+      _pay = pay;
+      _profit = profit;
+      _loading = false;
     });
+  }
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final initialStart = DateTime.tryParse(_startDay) ?? now;
+    final initialEnd = DateTime.tryParse(_endDay) ?? now;
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+      helpText: '选择报表日期范围',
+    );
+    if (range == null) return;
+    setState(() {
+      _startDay = range.start.toIso8601String().substring(0, 10);
+      _endDay = range.end.toIso8601String().substring(0, 10);
+    });
+    await _reload();
+  }
+
+  void _setToday() {
+    final day = DateTime.now().toIso8601String().substring(0, 10);
+    setState(() {
+      _startDay = day;
+      _endDay = day;
+    });
+    _reload();
+  }
+
+  Widget _metricCard({
+    required String title,
+    required String value,
+    String? subtitle,
+    Color? valueColor,
+  }) {
+    return Card(
+      child: ListTile(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: subtitle == null ? null : Text(subtitle),
+        trailing: Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: valueColor,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final r = _r;
+    final pay = _pay;
+    final profit = _profit;
+    final rangeLabel =
+        _startDay == _endDay ? _startDay : '$_startDay ~ $_endDay';
     return _ScaffoldPage(
-      title: '报表 / Reports (today)',
-      body: r == null
+      title: '报表 / Reports',
+      actions: [
+        IconButton(
+          tooltip: '今天',
+          onPressed: _setToday,
+          icon: const Icon(Icons.today),
+        ),
+        IconButton(
+          tooltip: '日期范围',
+          onPressed: _pickRange,
+          icon: const Icon(Icons.date_range),
+        ),
+      ],
+      body: _loading || pay == null || profit == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                for (final k in ['CASH', 'CARD', 'DUITNOW_QR', 'CREDIT', 'TOTAL'])
+                Text(
+                  '期间：$rangeLabel',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '共 ${profit['ticketCount'] ?? 0} 笔有效销售',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 12),
+                const Text('利润 / Profit',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                const SizedBox(height: 6),
+                _metricCard(
+                  title: '销售额',
+                  value: formatRm((profit['revenueCents'] as int?) ?? 0),
+                ),
+                _metricCard(
+                  title: '成本合计（COGS）',
+                  value: formatRm((profit['cogsCents'] as int?) ?? 0),
+                  subtitle: (profit['cogsEstimated'] as bool?) == true
+                      ? '按当前进货价估算'
+                      : '按销售明细成本',
+                ),
+                _metricCard(
+                  title: '毛利',
+                  value: formatRm((profit['grossProfitCents'] as int?) ?? 0),
+                  valueColor: ((profit['grossProfitCents'] as int?) ?? 0) >= 0
+                      ? Colors.green.shade800
+                      : Colors.red.shade800,
+                ),
+                _metricCard(
+                  title: '毛利率',
+                  value:
+                      '${(((profit['grossMarginPercent'] as num?)?.toDouble()) ?? 0).toStringAsFixed(1)}%',
+                ),
+                const SizedBox(height: 16),
+                const Text('收款方式 / By payment',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                const SizedBox(height: 6),
+                for (final k in [
+                  'CASH',
+                  'CARD',
+                  'DUITNOW_QR',
+                  'CREDIT',
+                  'TOTAL'
+                ])
                   Card(
                     child: ListTile(
                       title: Text(k),
-                      trailing: MoneyText(amountCents: r[k] ?? 0, fontSize: 16),
+                      trailing:
+                          MoneyText(amountCents: pay[k] ?? 0, fontSize: 16),
                     ),
                   ),
               ],
@@ -540,6 +660,7 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 }
+
 
 class DailyClosePage extends StatefulWidget {
   final PosRepository repo;
