@@ -221,7 +221,6 @@ CREATE TABLE audit_logs (
   old_value TEXT NOT NULL DEFAULT '',
   new_value TEXT NOT NULL DEFAULT '',
   reason TEXT NOT NULL DEFAULT ''
-)
 )''');
     await _seed(db);
   }

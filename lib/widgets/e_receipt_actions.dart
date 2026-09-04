@@ -79,8 +79,9 @@ Future<void> sendEReceiptFlow(
     }
   }
 
+  final template = await ReceiptTemplate.load(repo);
   final storeName =
-      await repo.getSetting('store_name', fallback: kStoreName);
+      template.storeName.isEmpty ? kStoreName : template.storeName;
   final contactMsg =
       await maybeEnsureContact(name: name.isEmpty ? phone : name, phoneRaw: phone);
   if (!context.mounted) return;
@@ -88,7 +89,9 @@ Future<void> sendEReceiptFlow(
     final result = await shareEReceiptPdf(
       sale: sale,
       phoneRaw: phone,
-      storeName: storeName.isEmpty ? kStoreName : storeName,
+      storeName: storeName,
+      template: template,
+      repo: repo,
     );
     if (!context.mounted) return;
     final msg = contactMsg.isEmpty ? result : '$result\n$contactMsg';

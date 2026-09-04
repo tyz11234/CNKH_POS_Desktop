@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 import 'e_receipt.dart';
+import 'receipt_template.dart';
 import 'pos_repository.dart';
 
 /// Optional Bluetooth ESC/POS receipt printer (Android-first).
@@ -81,9 +82,11 @@ class BluetoothPrinterService {
       if (!connected) {
         return '未连接蓝牙打印机 / No Bluetooth printer connected';
       }
-      final name = storeName ??
-          await repo.getSetting('store_name', fallback: kStoreName);
-      final text = buildPrintReceiptTextFromSale(sale, storeName: name);
+      final template = await ReceiptTemplate.load(repo);
+      final effective = storeName != null && storeName.trim().isNotEmpty
+          ? template.copyWith(storeName: storeName.trim())
+          : template;
+      final text = effective.renderFromSale(sale);
       final bytes = _escPosFromText(text);
       final ok = await PrintBluetoothThermal.writeBytes(bytes);
       return ok ? 'ok' : '打印失败 / Print failed';

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -11,9 +10,18 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'pos_repository.dart';
+import 'receipt_template.dart';
 
-const String kStoreName = '黄金发宝号';
-const int kReceiptWidth = 40;
+export 'receipt_template.dart'
+    show
+        ReceiptTemplate,
+        ReceiptSettingKeys,
+        kStoreName,
+        kReceiptWidth,
+        kDefaultReceiptCharWidth,
+        kDefaultReceiptFooter,
+        formatRmPlain;
+
 const String kEReceiptCacheDirKey = 'ereceipt_cache_dir';
 const String kWhatsAppShareChannel = 'com.cnkh.cnkh_pos_desktop/whatsapp_share';
 
@@ -31,33 +39,7 @@ String normalizeMyPhone(String raw) {
   return digits;
 }
 
-String formatRmPlain(int cents) {
-  final sign = cents < 0 ? '-' : '';
-  final a = cents.abs();
-  return '$sign${'RM'} ${a ~/ 100}.${(a % 100).toString().padLeft(2, '0')}';
-}
-
-String _truncate(String s, int width) {
-  if (s.length <= width) return s;
-  return s.substring(0, width);
-}
-
-String _center(String s, int width) {
-  if (s.length >= width) return _truncate(s, width);
-  final pad = width - s.length;
-  final left = pad ~/ 2;
-  return (' ' * left) + s + (' ' * (pad - left));
-}
-
-String _pair(String left, String right, int width) {
-  final l = _truncate(left, width - 1);
-  final r = right;
-  final space = width - l.length - r.length;
-  if (space < 1) return _truncate('$l $r', width);
-  return l + (' ' * space) + r;
-}
-
-/// 40-col thermal text matching PC ``PrintingService.render_text``.
+/// Thermal / preview text via [ReceiptTemplate] (single source of truth).
 String buildPrintReceiptText({
   required String receiptNo,
   required String soldAt,
@@ -72,84 +54,54 @@ String buildPrintReceiptText({
   String cashier = '',
   String address = '',
   String phone = '',
-  String footer = 'Thank you / 谢谢光临',
+  String footer = kDefaultReceiptFooter,
   String notes = '',
+  ReceiptTemplate? template,
 }) {
-  final w = kReceiptWidth;
-  final out = <String>[];
-  out.add(_center(storeName, w));
-  if (address.trim().isNotEmpty) out.add(_center(address.trim(), w));
-  if (phone.trim().isNotEmpty) out.add(_center(phone.trim(), w));
-  out.add('-' * w);
-  out.add(_truncate('Receipt: $receiptNo', w));
-  final dt = soldAt.length >= 19
-      ? soldAt.substring(0, 19).replaceFirst('T', ' ')
-      : soldAt;
-  out.add(_truncate('Date: $dt', w));
-  if (cashier.isNotEmpty) out.add(_truncate('Cashier: $cashier', w));
-  out.add('-' * w);
-  for (final line in lines) {
-    final nameZh = (line['nameZh'] as String?)?.trim() ?? '';
-    final nameEn = (line['nameEn'] as String?)?.trim() ?? '';
-    final name = nameZh.isNotEmpty
-        ? nameZh
-        : (nameEn.isNotEmpty ? nameEn : 'Item');
-    out.add(_truncate(name, w));
-    final qty = line['qty'] ?? 1;
-    final unit = line['unitPriceCents'] as int? ?? 0;
-    final qtyStr = '$qty';
-    final lineTotal = line['lineTotalCents'] as int? ??
-        (unit * (qty is int ? qty : int.tryParse('$qty') ?? 1));
-    final disc = line['lineDiscountCents'] as int? ?? 0;
-    final detail = '  $qtyStr pcs x ${formatRmPlain(unit)}';
-    out.add(_pair(detail, formatRmPlain(lineTotal + disc), w));
-    if (disc > 0) {
-      out.add(_pair('  Discount / 折扣', formatRmPlain(-disc), w));
-    }
-  }
-  out.add('-' * w);
-  out.add(_pair('SUBTOTAL', formatRmPlain(subtotalCents), w));
-  out.add(_pair('DISCOUNT', formatRmPlain(-discountCents), w));
-  out.add(_pair('TOTAL', formatRmPlain(totalCents), w));
-  out.add(_pair('PAID', formatRmPlain(paidCents), w));
-  out.add(_pair('CHANGE', formatRmPlain(changeCents), w));
-  out.add(_truncate('Payment: $paymentMethod', w));
-  out.add('-' * w);
-  if (footer.trim().isNotEmpty) out.add(_center(footer.trim(), w));
-  if (notes.trim().isNotEmpty) out.add(_center(notes.trim(), w));
-  return out.join('\n');
+  final effective = template ??
+      ReceiptTemplate(
+        storeName: storeName,
+        address: address,
+        phone: phone,
+        footerLines: footer,
+        notes: notes,
+      );
+  return effective.render(
+    receiptNo: receiptNo,
+    soldAt: soldAt,
+    paymentMethod: paymentMethod,
+    subtotalCents: subtotalCents,
+    discountCents: discountCents,
+    totalCents: totalCents,
+    paidCents: paidCents,
+    changeCents: changeCents,
+    lines: lines,
+    cashier: cashier,
+  );
 }
 
-String buildPrintReceiptTextFromSale(SaleRecord sale, {String storeName = kStoreName}) {
-  List<Map<String, Object?>> lines = const [];
-  try {
-    final raw = jsonDecode(sale.linesJson);
-    if (raw is List) {
-      lines = [
-        for (final e in raw)
-          if (e is Map)
-            {
-              for (final entry in e.entries)
-                entry.key.toString(): entry.value as Object?,
-            },
-      ];
-    }
-  } catch (_) {}
-  final discount =
-      sale.itemDiscountCents + sale.orderDiscountCents;
-  return buildPrintReceiptText(
-    receiptNo: sale.receiptNo,
-    soldAt: sale.soldAt,
-    paymentMethod: sale.paymentMethod,
-    subtotalCents: sale.subtotalCents,
-    discountCents: discount,
-    totalCents: sale.totalCents,
-    paidCents: sale.paidCents,
-    changeCents: sale.changeCents,
-    lines: lines,
-    storeName: storeName,
-    cashier: sale.cashier,
-  );
+String buildPrintReceiptTextFromSale(
+  SaleRecord sale, {
+  String storeName = kStoreName,
+  ReceiptTemplate? template,
+}) {
+  final effective = template ??
+      ReceiptTemplate(storeName: storeName.isEmpty ? kStoreName : storeName);
+  return effective.renderFromSale(sale);
+}
+
+/// Load persisted template then render sale (print + PDF path).
+Future<String> buildPrintReceiptTextFromSaleAsync(
+  SaleRecord sale, {
+  PosRepository? repo,
+  String? storeNameOverride,
+}) async {
+  final r = repo ?? PosRepository();
+  var template = await ReceiptTemplate.load(r);
+  if (storeNameOverride != null && storeNameOverride.trim().isNotEmpty) {
+    template = template.copyWith(storeName: storeNameOverride.trim());
+  }
+  return template.renderFromSale(sale);
 }
 
 String shortWhatsAppCaption(SaleRecord sale, {String storeName = kStoreName}) =>
@@ -188,8 +140,20 @@ String buildEReceiptTextFromSale(SaleRecord sale) =>
 Future<File> writeReceiptPdfTemp(
   SaleRecord sale, {
   String storeName = kStoreName,
+  ReceiptTemplate? template,
+  PosRepository? repo,
 }) async {
-  final text = buildPrintReceiptTextFromSale(sale, storeName: storeName);
+  final ReceiptTemplate effective;
+  if (template != null) {
+    effective = template;
+  } else if (repo != null) {
+    effective = await ReceiptTemplate.load(repo);
+  } else {
+    effective = ReceiptTemplate(
+      storeName: storeName.isEmpty ? kStoreName : storeName,
+    );
+  }
+  final text = effective.renderFromSale(sale);
   final doc = pw.Document();
   // 80mm thermal-ish page width
   const pageWidth = 80.0 * PdfPageFormat.mm;
@@ -339,11 +303,18 @@ Future<int> countEReceiptCache() async {
 Future<File> writeReceiptPdfCached(
   SaleRecord sale, {
   String storeName = kStoreName,
+  ReceiptTemplate? template,
+  PosRepository? repo,
 }) async {
   final dir = await eReceiptCacheDir();
   final safe = sale.receiptNo.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
   final file = File('${dir.path}/receipt_$safe.pdf');
-  final tmp = await writeReceiptPdfTemp(sale, storeName: storeName);
+  final tmp = await writeReceiptPdfTemp(
+    sale,
+    storeName: storeName,
+    template: template,
+    repo: repo,
+  );
   try {
     await tmp.copy(file.path);
   } finally {
@@ -362,10 +333,17 @@ Future<String> shareEReceiptPdf({
   required SaleRecord sale,
   required String phoneRaw,
   String storeName = kStoreName,
+  ReceiptTemplate? template,
+  PosRepository? repo,
 }) async {
   final digits = normalizeMyPhone(phoneRaw);
   if (digits.isEmpty) throw ArgumentError('invalid phone');
-  final pdf = await writeReceiptPdfCached(sale, storeName: storeName);
+  final pdf = await writeReceiptPdfCached(
+    sale,
+    storeName: storeName,
+    template: template,
+    repo: repo,
+  );
   final caption = shortWhatsAppCaption(sale, storeName: storeName);
 
   if (!kIsWeb && Platform.isAndroid) {

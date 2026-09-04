@@ -10,6 +10,7 @@ import '../services/qr_storage.dart';
 import '../services/lan_sync.dart';
 import '../services/e_receipt.dart';
 import '../theme/cnkh_theme.dart';
+import '../widgets/receipt_template_editor.dart';
 import 'training_page.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -31,7 +32,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _path;
   bool _loading = true;
-  final _store = TextEditingController();
   final _syncHost = TextEditingController();
   final _syncToken = TextEditingController();
   String _lastSync = '';
@@ -54,7 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _reload() async {
     final p = await widget.qrStorage.getLocalPath();
-    final name = await widget.repo.getSetting('store_name', fallback: '黄金发宝号');
     final host = await widget.repo.getSetting('lan_sync_host');
     final token = await widget.repo.getSetting('lan_sync_token');
     final last = await widget.repo.getSetting('lan_sync_last_full');
@@ -68,7 +67,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       _path = p;
-      _store.text = name;
       _syncHost.text = host;
       _syncToken.text = token;
       _lastSync = last;
@@ -112,23 +110,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _store.dispose();
     _syncHost.dispose();
     _syncToken.dispose();
     _holdTimeout.dispose();
     _lowStock.dispose();
     super.dispose();
   }
-
-  Future<void> _saveStore() async {
-    if (!canEdit) return;
-    await widget.repo.setSetting('store_name', _store.text.trim());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('店名已保存')),
-    );
-  }
-
 
   LanSyncConfig get _cfg => LanSyncConfig(
         baseUrl: _syncHost.text.trim(),
@@ -183,31 +170,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text('设置 / Settings', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 4),
         Text(
-          canEdit ? '管理员可改收款码与店名' : '员工只读收款码 · Staff view-only QR',
+          canEdit ? '管理员可改收款码、小票格式与店名' : '员工只读 · Staff view-only',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('店名 / Store name', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _store,
-                  enabled: canEdit,
-                  decoration: const InputDecoration(hintText: '黄金发宝号'),
-                ),
-                if (canEdit) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton(onPressed: _saveStore, child: const Text('保存店名')),
-                ],
-              ],
-            ),
-          ),
-        ),
+        ReceiptTemplateEditor(repo: widget.repo, canEdit: canEdit),
         const SizedBox(height: 12),
         Card(
           child: Padding(
