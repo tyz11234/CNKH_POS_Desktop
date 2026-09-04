@@ -137,6 +137,15 @@ String buildEReceiptText({
 String buildEReceiptTextFromSale(SaleRecord sale) =>
     buildPrintReceiptTextFromSale(sale);
 
+pw.Font? _receiptPdfFont;
+
+Future<pw.Font> _loadReceiptPdfFont() async {
+  if (_receiptPdfFont != null) return _receiptPdfFont!;
+  final data = await rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf');
+  _receiptPdfFont = pw.Font.ttf(data);
+  return _receiptPdfFont!;
+}
+
 Future<File> writeReceiptPdfTemp(
   SaleRecord sale, {
   String storeName = kStoreName,
@@ -154,11 +163,17 @@ Future<File> writeReceiptPdfTemp(
     );
   }
   final text = effective.renderFromSale(sale);
+  final font = await _loadReceiptPdfFont();
   final doc = pw.Document();
-  // 80mm thermal-ish page width
+  // 80mm thermal-ish page width — Noto Sans SC embeds CJK (Courier cannot)
   const pageWidth = 80.0 * PdfPageFormat.mm;
   final lines = text.split('\n');
   final pageHeight = (lines.length * 12.0 + 40).clamp(200.0, 2000.0);
+  final style = pw.TextStyle(
+    font: font,
+    fontSize: 7.5,
+    lineSpacing: 1.2,
+  );
   doc.addPage(
     pw.Page(
       pageFormat: PdfPageFormat(pageWidth, pageHeight, marginAll: 4 * PdfPageFormat.mm),
@@ -166,14 +181,7 @@ Future<File> writeReceiptPdfTemp(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           for (final line in lines)
-            pw.Text(
-              line,
-              style: pw.TextStyle(
-                font: pw.Font.courier(),
-                fontSize: 7.5,
-                lineSpacing: 1.2,
-              ),
-            ),
+            pw.Text(line, style: style),
         ],
       ),
     ),
@@ -327,7 +335,9 @@ Future<File> writeReceiptPdfCached(
 
 /// Share e-receipt PDF:
 /// - **Android**: open WhatsApp directly with PDF attached (ACTION_SEND + EXTRA_STREAM).
-/// - **Other platforms**: system share sheet only (no wa.me — cannot attach PDF).
+/// - **Windows**: open WhatsApp Desktop (`whatsapp://send`) and put PDF on clipboard
+///   (CF_HDROP) so user can Ctrl+V into the chat.
+/// - **Fallback**: system share sheet only if channel fails / WhatsApp missing.
 /// PDF stays in 7-day cache; never deleted right after share.
 Future<String> shareEReceiptPdf({
   required SaleRecord sale,
@@ -346,24 +356,43 @@ Future<String> shareEReceiptPdf({
   );
   final caption = shortWhatsAppCaption(sale, storeName: storeName);
 
-  if (!kIsWeb && Platform.isAndroid) {
+  final useNativeChannel = !kIsWeb &&
+      (Platform.isAndroid || Platform.isWindows || Platform.isLinux);
+  if (useNativeChannel) {
     try {
-      const channel = MethodChannel(kWhatsAppShareChannel);
-      final ok = await channel.invokeMethod<bool>('sharePdf', {
-        'path': pdf.path,
-        'text': caption,
-        'phone': digits,
-      });
-      if (ok == true) {
-        return '已打开 WhatsApp（PDF 已附加）。文件已缓存 7 天。\n'
-            'Opened WhatsApp with PDF attached. Cached 7 days.';
+      if (Platform.isLinux) {
+        // Best-effort: open WhatsApp protocol; PDF path shown in caption hint.
+        final uri =
+            'whatsapp://send?phone=$digits&text=${Uri.encodeComponent(caption)}';
+        final r = await Process.run('xdg-open', [uri], runInShell: false);
+        if (r.exitCode == 0) {
+          return '已打开 WhatsApp（Linux）。请手动附加 PDF：\n${pdf.path}\n'
+              'Opened WhatsApp. Attach PDF manually:\n${pdf.path}';
+        }
+      } else {
+        const channel = MethodChannel(kWhatsAppShareChannel);
+        final ok = await channel.invokeMethod<bool>('sharePdf', {
+          'path': pdf.path,
+          'text': caption,
+          'phone': digits,
+        });
+        if (ok == true) {
+          if (Platform.isWindows) {
+            return '已打开 WhatsApp，PDF 已复制到剪贴板 — 在聊天中按 Ctrl+V 粘贴附件。'
+                '文件已缓存 7 天。\n'
+                'Opened WhatsApp; PDF on clipboard — press Ctrl+V in chat to attach. '
+                'Cached 7 days.';
+          }
+          return '已打开 WhatsApp（PDF 已附加）。文件已缓存 7 天。\n'
+              'Opened WhatsApp with PDF attached. Cached 7 days.';
+        }
       }
     } catch (_) {
       // Fall through to system share if WhatsApp missing / channel error.
     }
   }
 
-  // Non-Android (or Android fallback): Share.shareXFiles only — never wa.me after.
+  // Fallback: Share.shareXFiles only — never wa.me alone (no file attach).
   await Share.shareXFiles(
     [
       XFile(
