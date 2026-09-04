@@ -6,6 +6,7 @@ import '../db/app_database.dart';
 import '../models/cart_item.dart';
 import '../models/money.dart';
 import '../models/product.dart';
+import 'profit_math.dart';
 
 class Customer {
   final String id;
@@ -547,10 +548,18 @@ class PosRepository {
       for (final line in lines) {
         final pid = line['productId'] as String;
         final qty = (line['qty'] as num).toDouble();
-        await txn.rawUpdate(
-          'UPDATE products SET stock = stock + ? WHERE id = ?',
-          [qty, pid],
-        );
+        final unitCost = (line['unitCostCents'] as num?)?.toInt();
+        if (unitCost != null) {
+          await txn.rawUpdate(
+            'UPDATE products SET stock = stock + ?, cost_cents = ? WHERE id = ?',
+            [qty, unitCost, pid],
+          );
+        } else {
+          await txn.rawUpdate(
+            'UPDATE products SET stock = stock + ? WHERE id = ?',
+            [qty, pid],
+          );
+        }
         await txn.insert('stock_moves', {
           'id': AppDatabase.newId(),
           'product_id': pid,
@@ -604,6 +613,40 @@ class PosRepository {
       'creditOutstandingToday': creditOutstanding,
       'creditOutstandingAll': creditOpen,
       'ticketCount': sales.length,
+    };
+  }
+
+
+  /// Revenue / COGS / gross profit for [startDay]..[endDay] (inclusive, YYYY-MM-DD).
+  /// COGS uses sale-line `unitCostCents` when present; otherwise sold qty × current
+  /// product [cost_cents] (catalog estimate).
+  Future<Map<String, Object?>> reportProfit({
+    required String startDay,
+    required String endDay,
+  }) async {
+    final d = await _db.db;
+    final rows = await d.query(
+      'sales',
+      where: 'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
+      whereArgs: [startDay, endDay],
+    );
+    final products = await d.query(
+      'products',
+      columns: ['id', 'cost_cents'],
+      where: 'is_deleted=0',
+    );
+    final costById = <String, int>{
+      for (final p in products)
+        p['id']! as String: (p['cost_cents'] as int?) ?? 0,
+    };
+    final totals = computeProfitTotals(sales: rows, costByProductId: costById);
+    return {
+      'revenueCents': totals.revenueCents,
+      'cogsCents': totals.cogsCents,
+      'grossProfitCents': totals.grossProfitCents,
+      'grossMarginPercent': totals.grossMarginPercent,
+      'ticketCount': totals.ticketCount,
+      'cogsEstimated': totals.cogsEstimated,
     };
   }
 

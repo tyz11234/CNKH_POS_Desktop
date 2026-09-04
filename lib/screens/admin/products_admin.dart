@@ -105,6 +105,10 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
         text: existing == null
             ? ''
             : centsToRm(existing.priceCents).toStringAsFixed(2));
+    final cost = TextEditingController(
+        text: existing == null
+            ? '0.00'
+            : centsToRm(existing.costCents).toStringAsFixed(2));
     final stock =
         TextEditingController(text: existing?.stock.toString() ?? '0');
     final unit = TextEditingController(text: existing?.unit ?? 'pcs');
@@ -168,7 +172,15 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                     style: const TextStyle(fontSize: 12, color: CnkhColors.muted),
                   ),
                 TextField(
+                    controller: cost,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: '进货价 RM', prefixText: 'RM ')),
+                TextField(
                     controller: price,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                         labelText: '售价 RM', prefixText: 'RM ')),
                 TextField(
@@ -249,7 +261,7 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
       sku: sku.text.trim(),
       barcode: code,
       priceCents: rmToCents(double.tryParse(price.text.trim()) ?? 0),
-      costCents: existing?.costCents ?? 0,
+      costCents: rmToCents(double.tryParse(cost.text.trim()) ?? 0),
       stock: double.tryParse(stock.text.trim()) ?? 0,
       unit: unit.text.trim().isEmpty ? 'pcs' : unit.text.trim(),
       category: cat.text.trim(),
@@ -461,7 +473,22 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                   subtitle: Text(
                       '${p.sku} · ${p.barcode}\n${p.category.isEmpty ? "未分类" : p.category} · 库存 ${p.stock} ${p.unit}'),
                   isThreeLine: true,
-                  trailing: MoneyText(amountCents: p.priceCents, fontSize: 14),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '售价 ${formatRm(p.priceCents)}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 13),
+                      ),
+                      Text(
+                        '进货价 ${formatRm(p.costCents)}',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ),
                   selected: sel,
                   onTap: () {
                     if (_selectMode) {
