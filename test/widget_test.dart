@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cnkh_pos_desktop/main.dart';
@@ -7,6 +9,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+
+  setUp(() {
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.implicitView!;
+    view.physicalSize = const Size(1440, 900);
+    view.devicePixelRatio = 1.0;
+  });
+
+  tearDown(() {
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.implicitView!;
+    view.resetPhysicalSize();
+    view.resetDevicePixelRatio();
+  });
 
   testWidgets('app boots to login with role picker', (tester) async {
     await tester.pumpWidget(const CnkhPosDesktopApp());
@@ -21,9 +37,9 @@ void main() {
     await tester.tap(find.text('登录 / Sign in'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    // DB seed may take a moment
     await tester.pump(const Duration(seconds: 2));
-    expect(find.textContaining('收银台'), findsOneWidget);
+    // Desktop two-pane uses rail label「收银 POS」(+ cart pane), not mobile「收银台」.
+    expect(find.textContaining('收银 POS'), findsWidgets);
     expect(find.textContaining('Staff'), findsWidgets);
   });
 
@@ -40,8 +56,10 @@ void main() {
 
     await tester.tap(find.textContaining('设置'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('从相册导入'), findsOneWidget);
+    expect(find.textContaining('小票格式'), findsWidgets);
 
     await tester.tap(find.byTooltip('退出 / Logout'));
     await tester.pump();
@@ -55,7 +73,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.tap(find.textContaining('设置'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('仅管理员可更改收款码'), findsOneWidget);
     expect(find.textContaining('从相册导入'), findsNothing);
   });
