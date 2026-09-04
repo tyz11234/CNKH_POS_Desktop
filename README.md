@@ -1,153 +1,110 @@
-# 黄金发宝号 · POS Desktop（Flutter）
+# 黄金发宝号 · POS Desktop
 
-Flutter **桌面收银**（Windows / Linux），与手机 APK **功能对等**（基于 `/mobile` 同源逻辑，桌面宽屏 UI）。
+Flutter 桌面收银（**Windows / Linux**），与手机 APK 功能对齐。
 
-- 包名：`cnkh_pos_desktop`
-- 店名 / 窗口标题：**黄金发宝号 POS Desktop**
-- 版本：**v0.1.0-desktop**
-- 仓库：<https://github.com/tyz11234/CNKH_POS_Desktop>
-
-> 本仓是 **新桌面工程**，不再继续修补旧 PySide6 仓库 [`-CNKH_POS_V5`](https://github.com/tyz11234/-CNKH_POS_V5)。  
-> 手机端 APK 源码/发布见 [`CNKH_POS_Mobile_APK`](https://github.com/tyz11234/CNKH_POS_Mobile_APK) / monorepo `cnkh-v5/mobile`。
+| | |
+|--|--|
+| 店名 | **黄金发宝号** |
+| 包名 | `cnkh_pos_desktop` |
+| 版本 | **v0.3.0** |
+| 仓库 | https://github.com/tyz11234/CNKH_POS_Desktop |
+| 手机 APK | https://github.com/tyz11234/CNKH_POS_Mobile_APK |
 
 ---
 
-## 安装与构建
+## 店铺怎么拿 Windows 安装包
 
-### 环境
+1. 打开 [Actions → Windows Release](https://github.com/tyz11234/CNKH_POS_Desktop/actions/workflows/windows-release.yml)
+2. 选最新**成功**的运行记录
+3. 下载 Artifact：`CNKH_POS_Desktop-windows-x64-v…`（zip）
+4. 或到 [Releases](https://github.com/tyz11234/CNKH_POS_Desktop/releases) 下载带 tag 的包（如 `v0.3.0`）
 
-- Flutter 3.35+（Dart 3.9+）
-- Windows：Visual Studio Desktop C++ 工作负载  
-- Linux：`clang` / `cmake` / `ninja` / GTK3 开发包；系统需有 `libsqlite3`
+解压后运行目录里的 `cnkh_pos_desktop.exe`（同目录 dll 勿删）。
+
+本地构建：
 
 ```bash
 git clone https://github.com/tyz11234/CNKH_POS_Desktop.git
 cd CNKH_POS_Desktop
 flutter pub get
-flutter run -d windows    # 或 linux
-# 发布包：
 flutter build windows --release
-flutter build linux --release
+# 产物：build/windows/x64/runner/Release/
 ```
 
-演示账号：种子 **Admin / Staff**（与手机端一致，见设置或店内约定）。
+演示账号：种子 **Admin / Staff**（与手机端一致）。
 
 ---
 
-## 与手机 APK 功能对照（完整对等）
+## 功能一览
 
-| 模块 | 手机 APK | 本 Desktop |
-|------|----------|------------|
-| 登录 Admin / Staff | ✅ | ✅ |
-| DuitNow QR（仅 Admin 可改） | ✅ | ✅ |
-| POS 搜索 / 分类芯片 | ✅ | ✅ 左栏商品网格 |
-| 连续扫码加购 | ✅ 摄像头 | ✅（摄像头/扫码枪；无摄像头时可用搜索） |
-| 购物车 / 挂单 / 取单 / 超时提醒 | ✅ | ✅ 右栏购物车 |
-| 行折扣 / 整单折扣 + 审计 | ✅ | ✅ |
-| 结账 现金/卡/DuitNow/赊账 | ✅ | ✅ 独立结账页，折扣/找零分行不重叠 |
-| 找零对话框 / 库存 warn·block | ✅ | ✅ |
-| 今日销售 / 搜索 / 作废 | ✅ | ✅ |
-| 电子收据 PDF | ✅ | ✅ |
-| **小票格式编辑 + 实时预览**（打印/PDF 共用模板） | — | ✅ 设置 → 小票格式 |
-| 收据缓存路径可配 + 7 天清理 | ✅ | ✅ 设置里选目录 |
-| WhatsApp 发 PDF | ✅ Intent | ✅ 系统分享 / WhatsApp Desktop（不用损坏的 wa.me 后删文件） |
-| 商品 CRUD / 条码自动·手动 | ✅ | ✅ 侧栏「商品」+ 管理中心 |
-| 批量选择删除 / 条码批量导出 PNG | ✅ | ✅ |
-| 分类选择器 / 商品图开关 | ✅ | ✅ |
-| 客户 / 供应商 | ✅ | ✅ 侧栏「客户」 |
-| 进货 / 盘点 | ✅ | ✅ 侧栏「进货」+ 管理 |
-| 报表 / 日结 / 员工列表 | ✅ | ✅ |
-| 维护：清演示交易 | ✅ | ✅ |
-| **初始化工厂重置**（输入「初始化」） | ✅（库层） | ✅ 维护页强制确认 + 清收据缓存 |
-| 设置：店名、**小票格式/实时预览**、库存策略、挂单超时、扫码反馈、BT、商品图 | ✅（基础） | ✅ |
-| LAN 同步客户端（cnkh-sync） | ✅ | ✅ 与旧 PC 服务端协议兼容 |
-| 培训页 | ✅ | ✅ 顶栏入口 |
-| 蓝牙小票（可选） | ✅ | ✅（桌面视硬件/驱动） |
+### 收银
+- Admin / Staff 登录；Staff 权限受限
+- 商品搜索、分类、连续扫码加购
+- 购物车、挂单 / 取单、行折扣 / 整单折扣
+- 结账：现金 / 卡 / DuitNow / 赊账；找零与库存策略
 
-### 故意仍依赖旧 PC / 后续迭代
+### 销售与小票
+- **今日**、**销售记录**：点进订单看**小票详情**
+- **设置 → 小票格式**：左改右预览（80mm）；热敏打印与电子收据 PDF **同一模板**
+- 电子收据缓存（可配路径、约 7 天清理）；系统分享发 PDF
 
-| 项 | 说明 |
-|----|------|
-| LAN **服务端** | v0.1 以 **客户端** 为主，可配对 [`-CNKH_POS_V5`](https://github.com/tyz11234/-CNKH_POS_V5) 已开的同步服务（默认端口 **8787**）。桌面内嵌服务端后续版本再加。 |
-| 条码标签 **硬件** 打印对话框 | 旧 Windows Admin；本端支持队列 + PNG 批量导出 |
-| Windows 整库二进制备份/还原 | 旧 PySide 工具链 |
+### 商品 / 进货 / 报表
+- 商品：**进货价** + **售价**
+- **进货**：选/新建供货商；**扫码进货**；扫进货单二维码或拍照/粘贴识别（品名、数量、价格）→ 已有商品入库，没有则新建
+- **报表**：销售额、成本（按进货价估算）、**毛利**、毛利率；今日与日期范围
+
+### 其它
+- 客户 / 供应商、盘点、日结、员工
+- 局域网同步客户端（`cnkh-sync`）
+- 维护：清演示数据、**工厂初始化**（输入「初始化」）
+- DuitNow 收款码（仅 Admin 可改）
 
 ---
 
-## 局域网配对（companion）
-
-1. 电脑与本机同一 Wi‑Fi / 局域网  
-2. 旧 PC 打开同步服务并显示配对二维码  
-3. 本 Desktop 顶栏 **扫码配对**，或设置 → LAN Sync 手填：
+## 进货单二维码格式
 
 ```text
-http://电脑IP:8787
+CNKHPO1:{"v":1,"type":"cnkh_purchase","supplier":"五金行","lines":[{"name":"螺丝M6","qty":100,"price":0.15,"barcode":"1234567890123"}]}
 ```
 
-配对码格式：
+`price` = 进货单价（RM）。匹配：条码/SKU → 品名；未匹配则新建商品。
+
+---
+
+## 桌面界面
+
+左侧栏：收银 · 今日 · 商品 · 客户 · 进货 · 报表 · 管理 · 维护 · 设置  
+（Staff 主要见收银 / 今日 / 设置）
+
+收银为左右两栏：左商品，右购物车。
+
+---
+
+## 开发
 
 ```text
-cnkh-sync:v1|{"baseUrl":"http://192.168.x.x:8787","token":"...","name":"CNKH-PC"}
-```
-
-结账后销售近实时推送；可强制全量对账。详见 `LAN_SYNC.md`。
-
----
-
-## 桌面 UI 要点
-
-- 左侧 **NavigationRail**：收银 · 今日 · 商品 · 客户 · 进货 · 报表 · 管理 · 维护 · 设置（Staff 仅见收银/今日/设置）  
-- **收银两栏**：左商品网格，右购物车 + 清晰合计/折扣/结账行  
-- 宽窗口默认约 1440×900  
-- **设置 → 小票格式 / Receipt**：左编辑右 80mm 实时预览；热敏打印与电子收据 PDF 共用同一模板  
-
----
-
-## 初始化（危险）
-
-**维护 → 初始化清空全部数据**：输入 `初始化` 确认。  
-会 wipe 业务表并重新种子用户/目录，同时清空电子收据缓存；完成后需重新登录。
-
----
-
-## 开发说明
-
-```
 lib/
-  main.dart              # 入口
-  desktop_shell.dart     # NavigationRail 壳
-  screens/               # 与手机同源页面（含 admin）
-  services/              # SQLite 仓库、LAN、e-receipt…
-  db/app_database.dart   # 本地库 cnkh_pos_desktop.db
+  main.dart
+  desktop_shell.dart      # 侧栏壳
+  screens/                # 业务页（含 admin）
+  services/               # SQLite、进货识别、小票模板、报表利润…
+  db/app_database.dart
 ```
 
-可选保留 `android/` 以便同源调试；正式桌面目标为 **windows + linux**。
+```bash
+flutter analyze
+flutter test
+flutter run -d windows   # 或 linux
+```
 
 ---
 
 ## 版本
 
-| Tag | 说明 |
-|-----|------|
-| **v0.1.0-desktop** | 首发：全功能移植 + 桌面壳 + 工厂重置 + README |
+| 版本 | 说明 |
+|------|------|
+| **v0.3.0** | 扫码/单据进货、供货商、进货价/售价、报表毛利、Windows Actions |
+| v0.2.0 | 小票模板编辑 + 销售点进小票详情 |
+| v0.1.0 | 桌面首发，与手机功能对齐 |
 
-## 扫码进货 / Purchase scan
-
-进货页支持：
-
-1. **扫码进货**：连续扫商品条码/SKU，加入进货明细（可改数量与进货价）。桌面可用扫码枪/粘贴框。
-2. **进货单二维码**：扫描 `CNKHPO1:{json}`（或纯 JSON）整单导入供应商 + 明细（品名/数量/进货价/条码）。
-3. **拍照/选图 OCR**（Android/iOS）：识别纸质单据中的品名、数量、单价；桌面可粘贴文本。识别后进入核对页。
-4. **供应商**：可选用已有供应商，或进货页内联新增（写入供应商目录并记住上次选用）。
-5. **核对提交**：每行标注「已有商品」或「将新建」；确认后对已有商品入库，对缺失商品先建档（进货价+售价）再进货。
-
-### 进货单二维码格式
-
-见应用内「进货单二维码格式」帮助，或：
-
-```
-CNKHPO1:{"v":1,"type":"cnkh_purchase","supplier":"五金行","lines":[{"name":"螺丝M6","qty":100,"price":0.15,"barcode":"1234567890123"}]}
-```
-
-`price` = 进货单价 RM；也可用 `costCents`。匹配顺序：条码/SKU → 规范化品名；未匹配则新建商品。
-
+手机端发布见 [CNKH_POS_Mobile_APK Releases](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases)。
