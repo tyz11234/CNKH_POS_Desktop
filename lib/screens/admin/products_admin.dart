@@ -11,7 +11,6 @@ import '../../services/barcode_labels.dart';
 import '../../services/pos_repository.dart';
 import '../../services/product_images.dart';
 import '../../theme/cnkh_theme.dart';
-import '../../widgets/money_text.dart';
 
 class ProductsAdminPage extends StatefulWidget {
   final PosRepository repo;
