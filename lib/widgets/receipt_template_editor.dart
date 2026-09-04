@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/pos_repository.dart';
 import '../services/receipt_template.dart';
 import '../theme/cnkh_theme.dart';
+import 'receipt_preview_pane.dart';
 
 /// Admin settings: left editors + right live 80mm-style preview.
 /// Preview updates on every keystroke / toggle (no Save needed for preview).
@@ -216,7 +217,18 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= 720;
                 final editors = _buildEditors();
-                final preview = _ReceiptPreviewPane(text: previewText);
+                final preview = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('实时预览 / Live preview (80mm)',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: CnkhColors.muted,
+                              fontWeight: FontWeight.w600,
+                            )),
+                    const SizedBox(height: 8),
+                    ReceiptPreviewPane(text: previewText),
+                  ],
+                );
                 if (wide) {
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,80 +373,6 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
       onSelected: widget.canEdit ? onChanged : null,
       selectedColor: CnkhColors.softBlue,
       checkmarkColor: CnkhColors.primary,
-    );
-  }
-}
-
-class _ReceiptPreviewPane extends StatelessWidget {
-  final String text;
-  const _ReceiptPreviewPane({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('实时预览 / Live preview (80mm)',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: CnkhColors.muted,
-                  fontWeight: FontWeight.w600,
-                )),
-        const SizedBox(height: 8),
-        Container(
-          height: 420,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F2),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: CnkhColors.border),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE8E8E0),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-                ),
-                child: const Text(
-                  '≈ 80mm thermal',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: CnkhColors.muted),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-                  child: SelectableText(
-                    text,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontFamilyFallback: [
-                        'Noto Sans Mono',
-                        'Courier New',
-                        'Courier',
-                        'Menlo',
-                        'Consolas',
-                      ],
-                      fontSize: 11.5,
-                      height: 1.35,
-                      color: CnkhColors.ink,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

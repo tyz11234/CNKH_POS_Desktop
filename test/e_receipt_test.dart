@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cnkh_pos_desktop/services/e_receipt.dart';
+import 'package:cnkh_pos_desktop/services/pos_repository.dart';
 
 void main() {
   group('normalizeMyPhone', () {
@@ -79,6 +80,33 @@ void main() {
       expect(text, isNot(contains('DISCOUNT')));
       expect(text, isNot(contains('SKU:')));
       expect(text, contains('TOTAL'));
+    });
+
+
+    test('renderFromSale uses linesJson and cashier', () {
+      final sale = SaleRecord(
+        id: '1',
+        receiptNo: 'M20260904-0099',
+        soldAt: '2026-09-04T15:00:00.000',
+        cashier: 'Staff A',
+        paymentMethod: 'QR',
+        subtotalCents: 1000,
+        itemDiscountCents: 0,
+        orderDiscountCents: 0,
+        roundingCents: 0,
+        totalCents: 1000,
+        paidCents: 1000,
+        changeCents: 0,
+        creditOutstandingCents: 0,
+        linesJson:
+            '[{"nameZh":"螺丝","sku":"HW-1","qty":1,"unitPriceCents":1000,"lineTotalCents":1000}]',
+      );
+      final text = const ReceiptTemplate(storeName: '黄金发宝号').renderFromSale(sale);
+      expect(text, contains('Receipt: M20260904-0099'));
+      expect(text, contains('Cashier: Staff A'));
+      expect(text, contains('Payment: QR'));
+      expect(text, contains('螺丝'));
+      expect(text, contains('SKU: HW-1'));
     });
 
     test('sample preview includes header footer when set', () {
