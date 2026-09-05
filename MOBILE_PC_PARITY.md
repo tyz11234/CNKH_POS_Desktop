@@ -1,38 +1,56 @@
-# Mobile ↔ PC feature parity checklist
+# CNKH POS Desktop ↔ Mobile 功能对照
 
-Honest status after 1.4.0 batch. ✅ = equivalent flow on mobile · ⚠️ = partial · ❌ = PC-only by design · ➖ = N/A
+> 当前正式组合：**Desktop v0.3.2 + Mobile v1.8.2**  
+> 最后更新：**2026-09-05**
 
-| Area | PC | Mobile | Status | Notes |
-|------|----|--------|--------|-------|
-| Login Admin/Staff | ✅ | ✅ | ✅ | Demo users |
-| POS search add | ✅ | ✅ | ✅ | |
-| Category filter chips | ✅ (location/category) | ✅ | ✅ | 全部 + categories |
-| Continuous barcode scan | ⚠️ USB scanner | ✅ camera continuous | ✅ | Phone camera |
-| Cart qty / discounts | ✅ | ✅ | ✅ | Line + order |
-| Hold / resume | ✅ | ✅ | ✅ | Timeout reminder |
-| Checkout Cash/Card/DuitNow/Credit | ✅ | ✅ | ✅ | Rounding + credit deposit |
-| DuitNow QR | ✅ | ✅ | ✅ | Admin edit / Staff RO |
-| E-receipt PDF / WhatsApp | ✅ | ✅ | ✅ | Temp PDF + share |
-| Receipt print | ✅ Windows/USB | ⚠️ optional BT | ⚠️ | BT off by default |
-| LAN sync + QR pair | ✅ | ✅ | ✅ | WS + poll |
-| Low-stock push | ✅ EventHub | ✅ snackbar | ✅ | |
-| Products CRUD | ✅ | ✅ | ✅ | |
-| Auto/manual barcode | ✅ | ✅ | ✅ | |
-| Barcode print labels | ✅ hardware | ⚠️ queue + PNG export | ⚠️ | PC owns paper |
-| Batch barcode export images | ➖ | ✅ | ✅ | bars + full name |
-| Product images | ⚠️ files dir + API | ✅ opt-in | ✅ | |
-| Category management | ✅ | ✅ | ✅ | Picker-only on product |
-| Sales list / void | ✅ | ✅ | ✅ | |
-| Customers / Suppliers | ✅ | ✅ | ✅ | Lite CRUD |
-| Purchases | ✅ | ✅ | ✅ | Simplified |
-| Stocktake | ✅ | ✅ | ✅ | |
-| Users | ✅ | ⚠️ demo list | ⚠️ | No password mgmt on phone |
-| Reports | ✅ | ✅ | ✅ | Today/payment totals |
-| Daily close | ✅ | ✅ | ✅ | |
-| Settings receipt/QR/LAN | ✅ | ✅ | ✅ | |
-| Discount audit | ✅ | ✅ | ✅ | |
-| Maintenance clear demo | ✅ | ✅ | ✅ | |
-| Barcode label **hardware** | ✅ | ❌ | ❌ | PC-only |
-| Windows backup/restore binary | ✅ | ❌ | ❌ | PC-only |
+状态：✅ = 已覆盖 · ⚠️ = Mobile / Desktop 实现方式不同或功能较轻 · ❌ = 平台专属
 
-**Parity claim:** Staff/Admin day-to-day flows are covered on mobile except true PC-only hardware/backup. Users password admin and advanced purchase payment states remain lighter on phone.
+| 功能 | Desktop v0.3.2 | Mobile v1.8.2 | 状态 / 说明 |
+|---|---|---|---|
+| Admin / Staff 登录 | ✅ | ✅ | ✅ |
+| POS 商品搜索 / 加购 | ✅ | ✅ | ✅ |
+| 分类筛选 | ✅ | ✅ | ✅ |
+| 条码扫码收银 | ✅ | ✅ | ✅ Desktop 适合扫码枪，Mobile 适合摄像头 |
+| 数量 / 行折扣 / 整单折扣 | ✅ | ✅ | ✅ |
+| 挂单 / 取单 | ✅ | ✅ | ✅ |
+| 现金 / 卡 / DuitNow / 赊账 | ✅ | ✅ | ✅ |
+| DuitNow QR | ✅ | ✅ | ✅ |
+| 今日销售 / 历史销售 | ✅ | ✅ | ✅ |
+| 销售作废 | ✅ | ✅ | ✅ 作废状态可经 LAN 同步 |
+| 小票详情 | ✅ | ✅ | ✅ |
+| 小票模板 / 预览 | ✅ | ✅ | ✅ |
+| 电子收据 PDF | ✅ | ✅ | ✅ |
+| WhatsApp 分享 PDF | ✅ | ✅ | ✅ 平台调用方式不同 |
+| 热敏小票打印 | ✅ | ⚠️ | ⚠️ Desktop 适合 Windows 打印；Mobile 可选蓝牙 |
+| 商品 CRUD | ✅ | ✅ | ✅ |
+| 分类管理 | ✅ | ✅ | ✅ |
+| 客户管理 | ✅ | ✅ | ✅ |
+| 供应商管理 | ✅ | ✅ | ✅ |
+| 进货 | ✅ | ⚠️ | ⚠️ Desktop 流程更完整；Mobile 较轻量 |
+| 盘点 | ✅ | ✅ | ✅ |
+| 报表 | ✅ | ✅ | ✅ Desktop 更适合完整报表操作 |
+| 用户管理 | ✅ | ⚠️ | ⚠️ Mobile 以日常操作为主 |
+| 条码标签 | ✅ | ⚠️ | ⚠️ Desktop 负责硬件打印；Mobile 可做导出 / 队列 |
+| LAN QR 配对 | ✅ | ✅ | ✅ |
+| WebSocket 实时提示 | ✅ Host | ✅ Client | ✅ |
+| HTTP 对账 | ✅ Host | ✅ Client | ✅ |
+| Mobile 离线销售 | ➖ | ✅ | ✅ 恢复网络后重试同步 |
+| 销售幂等导入 | ✅ | ✅ | ✅ 避免重试重复记账 |
+| 多设备离线收据号防碰撞 | ✅ 接收 | ✅ 生成 | ✅ |
+| Desktop 库存权威回传 | ✅ | ✅ | ✅ |
+| 作废状态回传 | ✅ | ✅ | ✅ |
+| 强制全量对账 | ✅ | ✅ | ✅ |
+| Windows 硬件标签打印 | ✅ | ❌ | ❌ PC-only |
+| Windows 整库维护 / 备份类操作 | ✅ | ❌ | ❌ PC-only |
+
+## 当前定位
+
+Desktop 是店内主要管理与权威数据主机；Mobile 是可离线工作的移动收银端。两者并不是要求所有平台专属功能完全相同，而是保证日常收银、销售、商品 / 库存与关键管理数据能够正确协同。
+
+推荐正式版本：
+
+```text
+Desktop v0.3.2
+Mobile  v1.8.2
+LAN     cnkh-sync:v1
+```
