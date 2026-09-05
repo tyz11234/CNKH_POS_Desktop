@@ -14,7 +14,8 @@ import 'screens/barcode_scan_screen.dart';
 import 'services/pos_repository.dart';
 import 'services/qr_storage.dart';
 import 'services/bluetooth_printer.dart';
-import 'services/lan_sync.dart';
+import 'services/lan_pairing_host.dart';
+import 'services/lan_sync.dart' show LanSyncConfig;
 import 'theme/cnkh_theme.dart';
 import 'widgets/e_receipt_actions.dart';
 
@@ -41,9 +42,9 @@ class _DesktopShellState extends State<DesktopShell> {
   int _index = 0;
   int _dataEpoch = 0;
   final CartState _cart = CartState();
-  late final LanSyncClient _syncClient = LanSyncClient(widget.repo);
-  late final LanLiveSync _live = LanLiveSync(_syncClient);
-  SyncLinkState _linkState = SyncLinkState.offline;
+  late final LanPairingHost _host;
+  StreamSubscription<int>? _hostSub;
+  int _connectedClients = 0;
   int _pending = 0;
   int _overdueHolds = 0;
   Timer? _holdPoll;
@@ -52,35 +53,18 @@ class _DesktopShellState extends State<DesktopShell> {
   @override
   void initState() {
     super.initState();
-    _live.onRemoteChange = _bumpData;
-    _live.onLowStock = (event) {
+    _host = LanPairingHost.shared(widget.repo);
+    _connectedClients = _host.connectedClients;
+    _hostSub = _host.connectionCounts.listen((count) {
       if (!mounted) return;
-      final name = (event['name'] ?? event['sku'] ?? '商品').toString();
-      final stock = event['stock'];
-      final thr = event['threshold'];
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('缺货提醒 / Low stock: $name (库存 $stock ≤ $thr)'),
-          backgroundColor: const Color(0xFFB26A00),
-          duration: const Duration(seconds: 4),
-          action: widget.user.isAdmin
-              ? SnackBarAction(
-                  label: '商品',
-                  textColor: Colors.white,
-                  onPressed: () => setState(() => _index = _navIndexOf('products')),
-                )
-              : null,
-        ),
-      );
-    };
-    _live.onStatusChanged = (state, pending) {
-      if (!mounted) return;
-      setState(() {
-        _linkState = state;
-        _pending = pending;
-      });
-    };
-    _tryAutoConnect();
+      setState(() => _connectedClients = count);
+    });
+    unawaited(
+      _host.start().then((_) {
+        if (!mounted) return;
+        setState(() => _connectedClients = _host.connectedClients);
+      }).catchError((_) {}),
+    );
     _refreshOverdueHolds();
     _holdPoll = Timer.periodic(const Duration(seconds: 60), (_) {
       if (!mounted) return;
@@ -101,43 +85,19 @@ class _DesktopShellState extends State<DesktopShell> {
   @override
   void dispose() {
     _holdPoll?.cancel();
-    _live.disconnect();
+    _hostSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _tryAutoConnect() async {
-    final cfg = await _syncClient.loadConfig();
-    if (cfg == null) return;
-    try {
-      await _live.connect(cfg);
-    } catch (_) {}
-  }
-
-  Future<void> _applyPairing(LanSyncConfig cfg) async {
-    try {
-      await _live.connect(cfg);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已配对 ${cfg.name} · ${cfg.normalizedBase}'),
-          backgroundColor: CnkhColors.success,
-        ),
-      );
-      _bumpData();
-    } catch (e) {
-      if (!mounted) return;
-      final err = _syncClient.lastError ?? '$e';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('配对/同步失败: $err'),
-          backgroundColor: CnkhColors.danger,
-        ),
-      );
-    }
+  Future<void> _applyPairing(LanSyncConfig _) async {
+    // Desktop is the authoritative host. If a pairing payload reaches a Desktop
+    // scanner path, show the existing Desktop QR host page instead of connecting
+    // Desktop as a client to another endpoint.
+    await _pairByQr();
   }
 
   Future<void> _pairByQr() async {
-    final cfg = await Navigator.of(context).push<LanSyncConfig>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => BarcodeScanScreen(
           repo: widget.repo,
@@ -145,17 +105,15 @@ class _DesktopShellState extends State<DesktopShell> {
         ),
       ),
     );
-    if (cfg == null || !mounted) return;
-    await _applyPairing(cfg);
   }
 
   Future<void> _forceReconcile() async {
     try {
-      final msg = await _live.forceReconcile();
+      await _host.forceBroadcast();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('强制全量对账完成\n$msg'),
+        const SnackBar(
+          content: Text('强制全量对账通知已发送'),
           backgroundColor: CnkhColors.success,
         ),
       );
@@ -164,18 +122,16 @@ class _DesktopShellState extends State<DesktopShell> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('对账失败: ${_syncClient.lastError ?? e}'),
+          content: Text('对账失败: $e'),
           backgroundColor: CnkhColors.danger,
         ),
       );
     }
   }
 
-  Color get _statusDotColor => switch (_linkState) {
-        SyncLinkState.connected => const Color(0xFF69F0AE),
-        SyncLinkState.pending => const Color(0xFFFFB300),
-        SyncLinkState.offline => const Color(0xFF9E9E9E),
-      };
+  Color get _statusDotColor => _connectedClients > 0
+      ? const Color(0xFF69F0AE)
+      : const Color(0xFF9E9E9E);
 
   void _bumpData() {
     if (!mounted) return;
@@ -223,8 +179,7 @@ class _DesktopShellState extends State<DesktopShell> {
               _cart.orderDiscountCents = 0;
               _dataEpoch++;
             });
-            // ignore: unawaited_futures
-            _live.onLocalSale(sale);
+            // LAN propagation is automatic through Desktop DB change tracking.
             // ignore: unawaited_futures
             () async {
               try {
