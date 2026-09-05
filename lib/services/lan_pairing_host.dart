@@ -36,7 +36,10 @@ String buildPairingPayload({
   })}';
 }
 
-/// Process-lived LAN host for the published Mobile APK `cnkh-sync:v1` flow.
+/// Desktop is the authoritative LAN host for Mobile clients.
+///
+/// Database triggers keep a monotonic change log so catalog/sales endpoints can
+/// serve real incremental updates without changing the POS business tables.
 class LanPairingHost {
   LanPairingHost._(
     this.repo, {
@@ -59,21 +62,30 @@ class LanPairingHost {
   final String name;
 
   HttpServer? _server;
+  Timer? _changePoll;
   String _localIp = '127.0.0.1';
   String _token = '';
   final Set<WebSocket> _sockets = <WebSocket>{};
   final List<Map<String, Object?>> _events = <Map<String, Object?>>[];
+  final StreamController<int> _connectionCounts =
+      StreamController<int>.broadcast(sync: true);
   int _eventSeq = 0;
+  int _lastChangeSeq = 0;
 
   bool get isRunning => _server != null;
   int get port => _server?.port ?? configuredPort;
   String get localIp => _localIp;
+  int get connectedClients => _sockets.length;
+  Stream<int> get connectionCounts => _connectionCounts.stream;
 
   Future<void> start() async {
     if (_server != null) return;
 
     _token = await _ensureToken();
     _localIp = await findBestLocalIPv4();
+    final db = await _db.db;
+    await _ensureChangeTracking(db);
+    _lastChangeSeq = await _latestChangeSeq(db);
 
     try {
       final server = await HttpServer.bind(
@@ -82,6 +94,9 @@ class LanPairingHost {
         shared: false,
       );
       _server = server;
+      _changePoll = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        unawaited(_pollDatabaseChanges());
+      });
       unawaited(
         server.forEach((request) async {
           try {
@@ -118,8 +133,6 @@ class LanPairingHost {
 
   Future<LanPairingOffer> prepareOffer() async {
     await start();
-    // Refresh the advertised address every time the pairing page opens.
-    // The PC may have joined Wi-Fi after app startup or changed networks.
     _localIp = await findBestLocalIPv4();
     if (_localIp == '127.0.0.1') {
       throw StateError('未找到局域网 IPv4 地址，请确认电脑已连接与手机相同的 Wi-Fi。');
@@ -137,13 +150,31 @@ class LanPairingHost {
     );
   }
 
+  Future<void> forceBroadcast() async {
+    final db = await _db.db;
+    final cursor = await _latestChangeSeq(db);
+    _publish(<String, Object?>{
+      'type': 'catalog',
+      'reason': 'force_reconcile',
+      'data_cursor': cursor,
+    });
+    _publish(<String, Object?>{
+      'type': 'sale',
+      'reason': 'force_reconcile',
+      'data_cursor': cursor,
+    });
+  }
+
   Future<void> stop() async {
+    _changePoll?.cancel();
+    _changePoll = null;
     for (final socket in _sockets.toList()) {
       try {
         await socket.close(WebSocketStatus.goingAway, 'Desktop shutting down');
       } catch (_) {}
     }
     _sockets.clear();
+    _emitConnectionCount();
     final server = _server;
     _server = null;
     if (server != null) await server.close(force: true);
@@ -160,6 +191,127 @@ class LanPairingHost {
     return token;
   }
 
+  Future<void> _ensureChangeTracking(Database db) async {
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS lan_sync_changes (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  entity_name TEXT NOT NULL DEFAULT '',
+  deleted INTEGER NOT NULL DEFAULT 0,
+  changed_at TEXT NOT NULL
+)''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_lan_sync_changes_entity_seq '
+      'ON lan_sync_changes(entity, seq)',
+    );
+
+    const nowSql = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+    final triggers = <String>[
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_products_ai AFTER INSERT ON products BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('product',NEW.id,NEW.name_zh,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_products_au AFTER UPDATE ON products BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('product',NEW.id,NEW.name_zh,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_products_ad AFTER DELETE ON products BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('product',OLD.id,OLD.name_zh,1,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_customers_ai AFTER INSERT ON customers BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('customer',NEW.id,NEW.name,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_customers_au AFTER UPDATE ON customers BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('customer',NEW.id,NEW.name,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_customers_ad AFTER DELETE ON customers BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('customer',OLD.id,OLD.name,1,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_categories_ai AFTER INSERT ON categories BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('category',NEW.id,NEW.name,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_categories_au AFTER UPDATE ON categories BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('category',NEW.id,NEW.name,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_categories_ad AFTER DELETE ON categories BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('category',OLD.id,OLD.name,1,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_sales_ai AFTER INSERT ON sales BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('sale',NEW.id,NEW.receipt_no,NEW.voided,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_sales_au AFTER UPDATE ON sales BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('sale',NEW.id,NEW.receipt_no,NEW.voided,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_sales_ad AFTER DELETE ON sales BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('sale',OLD.id,OLD.receipt_no,1,$nowSql);
+      END''',
+    ];
+    for (final sql in triggers) {
+      await db.execute(sql);
+    }
+  }
+
+  Future<int> _latestChangeSeq(Database db) async {
+    final rows = await db.rawQuery(
+      'SELECT COALESCE(MAX(seq),0) AS seq FROM lan_sync_changes',
+    );
+    return (rows.first['seq'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> _pollDatabaseChanges() async {
+    if (_server == null) return;
+    try {
+      final db = await _db.db;
+      final rows = await db.query(
+        'lan_sync_changes',
+        where: 'seq>?',
+        whereArgs: <Object?>[_lastChangeSeq],
+        orderBy: 'seq ASC',
+        limit: 500,
+      );
+      if (rows.isEmpty) return;
+
+      var hasCatalog = false;
+      var hasSale = false;
+      var maxSeq = _lastChangeSeq;
+      for (final row in rows) {
+        final seq = (row['seq'] as num?)?.toInt() ?? 0;
+        if (seq > maxSeq) maxSeq = seq;
+        if (row['entity'] == 'sale') {
+          hasSale = true;
+        } else {
+          hasCatalog = true;
+        }
+      }
+      _lastChangeSeq = maxSeq;
+      if (hasCatalog) {
+        _publish(<String, Object?>{
+          'type': 'catalog',
+          'data_cursor': maxSeq,
+        });
+      }
+      if (hasSale) {
+        _publish(<String, Object?>{
+          'type': 'sale',
+          'data_cursor': maxSeq,
+        });
+      }
+    } catch (_) {
+      // A failed change poll must never stop the LAN server.
+    }
+  }
+
   Future<void> _handle(HttpRequest request) async {
     if (!_authorized(request)) {
       await _json(
@@ -173,12 +325,16 @@ class LanPairingHost {
     final path = request.uri.path;
 
     if (request.method == 'GET' && path == '/api/v1/health') {
+      final db = await _db.db;
       await _json(request.response, HttpStatus.ok, <String, Object?>{
         'ok': true,
         'service': 'CNKH POS Desktop',
         'protocol': 1,
+        'role': 'host',
         'time': DateTime.now().toIso8601String(),
         'name': name,
+        'clients': connectedClients,
+        'cursor': await _latestChangeSeq(db),
       });
       return;
     }
@@ -187,7 +343,6 @@ class LanPairingHost {
       await _handleWebSocket(request);
       return;
     }
-
     if (request.method == 'GET' && path == '/api/v1/products') {
       await _getProducts(request);
       return;
@@ -273,121 +428,340 @@ class LanPairingHost {
     final socket = await WebSocketTransformer.upgrade(request);
     socket.pingInterval = const Duration(seconds: 20);
     _sockets.add(socket);
-    socket.add(jsonEncode(<String, Object?>{'type': 'ready'}));
+    _emitConnectionCount();
+    socket.add(jsonEncode(<String, Object?>{
+      'type': 'ready',
+      'role': 'host',
+    }));
     socket.listen(
       (message) {
-        if (message == 'ping') {
+        if (_isPingMessage(message)) {
           socket.add(jsonEncode(<String, Object?>{'type': 'pong'}));
         }
       },
-      onDone: () => _sockets.remove(socket),
-      onError: (_) => _sockets.remove(socket),
+      onDone: () {
+        _sockets.remove(socket);
+        _emitConnectionCount();
+      },
+      onError: (_) {
+        _sockets.remove(socket);
+        _emitConnectionCount();
+      },
       cancelOnError: true,
     );
   }
 
+  bool _isPingMessage(Object? message) {
+    if (message == 'ping') return true;
+    if (message is! String) return false;
+    try {
+      final data = jsonDecode(message);
+      return data is Map && data['type'] == 'ping';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _emitConnectionCount() {
+    if (!_connectionCounts.isClosed) {
+      _connectionCounts.add(_sockets.length);
+    }
+  }
+
+  int _requestedCursor(HttpRequest request) {
+    return int.tryParse(request.uri.queryParameters['since'] ?? '') ?? 0;
+  }
+
+  Future<Map<String, Map<String, Object?>>> _changesFor(
+    Database db,
+    String entity,
+    int since,
+  ) async {
+    if (since <= 0) return <String, Map<String, Object?>>{};
+    final rows = await db.query(
+      'lan_sync_changes',
+      where: 'entity=? AND seq>?',
+      whereArgs: <Object?>[entity, since],
+      orderBy: 'seq ASC',
+    );
+    final latestById = <String, Map<String, Object?>>{};
+    for (final row in rows) {
+      final id = row['entity_id']?.toString() ?? '';
+      if (id.isNotEmpty) latestById[id] = row;
+    }
+    return latestById;
+  }
+
   Future<void> _getProducts(HttpRequest request) async {
     final db = await _db.db;
-    final rows = await db.query('products', orderBy: 'name_zh');
-    final items = <Map<String, Object?>>[
-      for (final m in rows)
-        <String, Object?>{
-          'pc_id': m['id'],
-          'name_zh': m['name_zh'],
-          'name_en': m['name_en'],
-          'sku': m['sku'],
-          'barcode': m['barcode'],
-          'price_cents': m['price_cents'],
-          'cost_cents': m['cost_cents'],
-          'stock': m['stock'],
-          'unit': m['unit'],
-          'category': m['category'],
-          'is_deleted': m['is_deleted'],
-          'reorder_level': m['reorder_level'],
-          'has_image': false,
-          'updated_at': '',
-        },
-    ];
+    final since = _requestedCursor(request);
+    final cursor = await _latestChangeSeq(db);
+    final items = <Map<String, Object?>>[];
+
+    if (since <= 0) {
+      final rows = await db.query('products', orderBy: 'name_zh');
+      for (final row in rows) {
+        items.add(_productPayload(row));
+      }
+    } else {
+      final changes = await _changesFor(db, 'product', since);
+      for (final entry in changes.entries) {
+        final change = entry.value;
+        final rows = await db.query(
+          'products',
+          where: 'id=?',
+          whereArgs: <Object?>[entry.key],
+          limit: 1,
+        );
+        if (rows.isEmpty || _asInt(change['deleted']) != 0) {
+          items.add(<String, Object?>{
+            'pc_id': entry.key,
+            'name_zh': change['entity_name'] ?? '',
+            'name_en': '',
+            'sku': '',
+            'barcode': '',
+            'price_cents': 0,
+            'cost_cents': 0,
+            'stock': 0,
+            'unit': 'pcs',
+            'category': '',
+            'is_deleted': 1,
+            'reorder_level': 0,
+            'has_image': false,
+            'updated_at': change['changed_at'] ?? '',
+          });
+        } else {
+          items.add(_productPayload(
+            rows.first,
+            updatedAt: change['changed_at']?.toString() ?? '',
+          ));
+        }
+      }
+    }
+
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'items': items,
+      'cursor': cursor,
     });
+  }
+
+  Map<String, Object?> _productPayload(
+    Map<String, Object?> m, {
+    String updatedAt = '',
+  }) {
+    return <String, Object?>{
+      'pc_id': m['id'],
+      'name_zh': m['name_zh'],
+      'name_en': m['name_en'],
+      'sku': m['sku'],
+      'barcode': m['barcode'],
+      'price_cents': m['price_cents'],
+      'cost_cents': m['cost_cents'],
+      'stock': m['stock'],
+      'unit': m['unit'],
+      'category': m['category'],
+      'is_deleted': m['is_deleted'],
+      'reorder_level': m['reorder_level'],
+      'has_image': false,
+      'updated_at': updatedAt,
+    };
   }
 
   Future<void> _getCustomers(HttpRequest request) async {
     final db = await _db.db;
-    final rows = await db.query('customers', orderBy: 'name');
-    final items = <Map<String, Object?>>[
-      for (final m in rows)
-        <String, Object?>{
-          'pc_id': m['id'],
-          'name': m['name'],
-          'phone': m['phone'],
-          'notes': m['notes'],
-          'is_deleted': m['is_deleted'],
-          'updated_at': '',
-        },
-    ];
+    final since = _requestedCursor(request);
+    final cursor = await _latestChangeSeq(db);
+    final items = <Map<String, Object?>>[];
+
+    if (since <= 0) {
+      final rows = await db.query('customers', orderBy: 'name');
+      for (final row in rows) {
+        items.add(_customerPayload(row));
+      }
+    } else {
+      final changes = await _changesFor(db, 'customer', since);
+      for (final entry in changes.entries) {
+        final change = entry.value;
+        final rows = await db.query(
+          'customers',
+          where: 'id=?',
+          whereArgs: <Object?>[entry.key],
+          limit: 1,
+        );
+        if (rows.isEmpty || _asInt(change['deleted']) != 0) {
+          items.add(<String, Object?>{
+            'pc_id': entry.key,
+            'name': change['entity_name'] ?? '',
+            'phone': '',
+            'notes': '',
+            'is_deleted': 1,
+            'updated_at': change['changed_at'] ?? '',
+          });
+        } else {
+          items.add(_customerPayload(
+            rows.first,
+            updatedAt: change['changed_at']?.toString() ?? '',
+          ));
+        }
+      }
+    }
+
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'items': items,
+      'cursor': cursor,
     });
+  }
+
+  Map<String, Object?> _customerPayload(
+    Map<String, Object?> m, {
+    String updatedAt = '',
+  }) {
+    return <String, Object?>{
+      'pc_id': m['id'],
+      'name': m['name'],
+      'phone': m['phone'],
+      'notes': m['notes'],
+      'is_deleted': m['is_deleted'],
+      'updated_at': updatedAt,
+    };
   }
 
   Future<void> _getCategories(HttpRequest request) async {
     final db = await _db.db;
-    final rows = await db.query('categories', orderBy: 'name');
-    final items = <Map<String, Object?>>[
-      for (final m in rows)
-        <String, Object?>{
-          'pc_id': m['id'],
-          'name': m['name'],
-          'is_deleted': m['is_deleted'],
-          'updated_at': m['updated_at'],
-        },
-    ];
+    final since = _requestedCursor(request);
+    final cursor = await _latestChangeSeq(db);
+    final items = <Map<String, Object?>>[];
+
+    if (since <= 0) {
+      final rows = await db.query('categories', orderBy: 'name');
+      for (final row in rows) {
+        items.add(_categoryPayload(row));
+      }
+    } else {
+      final changes = await _changesFor(db, 'category', since);
+      for (final entry in changes.entries) {
+        final change = entry.value;
+        final rows = await db.query(
+          'categories',
+          where: 'id=?',
+          whereArgs: <Object?>[entry.key],
+          limit: 1,
+        );
+        if (rows.isEmpty || _asInt(change['deleted']) != 0) {
+          items.add(<String, Object?>{
+            'pc_id': entry.key,
+            'name': change['entity_name'] ?? '',
+            'is_deleted': 1,
+            'updated_at': change['changed_at'] ?? '',
+          });
+        } else {
+          items.add(_categoryPayload(
+            rows.first,
+            updatedAt: change['changed_at']?.toString(),
+          ));
+        }
+      }
+    }
+
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'items': items,
+      'cursor': cursor,
     });
+  }
+
+  Map<String, Object?> _categoryPayload(
+    Map<String, Object?> m, {
+    String? updatedAt,
+  }) {
+    return <String, Object?>{
+      'pc_id': m['id'],
+      'name': m['name'],
+      'is_deleted': m['is_deleted'],
+      'updated_at': updatedAt ?? m['updated_at'] ?? '',
+    };
   }
 
   Future<void> _getSales(HttpRequest request) async {
     final db = await _db.db;
-    final rows = await db.query('sales', orderBy: 'sold_at ASC');
+    final since = _requestedCursor(request);
+    final cursor = await _latestChangeSeq(db);
     final items = <Map<String, Object?>>[];
-    for (final m in rows) {
-      final rawLines = (m['lines_json'] as String?) ?? '[]';
-      Object? lines;
-      try {
-        lines = jsonDecode(rawLines);
-      } catch (_) {
-        lines = <Object?>[];
+
+    if (since <= 0) {
+      final rows = await db.query('sales', orderBy: 'sold_at ASC');
+      for (final row in rows) {
+        items.add(_salePayload(row));
       }
-      items.add(<String, Object?>{
-        'pc_id': m['id'],
-        'receipt_no': m['receipt_no'],
-        'sold_at': m['sold_at'],
-        'cashier': m['cashier'],
-        'payment_method': m['payment_method'],
-        'deposit_method': m['deposit_method'],
-        'customer_name': m['customer_name'],
-        'customer_phone': m['customer_phone'],
-        'subtotal_cents': m['subtotal_cents'],
-        'discount_cents': ((m['item_discount_cents'] as int?) ?? 0) +
-            ((m['order_discount_cents'] as int?) ?? 0),
-        'order_discount_cents': m['order_discount_cents'],
-        'total_cents': m['total_cents'],
-        'paid_cents': m['paid_cents'],
-        'change_cents': m['change_cents'],
-        'lines': lines,
-        'is_deleted': m['voided'],
-      });
+    } else {
+      final changes = await _changesFor(db, 'sale', since);
+      for (final entry in changes.entries) {
+        final change = entry.value;
+        final rows = await db.query(
+          'sales',
+          where: 'id=?',
+          whereArgs: <Object?>[entry.key],
+          limit: 1,
+        );
+        if (rows.isEmpty) {
+          items.add(<String, Object?>{
+            'pc_id': entry.key,
+            'receipt_no': change['entity_name'] ?? '',
+            'sold_at': '',
+            'is_deleted': 1,
+            'updated_at': change['changed_at'] ?? '',
+            'lines': <Object?>[],
+          });
+        } else {
+          items.add(_salePayload(
+            rows.first,
+            updatedAt: change['changed_at']?.toString() ?? '',
+          ));
+        }
+      }
     }
+
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'items': items,
+      'cursor': cursor,
     });
+  }
+
+  Map<String, Object?> _salePayload(
+    Map<String, Object?> m, {
+    String updatedAt = '',
+  }) {
+    final rawLines = (m['lines_json'] as String?) ?? '[]';
+    Object? lines;
+    try {
+      lines = jsonDecode(rawLines);
+    } catch (_) {
+      lines = <Object?>[];
+    }
+    return <String, Object?>{
+      'pc_id': m['id'],
+      'receipt_no': m['receipt_no'],
+      'sold_at': m['sold_at'],
+      'cashier': m['cashier'],
+      'payment_method': m['payment_method'],
+      'deposit_method': m['deposit_method'],
+      'customer_name': m['customer_name'],
+      'customer_phone': m['customer_phone'],
+      'subtotal_cents': m['subtotal_cents'],
+      'discount_cents': ((m['item_discount_cents'] as int?) ?? 0) +
+          ((m['order_discount_cents'] as int?) ?? 0),
+      'order_discount_cents': m['order_discount_cents'],
+      'total_cents': m['total_cents'],
+      'paid_cents': m['paid_cents'],
+      'change_cents': m['change_cents'],
+      'lines': lines,
+      'is_deleted': m['voided'],
+      'void_note': m['void_note'],
+      'updated_at': updatedAt,
+    };
   }
 
   Future<void> _postSales(HttpRequest request) async {
@@ -413,18 +787,6 @@ class LanPairingHost {
         continue;
       }
 
-      final existing = await db.query(
-        'sales',
-        columns: <String>['id'],
-        where: 'receipt_no=?',
-        whereArgs: <Object?>[receipt],
-        limit: 1,
-      );
-      if (existing.isNotEmpty) {
-        skipped++;
-        continue;
-      }
-
       final lines = sale['lines'] is List
           ? List<Object?>.from(sale['lines']! as List)
           : <Object?>[];
@@ -440,30 +802,40 @@ class LanPairingHost {
           : 0;
       final now = DateTime.now().toIso8601String();
 
-      await db.transaction((txn) async {
-        await txn.insert('sales', <String, Object?>{
-          'id': AppDatabase.newId(),
-          'receipt_no': receipt,
-          'sold_at': sale['sold_at']?.toString() ?? now,
-          'cashier': sale['cashier']?.toString() ?? 'mobile-sync',
-          'payment_method': payment,
-          'deposit_method': sale['deposit_method']?.toString(),
-          'customer_id': null,
-          'customer_name': sale['customer_name']?.toString(),
-          'customer_phone': sale['customer_phone']?.toString(),
-          'subtotal_cents': subtotal,
-          'item_discount_cents': itemDiscount,
-          'order_discount_cents': orderDiscount,
-          'rounding_cents': 0,
-          'total_cents': total,
-          'paid_cents': paid,
-          'change_cents': _asInt(sale['change_cents']),
-          'credit_outstanding_cents': outstanding,
-          'lines_json': jsonEncode(lines),
-          'voided': 0,
-          'void_note': '',
-          'synced_at': now,
-        });
+      final inserted = await db.transaction<bool>((txn) async {
+        final rowId = await txn.rawInsert(
+          '''INSERT OR IGNORE INTO sales(
+            id,receipt_no,sold_at,cashier,payment_method,deposit_method,
+            customer_id,customer_name,customer_phone,subtotal_cents,
+            item_discount_cents,order_discount_cents,rounding_cents,total_cents,
+            paid_cents,change_cents,credit_outstanding_cents,lines_json,voided,
+            void_note,synced_at
+          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+          <Object?>[
+            AppDatabase.newId(),
+            receipt,
+            sale['sold_at']?.toString() ?? now,
+            sale['cashier']?.toString() ?? 'mobile-sync',
+            payment,
+            sale['deposit_method']?.toString(),
+            null,
+            sale['customer_name']?.toString(),
+            sale['customer_phone']?.toString(),
+            subtotal,
+            itemDiscount,
+            orderDiscount,
+            0,
+            total,
+            paid,
+            _asInt(sale['change_cents']),
+            outstanding,
+            jsonEncode(lines),
+            0,
+            '',
+            now,
+          ],
+        );
+        if (rowId == 0) return false;
 
         for (final rawLine in lines) {
           if (rawLine is! Map) continue;
@@ -478,25 +850,37 @@ class LanPairingHost {
           final qty =
               _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
           if (productId.isEmpty || qty <= 0) continue;
-          await txn.rawUpdate(
+          final changed = await txn.rawUpdate(
             'UPDATE products SET stock=stock-? WHERE id=?',
             <Object?>[qty, productId],
           );
+          if (changed > 0) {
+            await txn.insert('stock_moves', <String, Object?>{
+              'id': AppDatabase.newId(),
+              'product_id': productId,
+              'change': -qty,
+              'reason': 'sale',
+              'created_at': now,
+              'operator': sale['cashier']?.toString() ?? 'mobile-sync',
+              'notes': receipt,
+            });
+          }
         }
+        return true;
       });
 
-      imported++;
-      _publish(<String, Object?>{
-        'type': 'sale',
-        'source': 'phone',
-        'receipt_no': receipt,
-      });
+      if (inserted) {
+        imported++;
+      } else {
+        skipped++;
+      }
     }
 
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'imported': imported,
       'skipped': skipped,
+      'cursor': await _latestChangeSeq(db),
     });
   }
 
@@ -514,7 +898,6 @@ class LanPairingHost {
       await repo.upsertCategory(Category(id: '', name: name));
       saved++;
     }
-    _publish(<String, Object?>{'type': 'category'});
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'saved': saved,
@@ -569,6 +952,7 @@ class LanPairingHost {
         socket.add(message);
       } catch (_) {
         _sockets.remove(socket);
+        _emitConnectionCount();
       }
     }
   }
@@ -627,19 +1011,50 @@ class LanPairingHost {
       return '127.0.0.1';
     }
 
-    final candidates = <String>[];
+    final candidates = <_IpCandidate>[];
     for (final interface in interfaces) {
       for (final address in interface.addresses) {
         final value = address.address;
-        if (!address.isLoopback && !value.startsWith('169.254.')) {
-          candidates.add(value);
-        }
+        if (address.isLoopback || value.startsWith('169.254.')) continue;
+        candidates.add(
+          _IpCandidate(
+            value,
+            _interfaceScore(interface.name) + _ipScore(value),
+          ),
+        );
       }
     }
     if (candidates.isEmpty) return '127.0.0.1';
 
-    candidates.sort((a, b) => _ipScore(b).compareTo(_ipScore(a)));
-    return candidates.first;
+    candidates.sort((a, b) => b.score.compareTo(a.score));
+    return candidates.first.ip;
+  }
+
+  static int _interfaceScore(String rawName) {
+    final name = rawName.toLowerCase();
+    const virtualMarkers = <String>[
+      'virtual',
+      'vmware',
+      'vbox',
+      'virtualbox',
+      'hyper-v',
+      'docker',
+      'wsl',
+      'tun',
+      'tap',
+      'vpn',
+      'tailscale',
+      'zerotier',
+    ];
+    if (virtualMarkers.any(name.contains)) return -1500;
+    if (name.contains('wi-fi') ||
+        name.contains('wifi') ||
+        name.contains('wlan') ||
+        name.contains('wireless')) {
+      return 1000;
+    }
+    if (name.contains('ethernet') || name.startsWith('eth')) return 800;
+    return 0;
   }
 
   static int _ipScore(String ip) {
@@ -652,4 +1067,11 @@ class LanPairingHost {
     }
     return 100;
   }
+}
+
+class _IpCandidate {
+  const _IpCandidate(this.ip, this.score);
+
+  final String ip;
+  final int score;
 }
