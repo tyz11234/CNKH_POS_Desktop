@@ -205,6 +205,14 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
       'CREATE INDEX IF NOT EXISTS idx_lan_sync_changes_entity_seq '
       'ON lan_sync_changes(entity, seq)',
     );
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
+  client_sale_id TEXT PRIMARY KEY,
+  sale_id TEXT NOT NULL,
+  original_receipt TEXT NOT NULL,
+  canonical_receipt TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)''');
 
     const nowSql = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
     final triggers = <String>[
@@ -260,6 +268,16 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
     for (final sql in triggers) {
       await db.execute(sql);
     }
+
+    if (await _latestChangeSeq(db) == 0) {
+      await db.insert('lan_sync_changes', <String, Object?>{
+        'entity': 'meta',
+        'entity_id': 'baseline',
+        'entity_name': 'baseline',
+        'deleted': 0,
+        'changed_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    }
   }
 
   Future<int> _latestChangeSeq(Database db) async {
@@ -288,9 +306,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
       for (final row in rows) {
         final seq = (row['seq'] as num?)?.toInt() ?? 0;
         if (seq > maxSeq) maxSeq = seq;
-        if (row['entity'] == 'sale') {
+        final entity = row['entity']?.toString() ?? '';
+        if (entity == 'sale') {
           hasSale = true;
-        } else {
+        } else if (entity != 'meta') {
           hasCatalog = true;
         }
       }
@@ -513,7 +532,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
           whereArgs: <Object?>[entry.key],
           limit: 1,
         );
-        if (rows.isEmpty || _asInt(change['deleted']) != 0) {
+        if (rows.isEmpty) {
           items.add(<String, Object?>{
             'pc_id': entry.key,
             'name_zh': change['entity_name'] ?? '',
@@ -589,7 +608,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
           whereArgs: <Object?>[entry.key],
           limit: 1,
         );
-        if (rows.isEmpty || _asInt(change['deleted']) != 0) {
+        if (rows.isEmpty) {
           items.add(<String, Object?>{
             'pc_id': entry.key,
             'name': change['entity_name'] ?? '',
@@ -649,7 +668,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
           whereArgs: <Object?>[entry.key],
           limit: 1,
         );
-        if (rows.isEmpty || _asInt(change['deleted']) != 0) {
+        if (rows.isEmpty) {
           items.add(<String, Object?>{
             'pc_id': entry.key,
             'name': change['entity_name'] ?? '',
@@ -774,6 +793,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
     final db = await _db.db;
     var imported = 0;
     var skipped = 0;
+    final receipts = <Map<String, Object?>>[];
 
     for (final raw in rawSales) {
       if (raw is! Map) {
@@ -781,61 +801,107 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
         continue;
       }
       final sale = Map<String, Object?>.from(raw);
-      final receipt = sale['receipt_no']?.toString().trim() ?? '';
-      if (receipt.isEmpty) {
+      final originalReceipt = sale['receipt_no']?.toString().trim() ?? '';
+      final clientSaleId = sale['client_sale_id']?.toString().trim() ?? '';
+      if (originalReceipt.isEmpty) {
         skipped++;
         continue;
       }
 
-      final lines = sale['lines'] is List
-          ? List<Object?>.from(sale['lines']! as List)
-          : <Object?>[];
-      final subtotal = _asInt(sale['subtotal_cents']);
-      final orderDiscount = _asInt(sale['order_discount_cents']);
-      final totalDiscount = _asInt(sale['discount_cents']);
-      final itemDiscount = max(0, totalDiscount - orderDiscount);
-      final total = _asInt(sale['total_cents']);
-      final paid = _asInt(sale['paid_cents'], fallback: total);
-      final payment = sale['payment_method']?.toString() ?? 'CASH';
-      final outstanding = payment.toUpperCase() == 'CREDIT'
-          ? max(0, total - paid)
-          : 0;
-      final now = DateTime.now().toIso8601String();
+      final result = await db.transaction<Map<String, Object?>>((txn) async {
+        if (clientSaleId.isNotEmpty) {
+          final mapped = await txn.query(
+            'lan_sync_mobile_sales',
+            where: 'client_sale_id=?',
+            whereArgs: <Object?>[clientSaleId],
+            limit: 1,
+          );
+          if (mapped.isNotEmpty) {
+            return <String, Object?>{
+              'inserted': false,
+              'receipt': mapped.first['canonical_receipt']?.toString() ??
+                  originalReceipt,
+            };
+          }
+        }
 
-      final inserted = await db.transaction<bool>((txn) async {
-        final rowId = await txn.rawInsert(
-          '''INSERT OR IGNORE INTO sales(
-            id,receipt_no,sold_at,cashier,payment_method,deposit_method,
-            customer_id,customer_name,customer_phone,subtotal_cents,
-            item_discount_cents,order_discount_cents,rounding_cents,total_cents,
-            paid_cents,change_cents,credit_outstanding_cents,lines_json,voided,
-            void_note,synced_at
-          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-          <Object?>[
-            AppDatabase.newId(),
-            receipt,
-            sale['sold_at']?.toString() ?? now,
-            sale['cashier']?.toString() ?? 'mobile-sync',
-            payment,
-            sale['deposit_method']?.toString(),
-            null,
-            sale['customer_name']?.toString(),
-            sale['customer_phone']?.toString(),
-            subtotal,
-            itemDiscount,
-            orderDiscount,
-            0,
-            total,
-            paid,
-            _asInt(sale['change_cents']),
-            outstanding,
-            jsonEncode(lines),
-            0,
-            '',
-            now,
-          ],
+        var canonicalReceipt = originalReceipt;
+        final existingOriginal = await txn.query(
+          'sales',
+          where: 'receipt_no=?',
+          whereArgs: <Object?>[originalReceipt],
+          limit: 1,
         );
-        if (rowId == 0) return false;
+        if (existingOriginal.isNotEmpty) {
+          if (_sameIncomingSale(existingOriginal.first, sale)) {
+            return <String, Object?>{
+              'inserted': false,
+              'receipt': originalReceipt,
+            };
+          }
+          final suffix = clientSaleId.isNotEmpty
+              ? _shortId(clientSaleId)
+              : _legacySaleSuffix(sale);
+          canonicalReceipt = '$originalReceipt-P$suffix';
+          var attempt = 1;
+          while (true) {
+            final collision = await txn.query(
+              'sales',
+              where: 'receipt_no=?',
+              whereArgs: <Object?>[canonicalReceipt],
+              limit: 1,
+            );
+            if (collision.isEmpty) break;
+            if (_sameIncomingSale(collision.first, sale)) {
+              return <String, Object?>{
+                'inserted': false,
+                'receipt': canonicalReceipt,
+              };
+            }
+            attempt++;
+            canonicalReceipt = '$originalReceipt-P$suffix-$attempt';
+          }
+        }
+
+        final lines = sale['lines'] is List
+            ? List<Object?>.from(sale['lines']! as List)
+            : <Object?>[];
+        final subtotal = _asInt(sale['subtotal_cents']);
+        final orderDiscount = _asInt(sale['order_discount_cents']);
+        final totalDiscount = _asInt(sale['discount_cents']);
+        final itemDiscount = max(0, totalDiscount - orderDiscount);
+        final total = _asInt(sale['total_cents']);
+        final paid = _asInt(sale['paid_cents'], fallback: total);
+        final payment = sale['payment_method']?.toString() ?? 'CASH';
+        final outstanding = payment.toUpperCase() == 'CREDIT'
+            ? max(0, total - paid)
+            : 0;
+        final now = DateTime.now().toIso8601String();
+        final saleId = AppDatabase.newId();
+
+        await txn.insert('sales', <String, Object?>{
+          'id': saleId,
+          'receipt_no': canonicalReceipt,
+          'sold_at': sale['sold_at']?.toString() ?? now,
+          'cashier': sale['cashier']?.toString() ?? 'mobile-sync',
+          'payment_method': payment,
+          'deposit_method': sale['deposit_method']?.toString(),
+          'customer_id': null,
+          'customer_name': sale['customer_name']?.toString(),
+          'customer_phone': sale['customer_phone']?.toString(),
+          'subtotal_cents': subtotal,
+          'item_discount_cents': itemDiscount,
+          'order_discount_cents': orderDiscount,
+          'rounding_cents': 0,
+          'total_cents': total,
+          'paid_cents': paid,
+          'change_cents': _asInt(sale['change_cents']),
+          'credit_outstanding_cents': outstanding,
+          'lines_json': jsonEncode(lines),
+          'voided': 0,
+          'void_note': '',
+          'synced_at': now,
+        });
 
         for (final rawLine in lines) {
           if (rawLine is! Map) continue;
@@ -862,14 +928,38 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
               'reason': 'sale',
               'created_at': now,
               'operator': sale['cashier']?.toString() ?? 'mobile-sync',
-              'notes': receipt,
+              'notes': canonicalReceipt,
             });
           }
         }
-        return true;
+
+        if (clientSaleId.isNotEmpty) {
+          await txn.insert(
+            'lan_sync_mobile_sales',
+            <String, Object?>{
+              'client_sale_id': clientSaleId,
+              'sale_id': saleId,
+              'original_receipt': originalReceipt,
+              'canonical_receipt': canonicalReceipt,
+              'created_at': now,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+
+        return <String, Object?>{
+          'inserted': true,
+          'receipt': canonicalReceipt,
+        };
       });
 
-      if (inserted) {
+      final canonicalReceipt = result['receipt']?.toString() ?? originalReceipt;
+      receipts.add(<String, Object?>{
+        if (clientSaleId.isNotEmpty) 'client_sale_id': clientSaleId,
+        'original_receipt': originalReceipt,
+        'receipt_no': canonicalReceipt,
+      });
+      if (result['inserted'] == true) {
         imported++;
       } else {
         skipped++;
@@ -880,8 +970,40 @@ CREATE TABLE IF NOT EXISTS lan_sync_changes (
       'ok': true,
       'imported': imported,
       'skipped': skipped,
+      'receipts': receipts,
       'cursor': await _latestChangeSeq(db),
     });
+  }
+
+  bool _sameIncomingSale(
+    Map<String, Object?> existing,
+    Map<String, Object?> incoming,
+  ) {
+    final sameTime = (existing['sold_at']?.toString() ?? '') ==
+        (incoming['sold_at']?.toString() ?? '');
+    final sameTotal = _asInt(existing['total_cents']) ==
+        _asInt(incoming['total_cents']);
+    final samePayment = (existing['payment_method']?.toString() ?? '') ==
+        (incoming['payment_method']?.toString() ?? '');
+    return sameTime && sameTotal && samePayment;
+  }
+
+  String _shortId(String value) {
+    final cleaned = value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    if (cleaned.isEmpty) return 'MOBILE';
+    return cleaned.length <= 6 ? cleaned : cleaned.substring(0, 6);
+  }
+
+  String _legacySaleSuffix(Map<String, Object?> sale) {
+    final raw = '${sale['sold_at']}|${sale['total_cents']}|'
+        '${sale['cashier']}|${sale['payment_method']}';
+    var hash = 2166136261;
+    for (final byte in utf8.encode(raw)) {
+      hash ^= byte;
+      hash = (hash * 16777619) & 0x7fffffff;
+    }
+    final out = hash.toRadixString(36).toUpperCase();
+    return out.length <= 6 ? out : out.substring(0, 6);
   }
 
   Future<void> _postCategories(HttpRequest request) async {
