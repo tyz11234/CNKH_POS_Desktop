@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'auth_service.dart';
+import 'sync_store.dart';
 
 import 'package:sqflite/sqflite.dart';
 
@@ -186,6 +188,7 @@ class AuditEntry {
 class PosRepository {
   PosRepository({AppDatabase? database}) : _db = database ?? AppDatabase.instance;
   final AppDatabase _db;
+  late final AuthService auth=AuthService(database:_db);
 
   Future<List<Product>> searchProducts(
     String query, {

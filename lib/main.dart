@@ -73,13 +73,13 @@ class _RootState extends State<_Root> {
   Widget build(BuildContext context) {
     final user = _user;
     if (user == null) {
-      return LoginScreen(onLoggedIn: (u) => setState(() => _user = u));
+      return LoginScreen(repo:_repo,onLoggedIn: (u) => setState(() => _user = u));
     }
     return DesktopShell(
       user: user,
       qrStorage: _qr,
       repo: _repo,
-      onLogout: () => setState(() => _user = null),
+      onLogout: () { _repo.auth.logout();setState(()=>_user=null); },
     );
   }
 }
