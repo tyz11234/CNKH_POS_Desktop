@@ -3,8 +3,10 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr/qr.dart';
 
 import '../models/product.dart';
+import '../services/lan_pairing_host.dart';
 import '../services/lan_sync.dart';
 import '../services/pos_repository.dart';
 import '../services/scan_feedback.dart';
@@ -43,11 +45,18 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
   int _addedCount = 0;
   String _lastProductName = '';
 
+  LanPairingOffer? _desktopOffer;
+  String? _desktopPairingError;
+  bool _desktopPairingBusy = false;
+
   @override
   void initState() {
     super.initState();
     if (_isUnsupportedPlatform) {
       _unsupported = true;
+      if (widget.pairingOnly && !kIsWeb) {
+        _prepareDesktopPairing();
+      }
       return;
     }
     try {
@@ -75,6 +84,26 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
       return Platform.isLinux || Platform.isWindows;
     } catch (_) {
       return true;
+    }
+  }
+
+  Future<void> _prepareDesktopPairing() async {
+    if (_desktopPairingBusy) return;
+    if (mounted) {
+      setState(() {
+        _desktopPairingBusy = true;
+        _desktopPairingError = null;
+      });
+    }
+    try {
+      final offer = await LanPairingHost.shared(widget.repo).prepareOffer();
+      if (!mounted) return;
+      setState(() => _desktopOffer = offer);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _desktopPairingError = '$e');
+    } finally {
+      if (mounted) setState(() => _desktopPairingBusy = false);
     }
   }
 
@@ -112,8 +141,8 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
         .firstWhere((s) => s.isNotEmpty, orElse: () => '');
     if (raw.isEmpty) return;
     final now = DateTime.now();
-    // Debounce same code ~1.6s so continuous mode still allows multi-qty scans
-    if (raw == _lastCode && now.difference(_lastAt) < const Duration(milliseconds: 1600)) {
+    if (raw == _lastCode &&
+        now.difference(_lastAt) < const Duration(milliseconds: 1600)) {
       return;
     }
     _handling = true;
@@ -179,7 +208,6 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
           ),
         );
       } else {
-        // Continuous: add qty+1, keep camera open (do NOT pop).
         widget.onProduct!(product);
         await playScanFeedback(widget.repo);
         if (!mounted) return;
@@ -203,6 +231,8 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
   @override
   Widget build(BuildContext context) {
     final title = widget.pairingOnly ? '扫码配对 / Pair' : '连续扫码 / Continuous scan';
+    final desktopPairing =
+        widget.pairingOnly && _isUnsupportedPlatform && !kIsWeb;
     final showManual = _unsupported || _cameraFailed || _controller == null;
 
     return Scaffold(
@@ -225,108 +255,255 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
             ),
           TextButton(
             onPressed: _done,
-            child: const Text('完成 Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+            child: const Text(
+              '完成 Done',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
-      body: showManual
-          ? _FallbackBody(
-              pairingOnly: widget.pairingOnly,
-              onManual: widget.pairingOnly ? null : _openManualSearch,
+      body: desktopPairing
+          ? _DesktopPairingBody(
+              offer: _desktopOffer,
+              error: _desktopPairingError,
+              busy: _desktopPairingBusy,
+              onRetry: _prepareDesktopPairing,
               onClose: _done,
             )
-          : Stack(
-              fit: StackFit.expand,
-              children: [
-                MobileScanner(
-                  controller: _controller!,
-                  onDetect: _onDetect,
-                  errorBuilder: (context, error) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && !_cameraFailed) {
-                        setState(() => _cameraFailed = true);
-                      }
-                    });
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
+          : showManual
+              ? _FallbackBody(
+                  pairingOnly: widget.pairingOnly,
+                  onManual: widget.pairingOnly ? null : _openManualSearch,
+                  onClose: _done,
+                )
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    MobileScanner(
+                      controller: _controller!,
+                      onDetect: _onDetect,
+                      errorBuilder: (context, error) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted && !_cameraFailed) {
+                            setState(() => _cameraFailed = true);
+                          }
+                        });
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              '摄像头不可用 / Camera failed\n($error)',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                         child: Text(
-                          '摄像头不可用 / Camera failed\n($error)',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          _addedCount == 0
+                              ? '连续模式 · 扫一次加 1 件'
+                              : '已加 $_addedCount 件 · $_lastProductName',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    margin: const EdgeInsets.all(12),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      _addedCount == 0
-                          ? '连续模式 · 扫一次加 1 件'
-                          : '已加 $_addedCount 件 · $_lastProductName',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    width: double.infinity,
-                    color: Colors.black54,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.pairingOnly
-                              ? '对准电脑「同步/配对」二维码'
-                              : '商品条码加购 · 配对码 cnkh-sync 仍可识别 · 点「完成」离开',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: double.infinity,
+                        color: Colors.black54,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white54),
-                                ),
-                                onPressed: _openManualSearch,
-                                child: const Text('手动搜索加购'),
-                              ),
+                            Text(
+                              widget.pairingOnly
+                                  ? '对准电脑「同步/配对」二维码'
+                                  : '商品条码加购 · 配对码 cnkh-sync 仍可识别 · 点「完成」离开',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white70, fontSize: 13),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: CnkhColors.success,
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      side: const BorderSide(color: Colors.white54),
+                                    ),
+                                    onPressed: _openManualSearch,
+                                    child: const Text('手动搜索加购'),
+                                  ),
                                 ),
-                                onPressed: _done,
-                                child: Text(
-                                  _addedCount > 0 ? '完成 ($_addedCount)' : '完成 Done',
-                                  style: const TextStyle(fontWeight: FontWeight.w900),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: CnkhColors.success,
+                                    ),
+                                    onPressed: _done,
+                                    child: Text(
+                                      _addedCount > 0
+                                          ? '完成 ($_addedCount)'
+                                          : '完成 Done',
+                                      style: const TextStyle(fontWeight: FontWeight.w900),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
     );
+  }
+}
+
+class _DesktopPairingBody extends StatelessWidget {
+  const _DesktopPairingBody({
+    required this.offer,
+    required this.error,
+    required this.busy,
+    required this.onRetry,
+    required this.onClose,
+  });
+
+  final LanPairingOffer? offer;
+  final String? error;
+  final bool busy;
+  final VoidCallback onRetry;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = offer;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (busy && data == null)
+              const CircularProgressIndicator(color: Colors.white)
+            else if (error != null && data == null) ...[
+              const Icon(Icons.wifi_off_outlined, color: Colors.white70, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重新检测 / Retry'),
+              ),
+            ] else if (data != null) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                color: Colors.white,
+                child: SizedBox.square(
+                  dimension: 270,
+                  child: CustomPaint(painter: _QrPainter(data.payload)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                '请用手机 POS 扫描此配对码',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '手机与电脑需连接同一个 Wi-Fi',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              SelectableText(
+                data.baseUrl,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+              onPressed: onClose,
+              child: const Text('关闭 / Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QrPainter extends CustomPainter {
+  _QrPainter(this.data)
+      : image = QrImage(
+          QrCode.fromData(
+            data: data,
+            errorCorrectLevel: QrErrorCorrectLevel.M,
+          ),
+        );
+
+  final String data;
+  final QrImage image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const quiet = 4;
+    final totalModules = image.moduleCount + quiet * 2;
+    final cell = size.shortestSide / totalModules;
+    final originX = (size.width - cell * totalModules) / 2;
+    final originY = (size.height - cell * totalModules) / 2;
+
+    canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
+    final dark = Paint()..color = Colors.black;
+    for (var row = 0; row < image.moduleCount; row++) {
+      for (var col = 0; col < image.moduleCount; col++) {
+        if (!image.isDark(row, col)) continue;
+        canvas.drawRect(
+          Rect.fromLTWH(
+            originX + (col + quiet) * cell,
+            originY + (row + quiet) * cell,
+            cell + 0.05,
+            cell + 0.05,
+          ),
+          dark,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _QrPainter oldDelegate) {
+    return oldDelegate.data != data;
   }
 }
 
@@ -445,8 +622,10 @@ class _ManualProductSearchSheetState extends State<_ManualProductSearchSheet> {
                   itemBuilder: (context, i) {
                     final p = _items[i];
                     return ListTile(
-                      title: Text(p.nameZh,
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      title: Text(
+                        p.nameZh,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       subtitle: Text('${p.sku} · ${p.barcode}'),
                       trailing: Text('库存 ${p.stock}'),
                       onTap: () => Navigator.pop(context, p),
