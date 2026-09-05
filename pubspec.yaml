@@ -51,6 +51,7 @@ dependencies:
   share_plus: ^10.1.4
   print_bluetooth_thermal: ^1.2.1
   barcode: ^2.2.9
+  qr: ^3.0.2
   image: ^4.9.2
   google_mlkit_text_recognition: ^0.15.0
 
@@ -60,9 +61,8 @@ dev_dependencies:
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
+  # activated in the `analysis_options.yaml` file located at the root of the
+  # package. See that file for information on deactivating specific lint rules.
   flutter_lints: ^5.0.0
 
 # For information on the generic Dart part of this file, see the
@@ -91,7 +91,7 @@ flutter:
   # https://flutter.dev/to/resolution-aware-images
 
   # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
+  # https://flutter.dev/to/from-packages
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
@@ -111,4 +111,4 @@ flutter:
   #         weight: 700
   #
   # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+  # see https://flutter.dev/custom-fonts/#from-packages
