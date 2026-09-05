@@ -154,13 +154,9 @@ class LanPairingHost {
     final db = await _db.db;
     final cursor = await _latestChangeSeq(db);
     _publish(<String, Object?>{
-      'type': 'catalog',
+      'type': 'reconcile',
       'reason': 'force_reconcile',
-      'data_cursor': cursor,
-    });
-    _publish(<String, Object?>{
-      'type': 'sale',
-      'reason': 'force_reconcile',
+      'full': true,
       'data_cursor': cursor,
     });
   }
