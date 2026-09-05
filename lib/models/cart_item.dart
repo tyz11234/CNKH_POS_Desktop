@@ -71,6 +71,7 @@ class CartState {
             'nameZh': i.product.nameZh,
             'nameEn': i.product.nameEn,
             'sku': i.product.sku,
+            'barcode':i.product.barcode,
             'unitPriceCents': i.product.priceCents,
             'grossCents': i.grossCents,
             'lineDiscountCents': i.lineDiscountCents,

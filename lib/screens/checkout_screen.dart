@@ -107,19 +107,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       };
 
   Future<void> _confirm() async {
-    if (_busy) return;
+    if(_busy)return;
+    setState(()=>_busy=true);
+    try{await _confirmOnce();}catch(e){if(mounted)_toast('$e',error:true);}
+    finally{if(mounted)setState(()=>_busy=false);}
+  }
+  Future<void> _confirmOnce() async {
     final policy = await widget.repo.stockPolicy();
     for (final item in widget.cart.items) {
-      if (item.qty > item.product.stock) {
+      final current=await widget.repo.getProduct(item.product.id);
+      if(current==null||current.isDeleted!=0){_toast('商品已删除，请重新选择',error:true);return;}
+      if (item.qty > current.stock) {
         if (policy == 'block') {
-          _toast('库存不足：${item.product.nameZh} (有 ${item.product.stock})', error: true);
+          _toast('库存不足：${item.product.nameZh} (有 ${current.stock})', error: true);
           return;
         }
         final cont = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('库存不足 / Low stock'),
-            content: Text('${item.product.nameZh}\n需要 ${item.qty} · 库存 ${item.product.stock}'),
+            content: Text('${item.product.nameZh}\n需要 ${item.qty} · 库存 ${current.stock}'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
               FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('仍结账')),

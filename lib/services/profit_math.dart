@@ -57,7 +57,8 @@ ProfitTotals computeProfitTotals({
         cogs += (lineCost * qty).round();
       } else {
         estimated = true;
-        final unit = pid == null ? 0 : (costByProductId[pid] ?? 0);
+        final key=pid?.startsWith('pc-')==true?pid!.substring(3):pid;
+        final unit = key == null ? 0 : (costByProductId[key] ?? 0);
         cogs += (unit * qty).round();
       }
     }
