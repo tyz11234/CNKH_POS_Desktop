@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'desktop_shell.dart';
 import 'models/app_user.dart';
 import 'screens/login_screen.dart';
 import 'services/e_receipt.dart';
+import 'services/lan_pairing_host.dart';
 import 'services/pos_repository.dart';
 import 'services/qr_storage.dart';
 import 'theme/cnkh_theme.dart';
@@ -51,6 +54,20 @@ class _RootState extends State<_Root> {
   AppUser? _user;
   final _qr = QrStorage();
   final _repo = PosRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      unawaited(
+        LanPairingHost.shared(_repo).start().catchError((_) {
+          // The pairing page will surface a useful error if the user opens it.
+        }),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
