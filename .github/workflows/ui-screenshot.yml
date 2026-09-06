@@ -28,25 +28,46 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      - name: Launch app and capture desktop
+      - name: Launch and capture UI
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path screenshots | Out-Null
-          $exe = Resolve-Path "build/windows/x64/runner/Release/cnkh_pos_desktop.exe"
-          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
-          Start-Sleep -Seconds 12
-          "ProcessId=$($p.Id) HasExited=$($p.HasExited)" | Out-File screenshots/process.txt
-          if (-not $p.HasExited) {
-            try { $p.Refresh(); "MainWindowTitle=$($p.MainWindowTitle)" | Add-Content screenshots/process.txt } catch {}
-          }
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-          $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          $bmp.Save((Join-Path $PWD 'screenshots/desktop.png'), [System.Drawing.Imaging.ImageFormat]::Png)
-          $g.Dispose(); $bmp.Dispose()
+          function Shot([string]$name) {
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size)
+            $bmp.Save((Join-Path $PWD "screenshots/$name.png"),[System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose(); $bmp.Dispose()
+          }
+          $exe = Resolve-Path "build/windows/x64/runner/Release/cnkh_pos_desktop.exe"
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 10
+          $shell = New-Object -ComObject WScript.Shell
+          $shell.AppActivate($p.Id) | Out-Null
+          Start-Sleep -Seconds 2
+          Shot '01-login'
+
+          # Keyboard-only first-run setup. Focus role selector, choose Admin,
+          # then navigate to PIN and submit the same six-digit PIN twice.
+          $shell.SendKeys('{TAB}')
+          $shell.SendKeys('{LEFT}')
+          $shell.SendKeys('{TAB}')
+          $shell.SendKeys('{TAB}')
+          $shell.SendKeys('839201')
+          $shell.SendKeys('{TAB}')
+          $shell.SendKeys('{ENTER}')
+          Start-Sleep -Seconds 1
+          $shell.SendKeys('+{TAB}')
+          $shell.SendKeys('839201')
+          $shell.SendKeys('{TAB}')
+          $shell.SendKeys('{ENTER}')
+          Start-Sleep -Seconds 8
+          $p.Refresh()
+          "ProcessId=$($p.Id) HasExited=$($p.HasExited) Title=$($p.MainWindowTitle)" | Out-File screenshots/process.txt
+          Shot '02-main-after-login'
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
 
       - name: Upload screenshots
