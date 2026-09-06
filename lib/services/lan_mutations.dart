@@ -150,6 +150,28 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       }
       final pid = p['id']?.toString() ?? '';
       if (pid.isEmpty) throw const FormatException('purchase id required');
+      final supplierId = p['supplier_id']?.toString().trim() ?? '';
+      final invoiceNo = p['invoice_no']?.toString().trim() ?? '';
+      final overrideDuplicate = p['duplicate_override'] == true;
+      final overrideReason =
+          p['duplicate_override_reason']?.toString().trim() ?? '';
+      if (overrideDuplicate && overrideReason.isEmpty) {
+        throw const FormatException('duplicate override reason required');
+      }
+      if (supplierId.isNotEmpty && invoiceNo.isNotEmpty) {
+        final duplicate = await txn.rawQuery(
+          '''SELECT id, purchase_no FROM purchases
+             WHERE supplier_id=?
+               AND lower(trim(invoice_no))=lower(trim(?))
+               AND COALESCE(reversed,0)=0
+               AND id<>?
+             LIMIT 1''',
+          [supplierId, invoiceNo, pid],
+        );
+        if (duplicate.isNotEmpty && !overrideDuplicate) {
+          throw StateError('该供应商的 Invoice No 已经入库，已阻止跨设备重复入库。');
+        }
+      }
       final no = 'PO-M-${pid.replaceAll('-', '')}';
       await txn.insert('purchases', {
         'id': pid,
@@ -207,6 +229,20 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
           'original_value': '',
           'final_value': '${p['total_cents']}',
           'details': 'invoice=${p['invoice_no'] ?? ''}',
+        });
+      }
+      if (overrideDuplicate) {
+        await txn.insert('purchase_audit_log', {
+          'id': AppDatabase.newId(),
+          'purchase_id': pid,
+          'draft_id': p['draft_id'],
+          'occurred_at': now,
+          'username': p['operator'] ?? 'mobile-sync',
+          'action': 'duplicate_invoice_override_synced',
+          'field_name': 'invoice_no',
+          'original_value': invoiceNo,
+          'final_value': invoiceNo,
+          'details': overrideReason,
         });
       }
     } else if (kind == 'purchase_attachment') {
