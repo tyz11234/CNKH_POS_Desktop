@@ -37,24 +37,27 @@ class PurchaseEditService {
     var text = raw.trim();
     if (text.isEmpty) return null;
     text = text
-        .replaceAll(RegExp(r'(?i)RM'), '')
+        .replaceAll(RegExp(r'RM', caseSensitive: false), '')
         .replaceAll(RegExp(r'\s+'), '');
     if (text.isEmpty || text.contains(RegExp(r'[^0-9,.-]'))) return null;
-    if (text.startsWith('-')) return null;
-    if ('-'.allMatches(text).isNotEmpty) return null;
+    if (text.contains('-')) return null;
 
     final lastDot = text.lastIndexOf('.');
     final lastComma = text.lastIndexOf(',');
     if (lastDot >= 0 && lastComma >= 0) {
       final decimal = lastDot > lastComma ? '.' : ',';
       final thousands = decimal == '.' ? ',' : '.';
+      final groups = text.split(thousands);
+      if (groups.any((part) => part.isEmpty)) return null;
       text = text.replaceAll(thousands, '');
       if (decimal == ',') text = text.replaceAll(',', '.');
     } else if (lastComma >= 0) {
       final parts = text.split(',');
+      if (parts.any((part) => part.isEmpty)) return null;
       if (parts.length > 2) {
         final tail = parts.last;
-        if (tail.length == 2) {
+        if (tail.length == 2 &&
+            parts.skip(1).take(parts.length - 2).every((p) => p.length == 3)) {
           text = '${parts.take(parts.length - 1).join()}.$tail';
         } else if (parts.skip(1).every((p) => p.length == 3)) {
           text = parts.join();
@@ -73,8 +76,10 @@ class PurchaseEditService {
       }
     } else if (lastDot >= 0 && text.indexOf('.') != lastDot) {
       final parts = text.split('.');
+      if (parts.any((part) => part.isEmpty)) return null;
       final tail = parts.last;
-      if (tail.length == 2) {
+      if (tail.length == 2 &&
+          parts.skip(1).take(parts.length - 2).every((p) => p.length == 3)) {
         text = '${parts.take(parts.length - 1).join()}.$tail';
       } else if (parts.skip(1).every((p) => p.length == 3)) {
         text = parts.join();
