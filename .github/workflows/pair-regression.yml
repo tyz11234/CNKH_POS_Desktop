@@ -1,33 +1,59 @@
 name: Desktop Mobile integration
+
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
+    inputs:
+      mobile_ref:
+        description: Mobile branch/tag/SHA to pair with this Desktop ref
+        required: false
+        default: source/main
+
 permissions:
   contents: read
+
 jobs:
   pair-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Desktop under test
+        uses: actions/checkout@v4
         with:
           path: CNKH_POS_Desktop
-      - uses: actions/checkout@v4
+
+      - name: Checkout current Mobile companion
+        uses: actions/checkout@v4
         with:
           repository: tyz11234/CNKH_POS_Mobile_APK
-          ref: d9c7053c99b08d33731d9ec04bbb4a8d902bcc31
+          ref: ${{ github.event.inputs.mobile_ref || 'source/main' }}
           path: CNKH_POS_Mobile_APK
-      - uses: subosito/flutter-action@v2
+
+      - name: Record exact paired source SHAs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Desktop ref: ${{ github.head_ref || github.ref_name }}"
+          echo "Desktop SHA: $(git -C CNKH_POS_Desktop rev-parse HEAD)"
+          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || 'source/main' }}"
+          echo "Mobile SHA: $(git -C CNKH_POS_Mobile_APK rev-parse HEAD)"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       - name: Resolve companion dependencies
         working-directory: CNKH_POS_Desktop/integration
         run: flutter pub get
+
       - name: Analyze integration tests
         working-directory: CNKH_POS_Desktop/integration
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
       - name: Test real HTTP synchronization and reconnect
         working-directory: CNKH_POS_Desktop/integration
         run: flutter test
