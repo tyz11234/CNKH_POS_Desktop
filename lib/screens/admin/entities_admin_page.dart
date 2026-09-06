@@ -317,7 +317,6 @@ class _EntitiesAdminPageState extends State<EntitiesAdminPage> {
                       ),
                       subtitle: Text(subtitle),
                       selected: selected,
-                      onDoubleTap: _busy ? null : () => _edit(item),
                       trailing: Wrap(
                         spacing: 4,
                         children: [
