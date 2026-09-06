@@ -46,17 +46,18 @@ void main() {
       expect(stored, hasLength(1));
       expect(stored.single['is_deleted'], 1);
 
-      await expectLater(
-        applyLanMutation(db, {
-          'id': 'stale-active-op-2',
-          'kind': 'product_upsert',
-          'payload': {
-            'row': active,
-            'before': active,
-          },
-        }),
-        throwsA(isA<StateError>()),
-      );
+      // A delayed retry of the old active snapshot is a no-op because it does
+      // not carry any field delta relative to its own before-image. Most
+      // importantly, the tombstone must remain authoritative and sell lookup
+      // must still exclude the product.
+      await applyLanMutation(db, {
+        'id': 'stale-active-op-2',
+        'kind': 'product_upsert',
+        'payload': {
+          'row': active,
+          'before': active,
+        },
+      });
 
       stored = await db.query(
         'products',
@@ -64,6 +65,7 @@ void main() {
         whereArgs: [product.id],
       );
       expect(stored.single['is_deleted'], 1);
+      expect(stored.single['stock'], 12.0);
       expect(await repo.findByBarcodeOrSku(product.barcode), isNull);
     } finally {
       await database.close();
