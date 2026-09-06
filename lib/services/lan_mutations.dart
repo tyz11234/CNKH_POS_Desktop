@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/app_database.dart';
 import '../db/ocr_purchase_schema.dart';
+import 'purchase_reverse_safety.dart';
 import 'sale_reversal.dart';
 
 Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
@@ -148,6 +150,28 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       }
       final pid = p['id']?.toString() ?? '';
       if (pid.isEmpty) throw const FormatException('purchase id required');
+      final supplierId = p['supplier_id']?.toString().trim() ?? '';
+      final invoiceNo = p['invoice_no']?.toString().trim() ?? '';
+      final overrideDuplicate = p['duplicate_override'] == true;
+      final overrideReason =
+          p['duplicate_override_reason']?.toString().trim() ?? '';
+      if (overrideDuplicate && overrideReason.isEmpty) {
+        throw const FormatException('duplicate override reason required');
+      }
+      if (supplierId.isNotEmpty && invoiceNo.isNotEmpty) {
+        final duplicate = await txn.rawQuery(
+          '''SELECT id, purchase_no FROM purchases
+             WHERE supplier_id=?
+               AND lower(trim(invoice_no))=lower(trim(?))
+               AND COALESCE(reversed,0)=0
+               AND id<>?
+             LIMIT 1''',
+          [supplierId, invoiceNo, pid],
+        );
+        if (duplicate.isNotEmpty && !overrideDuplicate) {
+          throw StateError('该供应商的 Invoice No 已经入库，已阻止跨设备重复入库。');
+        }
+      }
       final no = 'PO-M-${pid.replaceAll('-', '')}';
       await txn.insert('purchases', {
         'id': pid,
@@ -207,6 +231,80 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
           'details': 'invoice=${p['invoice_no'] ?? ''}',
         });
       }
+      if (overrideDuplicate) {
+        await txn.insert('purchase_audit_log', {
+          'id': AppDatabase.newId(),
+          'purchase_id': pid,
+          'draft_id': p['draft_id'],
+          'occurred_at': now,
+          'username': p['operator'] ?? 'mobile-sync',
+          'action': 'duplicate_invoice_override_synced',
+          'field_name': 'invoice_no',
+          'original_value': invoiceNo,
+          'final_value': invoiceNo,
+          'details': overrideReason,
+        });
+      }
+    } else if (kind == 'purchase_attachment') {
+      final attachmentId = p['attachment_id']?.toString().trim() ?? '';
+      final purchaseId = p['purchase_id']?.toString().trim() ?? '';
+      final expectedHash = p['content_hash']?.toString().toLowerCase().trim() ?? '';
+      final encoded = p['base64']?.toString() ?? '';
+      if (attachmentId.isEmpty ||
+          purchaseId.isEmpty ||
+          expectedHash.isEmpty ||
+          encoded.isEmpty) {
+        throw const FormatException('invalid purchase attachment');
+      }
+      if ((await txn.query(
+        'purchases',
+        where: 'id=?',
+        whereArgs: [purchaseId],
+        limit: 1,
+      )).isEmpty) {
+        throw StateError('附件对应的进货尚未同步');
+      }
+      final bytes = base64Decode(encoded);
+      if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
+        throw const FormatException('invalid attachment size');
+      }
+      final actualHash = _hex((await Sha256().hash(bytes)).bytes);
+      if (actualHash != expectedHash) {
+        throw StateError('附件校验失败，请重新同步');
+      }
+      final existingAttachment = await txn.query(
+        'purchase_attachments',
+        where: 'id=?',
+        whereArgs: [attachmentId],
+        limit: 1,
+      );
+      if (existingAttachment.isNotEmpty) {
+        if (existingAttachment.first['content_hash']?.toString() != expectedHash) {
+          throw StateError('附件 ID 冲突');
+        }
+      } else {
+        await txn.insert('purchase_attachments', {
+          'id': attachmentId,
+          'purchase_id': purchaseId,
+          'kind': p['kind']?.toString() ?? 'invoice_original',
+          'filename': p['filename']?.toString() ?? '',
+          'content_hash': expectedHash,
+          'content': bytes,
+          'source': 'mobile',
+          'created_at': p['created_at']?.toString() ?? now,
+        });
+        await txn.insert('purchase_audit_log', {
+          'id': AppDatabase.newId(),
+          'purchase_id': purchaseId,
+          'occurred_at': now,
+          'username': p['operator']?.toString() ?? 'mobile-sync',
+          'action': 'invoice_attachment_received',
+          'field_name': 'attachment',
+          'original_value': '',
+          'final_value': attachmentId,
+          'details': 'hash=$expectedHash; kind=${p['kind'] ?? 'invoice_original'}',
+        });
+      }
     } else if (kind == 'purchase_reverse') {
       final purchaseId = p['purchase_id']?.toString() ?? '';
       if (purchaseId.isEmpty) {
@@ -219,84 +317,14 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         limit: 1,
       );
       if (rows.isEmpty) throw StateError('撤销目标进货尚未同步');
-      final purchase = rows.first;
-      if (purchase['reversed'] != 1) {
-        final lines = (jsonDecode(purchase['lines_json'] as String) as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        for (final line in lines) {
-          final productId = line['productId']?.toString() ?? '';
-          final qty = (line['qty'] as num?)?.toDouble() ?? 0;
-          if (productId.isEmpty || !qty.isFinite || qty <= 0) {
-            throw const FormatException('invalid reversal line');
-          }
-          final productRows = await txn.query(
-            'products',
-            where: 'id=? AND is_deleted=0',
-            whereArgs: [productId],
-            limit: 1,
-          );
-          if (productRows.isEmpty) throw StateError('撤销进货商品不存在');
-          final currentCost =
-              (productRows.first['cost_cents'] as num?)?.toInt() ?? 0;
-          final purchaseCost = (line['unitCostCents'] as num?)?.toInt();
-          final beforeCost = (line['beforeCostCents'] as num?)?.toInt();
-          final update = <String, Object?>{
-            'stock': (productRows.first['stock'] as num).toDouble() - qty,
-          };
-          if (purchaseCost != null &&
-              beforeCost != null &&
-              currentCost == purchaseCost) {
-            update['cost_cents'] = beforeCost;
-          }
-          await txn.update(
-            'products',
-            update,
-            where: 'id=?',
-            whereArgs: [productId],
-          );
-          await txn.insert('stock_moves', {
-            'id': AppDatabase.newId(),
-            'product_id': productId,
-            'change': -qty,
-            'reason': 'purchase_reversal',
-            'created_at': now,
-            'operator': p['operator'] ?? 'mobile-sync',
-            'notes': '${purchase['purchase_no']} · ${p['reason'] ?? 'reversal'}',
-          });
-        }
-        await txn.insert('purchase_reversals', {
-          'id': AppDatabase.newId(),
-          'purchase_id': purchaseId,
-          'reversed_at': now,
-          'reversed_by': p['operator'] ?? 'mobile-sync',
-          'reason': p['reason'] ?? 'reversal',
-          'notes': p['notes'] ?? '',
-        });
-        await txn.update(
-          'purchases',
-          {
-            'reversed': 1,
-            'reversed_at': now,
-            'reversed_by': p['operator'] ?? 'mobile-sync',
-            'reversal_reason': p['reason'] ?? 'reversal',
-            'reversal_notes': p['notes'] ?? '',
-          },
-          where: 'id=?',
-          whereArgs: [purchaseId],
-        );
-        await txn.insert('purchase_audit_log', {
-          'id': AppDatabase.newId(),
-          'purchase_id': purchaseId,
-          'occurred_at': now,
-          'username': p['operator'] ?? 'mobile-sync',
-          'action': 'purchase_reversed_from_mobile',
-          'field_name': 'status',
-          'original_value': 'committed',
-          'final_value': 'reversed',
-          'details': '${p['reason'] ?? ''}${(p['notes']?.toString() ?? '').isEmpty ? '' : ': ${p['notes']}'}',
-        });
-      }
+      await reversePurchaseSafely(
+        txn,
+        purchase: rows.first,
+        operator: p['operator']?.toString() ?? 'mobile-sync',
+        reason: p['reason']?.toString() ?? 'reversal',
+        notes: p['notes']?.toString() ?? '',
+        occurredAt: now,
+      );
     } else if (kind == 'sale_void') {
       var rows = await txn.rawQuery(
         'SELECT sales.* FROM sales JOIN lan_sync_mobile_sales m ON sales.id=m.sale_id WHERE m.client_sale_id=?',
@@ -321,3 +349,6 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
     await txn.insert('sync_applied_operations', {'id': id, 'applied_at': now});
   });
 }
+
+String _hex(List<int> bytes) =>
+    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();

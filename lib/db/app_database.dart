@@ -13,6 +13,7 @@ import 'package:sqlite3/open.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/product.dart';
+import 'ocr_purchase_schema.dart';
 import 'reliability_schema.dart';
 
 /// Local-first SQLite for CNKH POS Desktop (local-first).
@@ -67,7 +68,7 @@ class AppDatabase {
     final path = _testPath??p.join(dir!.path, 'cnkh_pos_desktop.db');
     _db = await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -230,6 +231,7 @@ CREATE TABLE audit_logs (
   reason TEXT NOT NULL DEFAULT ''
 )''');
     await ensureReliabilitySchema(db);
+    await ensureOcrPurchaseSchema(db);
     if(_seedData) await _seed(db);
   }
 
@@ -323,6 +325,9 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
   synced_at TEXT
 )''');
     }
+    if (oldVersion < 8) {
+      await ensureOcrPurchaseSchema(db);
+    }
   }
 
   Future<void> _seed(Database db) async {
@@ -377,11 +382,20 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
   Future<void> clearDemoTransactionalData() async {
     final d = await db;
     await d.transaction((txn) async {
-      await txn.delete('sales');
-      await txn.delete('held_orders');
-      await txn.delete('purchases');
-      await txn.delete('stock_moves');
-      await txn.delete('daily_closings');
+      for (final table in [
+        'purchase_attachments',
+        'purchase_audit_log',
+        'purchase_reversals',
+        'sales',
+        'held_orders',
+        'purchases',
+        'stock_moves',
+        'daily_closings',
+      ]) {
+        try {
+          await txn.delete(table);
+        } catch (_) {}
+      }
     });
   }
 
@@ -398,6 +412,9 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
         'sync_applied_operations',
         'stock_reversals',
         'lan_sync_mobile_sales',
+        'purchase_attachments',
+        'purchase_audit_log',
+        'purchase_reversals',
         'sales',
         'held_orders',
         'purchases',

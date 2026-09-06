@@ -50,4 +50,23 @@ CREATE TABLE IF NOT EXISTS purchase_audit_log (
   final_value TEXT NOT NULL DEFAULT '',
   details TEXT NOT NULL DEFAULT ''
 )''');
+
+  // Mobile invoice originals are transferred separately from the purchase
+  // mutation. Keeping bytes in SQLite makes Backup/Restore automatically retain
+  // the evidence and avoids relying on Android-local file paths.
+  await db.execute('''
+CREATE TABLE IF NOT EXISTS purchase_attachments (
+  id TEXT PRIMARY KEY,
+  purchase_id TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'invoice_original',
+  filename TEXT NOT NULL DEFAULT '',
+  content_hash TEXT NOT NULL,
+  content BLOB NOT NULL,
+  source TEXT NOT NULL DEFAULT 'mobile',
+  created_at TEXT NOT NULL
+)''');
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_purchase_attachments_purchase '
+    'ON purchase_attachments(purchase_id, kind)',
+  );
 }

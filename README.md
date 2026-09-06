@@ -1,227 +1,239 @@
 # 黄金发宝号 · CNKH POS Desktop
 
-用于 Windows 电脑的门店收银与管理系统。电脑作为店内局域网权威主机，与 [CNKH POS Mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK) 配套使用，核心收银与店内同步不依赖云服务器。
+用于 Windows 电脑的门店收银与管理系统。Desktop 是店内局域网权威主机，与 [CNKH POS Mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK) 配套使用；核心收银、库存与店内同步不依赖云服务器。
 
-基于 **Flutter / Dart**，使用本地 SQLite 保存业务数据。
+技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
 
-> README 最后更新：**2026-09-06**。当前正式配套为 **Desktop v0.3.3 + Mobile v1.9.0 OCR Purchase**。
+> README 最后更新：**2026-09-06**  
+> Full Fix 开发分支：`fix/ocr-full-fix-20260906`（基于 `main`）
 
 ## 当前正式版本
 
-| 项目 | 当前版本 |
+| 项目 | 当前正式版本 |
 | --- | --- |
-| Desktop | **0.3.3+6** |
-| Desktop 正式 Release | **`v0.3.3`** |
+| Desktop | **0.3.3+6 / `v0.3.3`** |
 | 配套 Mobile | **1.9.0+25 / `v1.9.0-mobile`** |
 | LAN 协议 | `cnkh-sync:v1` |
-| OCR 同步 | **已支持** |
+| 本地数据库 | Full Fix 后升级为 **schema v8** |
 
-推荐配套：**Desktop v0.3.3 + Mobile v1.9.0**。
+正式 Release 仍以 GitHub Releases 页面为准；Full Fix 在合并前通过 Pull Request CI 验证。
 
-### 正式下载
+## 2026-09-06 Full Fix
 
-Desktop v0.3.3 Release：
-https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.3
+本轮修复把 Desktop 与 Mobile 当成同一套 POS 系统处理，重点不是新增一套平行逻辑，而是在保留现有销售、结账、库存、历史记录、LAN 协议和 UI 风格的前提下补齐缺口。
 
-直接下载 Windows x64 ZIP：
-https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.3.3/CNKH_POS_Desktop-windows-x64-v0.3.3-6.zip
+### 商品、客户、供应商与分类
 
-Mobile v1.9.0 Release：
-https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.9.0-mobile
+- Customer / Supplier / Product 支持新增、编辑、软删除。
+- 管理列表支持多选、全选/取消全选与批量删除。
+- 删除采用 `is_deleted` tombstone，不物理删除历史业务资料。
+- Supplier 已补齐 Desktop → Mobile 拉取、Mobile → Desktop mutation、编辑与删除同步。
+- Product 删除会同步 tombstone；迟到的旧同步不能把已删除商品恢复成可售状态。
+- 已删除商品不会再被商品搜索或条码扫码售卖。
+- Category 删除前要求确认；原分类商品转为 Uncategorized / 空分类，不删除商品。
 
-Desktop ZIP SHA-256：
+### Windows 原生操作
 
-```text
-42949029d88d77ccbb32e78fc70d5a59cdee6d9f12e5cd2eeecaf92caf11c96e
-```
+Desktop 继续使用 Windows 桌面交互：
 
-Desktop v0.3.3 发布提交：
+- 条码图片导出使用 **文件夹选择器**，由用户自行选择输出位置。
+- 单个、批量、打印队列导出都会报告成功、跳过与失败数量。
+- 支持导出后“打开文件夹”。
+- 空队列、商品不存在、无条码、写入失败、权限错误、取消选择目录等不会静默失败。
+- Backup / Restore 使用 Windows 文件选择流程，不依赖旧 CNKH POS 工程。
 
-```text
-56788a34eecbe79ded14ea311180983f6a3876ba
-```
+## 条码修复
 
-## 主要功能
+旧实现通过 SVG + RegExp 解析 `<rect>`，可能生成只有商品名/数字、没有真正条纹的 PNG。
 
-| 模块 | 功能 |
-| --- | --- |
-| 收银 | 商品搜索、条码加购、购物车、行折扣、整单折扣、挂单与取单 |
-| 收款 | 现金、银行卡、DuitNow、赊账、找零及欠款记录 |
-| 商品与库存 | 商品、分类、成本与售价、进货、盘点、供应商管理 |
-| 客户与销售 | 客户资料、今日与历史销售、销售详情、作废 |
-| 小票与报表 | 小票模板、电子收据 PDF、WhatsApp 分享、销售与成本毛利报表、日结 |
-| 局域网同步 | QR 配对、HTTP 对账、WebSocket 变更通知、离线操作重试 |
-| OCR 进货同步 | 接收 Mobile OCR Purchase 元数据、费用字段和 `purchase_reverse` 撤销 |
-| 账号 | 管理员与员工权限、PIN 验证、员工 PIN 设置 |
+Full Fix 已改为直接使用 barcode package 产生的 `BarcodeBar` 绘制：
 
-现有收银金额、折扣、舍入规则和页面布局保持不变。
+- 合法 12/13 位数字使用 EAN-13。
+- 其它条码使用 Code128。
+- PNG 必须实际包含可扫描的明暗条纹；无有效 bars 会直接报错。
+- 自动化测试会解码 PNG 并检查条码区域的暗列、亮列与转换次数，不只检查“PNG 有 bytes”。
 
-## OCR 进货架构
+## OCR Purchase 架构
 
-OCR 识别本身只在 Android Mobile 本机运行。Desktop 不负责拍照 OCR，而是继续作为店内局域网权威主机。
-
-完整流程：
+OCR 识别只在 Android Mobile 本机运行。Desktop 不重复 OCR，而是接收 Mobile 人工确认后的结构化 Purchase 与 Original Invoice 附件。
 
 ```text
-Mobile 拍照 / 相册
-      ↓
-本机 ML Kit OCR
-      ↓
-OCR Draft
-      ↓
-商品匹配 / 异常检查
-      ↓
+Mobile Camera / Gallery
+        ↓
+Original（原始文件，byte-for-byte 保存）
+        ↓
+本机 ML Kit OCR（读取 Original）
+        ↓
+Preview（仅 UI 预览压缩图）
+        ↓
+OCR Draft + 商品匹配 + 异常检查
+        ↓
 人工确认
-      ↓
+        ↓
 Mobile SQLite 原子入库
-      ↓
-Persistent Outbox
-      ↓
-Desktop /api/v1/mutations
+        ↓
+Purchase Outbox ──────────────→ Desktop Purchase mutation
+        ↓
+Independent Attachment Outbox → Desktop Original Invoice attachment
 ```
 
-只有 Mobile 用户点击 **确认并入库** 后，才会产生正式 `purchase` mutation；未确认 Draft 不会上传 Desktop，也不会改变 Desktop 库存。
+Purchase 与附件是两个独立 operation。图片失败只重试图片，不会重放 Purchase，也不会重复增加库存。
 
-## Desktop 接收的 OCR Purchase 数据
+### Purchase History 双端一致性
 
-原有 `purchase` mutation 继续使用，并兼容：
+Desktop 通过经过 Token 认证的 `/api/v1/purchases` 提供结构化 Purchase History，Mobile 会同步供应商、Invoice、费用、商品明细、OCR evidence 与 Reverse 状态。
 
-- Invoice No
-- Invoice Date
-- Discount
-- Tax / SST
-- Delivery Fee
-- Other Fee
-- `source = ocr`
-- Mobile Draft ID
-- OCR Raw Text
-- Operator
-- OCR 原始数量
-- OCR 原始成本
-- OCR 原始小计
-- Unit / Conversion 等进货行信息
+- Desktop 建立的 Purchase 在 Mobile 标记为 `desktop_sync`，作为**只读历史**显示。
+- Mobile 拉取 Desktop Purchase History 只更新历史资料，**不会再次增加库存、修改成本或新增 stock move**。
+- Desktop 后续 Reverse 时，Mobile 只镜像 Reverse 状态与原因；库存仍由 Desktop Catalog 的权威结果同步，不会在 Mobile 再扣一次。
+- Mobile UI 不为 Desktop-origin Purchase 提供本地 Reverse；Repository/SQLite 还有第二层保护，防止绕过 UI 后误执行本地库存反转。
+- Mobile 自己确认并上传的 Purchase 继续保留原本的安全 Reverse / Outbox 幂等逻辑，不会因为 Desktop 回传历史而变成第二张记录。
+- `purchases_v1` 使用 cursor-compatible 请求/响应格式；兼容全量 reconciliation 时同样依靠稳定 ID 幂等落库，绝不触发第二次库存 mutation。
 
-Desktop 收到新的 operation 后，会在数据库事务内：
+## OCR P0 安全规则
 
-- 保存 Purchase
-- 更新库存
-- 更新成本
-- 写 `stock_moves`
-- 保存 OCR 元数据
-- 记录 `sync_applied_operations`
+### Conversion
 
-同一个 operation 重试不会再次加库存。
+- 必须是 finite 且 `> 0`。
+- `NaN`、`Infinity`、0、负数全部阻止。
+- Mobile UI 显示字段错误；Repository 边界再次验证。
+- 不会无声回退成 `1`。
 
-## OCR 进货撤销
+### Duplicate Invoice
 
-Mobile 管理员撤销 OCR 进货时会发送：
+默认按：
 
 ```text
-kind = purchase_reverse
+Supplier ID + Invoice No
 ```
 
-Desktop 会：
+检查重复。
 
-- 保留原 Purchase
-- 标记为 reversed
-- 回退本次进货库存
-- 写负数库存流水
-- 在安全条件下恢复进货前成本
-- 保存撤销人员 / 时间 / 原因 / 备注
-- 写 `purchase_reversals`
-- 写 audit log
-- 记录 operation ID
+- 默认强阻止重复入库。
+- Staff 无覆盖权限。
+- Admin 只有填写原因并进行第二次确认后才能 Force Commit。
+- Override 原因与操作会写入审计，并同步到 Desktop。
 
-重复提交不会重复扣库存。
+### Confirm 幂等
 
-## 数据库兼容
+- Mobile 首次点击确认就立即锁定 `_busy`，再进行 revalidate。
+- `draft_id` 有数据库唯一幂等保护。
+- 重试同一 Draft 返回现有 Purchase，不会重复加库存。
+- Desktop 同样使用 operation ID 幂等。
 
-OCR 同步采用增量迁移：
+### Safe Reverse
 
-- 不清空旧数据库
-- 不重建旧销售数据
-- 不改变旧 Purchase 字段含义
-- 旧版普通进货继续可读
-- 新字段对旧记录使用默认值
+Purchase Reverse 先对**整张进货单**做库存预检，再开始任何 mutation。
 
-新增兼容字段/表包括：
+如果进货之后已经发生销售、盘点、其它进货或库存调整，会阻止直接撤销，并要求使用库存调整/人工处理。失败时不会出现“部分商品已扣、部分商品没扣”的半撤销状态。
 
-- `purchases.invoice_no`
-- `purchases.invoice_date`
-- `purchases.discount_cents`
-- `purchases.tax_cents`
-- `purchases.delivery_fee_cents`
-- `purchases.other_fee_cents`
-- `purchases.source`
-- `purchases.draft_id`
-- `purchases.ocr_raw_text`
-- `purchases.reversed*`
-- `purchase_reversals`
-- `purchase_audit_log`
+Mobile 与 Desktop 都使用同一安全原则；重复 reverse 不会再次扣库存。
 
-Desktop 不保存 Mobile 本地图片路径，因为该路径只对手机文件系统有效。原始进货单图片保留在 Mobile 本机。
+## Original Invoice 附件同步
 
-## 连接手机端
+Mobile 确认 OCR Purchase 后，会为 Original Invoice 创建独立附件 operation：
 
-1. 安装并启动 **Desktop v0.3.3**。
-2. Android 安装 **Mobile v1.9.0**。
-3. 两台设备连接同一 Wi-Fi / LAN。
-4. Desktop 打开 LAN / 扫码配对页面。
-5. Mobile 扫描二维码。
-6. Mobile 保存 Desktop 地址和 Token。
+- 独立 `attachment_id`
+- `purchase_id`
+- 原始文件名
+- SHA-256 `content_hash`
+- Base64 文件数据
+- 单独 pending / failed / synced 状态
 
-默认端口：**8787**。
+Desktop 接收时：
 
-二维码前缀：
+- 所有 LAN endpoint 均要求有效 Token。
+- 对 Original 做 SHA-256 校验。
+- 限制异常大附件。
+- 相同 `attachment_id` + 相同 hash 重试视为幂等成功。
+- 相同 ID 但 hash 不同视为冲突并拒绝。
+- Lost ACK 后重试不会重复创建附件，也不会重播 Purchase 库存 mutation。
 
-```text
-cnkh-sync:v1|
-```
+Desktop 的 Purchase Detail 页面可查看附件资料，并把经过 hash 验证的 Original 导出到用户选择的文件夹；支持中文文件名和同名自动避让。
 
-手机断线期间仍可本地收银与处理 OCR；恢复连接后自动上传已确认业务。
+## 数据库 v8 Migration
 
-## 首次登录
+Full Fix 把 OCR schema 正式接入 Desktop `onCreate/onUpgrade`：
 
-1. 首次运行选择管理员 `admin`。
-2. 输入自定 **6–12 位数字 PIN**。
-3. 再输入一次完成初始化。
-4. 管理员可为 `staff`、`staff2` 等员工设置 PIN。
+- 新安装直接建立完整 OCR schema。
+- 旧 v7 数据库升级到 v8 时增量迁移。
+- 不清空商品、销售、客户、供应商、Purchase、库存流水或 sync outbox。
+- 自动化测试会建立真实旧 v7 数据库，写入业务资料/outbox，再用新版打开并确认旧数据仍存在。
 
-PIN 连续输错 5 次会锁定 5 分钟。Desktop 与 Mobile 的账号凭据分别本机管理，LAN 配对不会自动同步 PIN。
+OCR 相关表/字段包括 Purchase OCR 元数据、`draft_id`、reverse/audit、Original attachment 等。
 
-## 稳定性与同步行为
+## 独立 Backup / Restore
 
-- 结账与扣库存使用同一数据库事务
-- 作废回补库存并防重复回补
-- 保存两端商品 / 客户 ID 对照
-- Mobile 销售、作废、资料修改、进货、盘点使用持久 Outbox
-- Desktop ACK 后才从 Outbox 移除
-- 重试不会重复销售、重复入库或重复回补
-- 新销售保存成交时成本
-- 历史销售查询不再受 200 条默认截断
-- 盘点 / 资料冲突不会静默覆盖
-- OCR `purchase` 使用 operation ID 幂等
-- `purchase_reverse` 同样幂等
+Desktop Backup 不依赖旧 `CNKH_POS_V5`：
 
-详细稳定性说明见 [RELIABILITY_NOTES.md](RELIABILITY_NOTES.md)。
+- 备份当前 Desktop SQLite。
+- 包含商品图片。
+- manifest 标识 CNKH Desktop backup format。
+- Restore 前验证 ZIP、manifest、SQLite `integrity_check` 和必要表。
+- 使用 staging + 当前数据库安全副本。
+- 数据库与图片作为一个恢复事务处理。
+- 恢复后再次验证；失败会尝试回滚原数据。
 
-## 下载与安装
+无效备份会在替换当前数据库之前被拒绝。
 
-Desktop Releases：
-https://github.com/tyz11234/CNKH_POS_Desktop/releases
+## LAN 同步与幂等
 
-当前正式版：
-https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.3
+Desktop 是 LAN 权威主机，协议继续为 `cnkh-sync:v1`。
 
-Windows 安装：
+同步覆盖：
 
-1. 下载 `CNKH_POS_Desktop-windows-x64-v0.3.3-6.zip`。
-2. 完整解压。
-3. 保留 EXE、DLL 与 data 目录结构。
-4. 运行 `cnkh_pos_desktop.exe`。
-5. 配套 Mobile 建议更新到 v1.9.0。
+- Products / Categories / Customers / Suppliers
+- Product images
+- Sales / Void
+- Purchases / OCR Purchases / Purchase Reverse / Purchase History
+- Original Invoice attachments
+- Stocktake
+- Barcode print queue
 
-不要只复制 EXE 文件。
+可靠性规则：
+
+- Mobile mutation 使用 persistent outbox。
+- Desktop ACK 后 Mobile 才删除 outbox。
+- Barcode queue 使用逐项 `operation_id` ACK。
+- Product / Customer / Supplier 使用稳定 ID 映射。
+- `client_sale_id` 是现代销售幂等主键路径。
+- Legacy sale 不再只按“时间 + 总额 + 支付方式”误判重复；不同明细的销售会保留。
+- 精确 legacy retry 仍通过更强 payload fingerprint 防 Lost-ACK 重复扣库存。
+- 删除同步保留 tombstone，防旧操作复活已删除商品。
+
+## Product Image Sync
+
+Desktop Catalog 返回稳定 Product ID 与 `has_image`。
+
+Mobile：
+
+- `has_image=true` 时使用 Token 调用认证图片 endpoint。
+- 用稳定远端 ID 映射到本地 Product ID。
+- Desktop 本地 `image_path` 不会直接写进 Mobile。
+- `has_image=false` 或 endpoint 404 时，Mobile 清除自己的本地图片缓存与 `image_path`。
+
+## Pairing Security
+
+- QR 包含 `iat` / `exp`，默认约 7 分钟过期。
+- Mobile 拒绝过期 QR。
+- 所有 Desktop LAN API / WebSocket 使用随机 Token 认证。
+- Admin 可在“员工账号 / Users”执行 **撤销手机配对**。
+- 撤销会旋转 Token、立即清空当前连接并使旧 Token 返回 Unauthorized。
+- 随后 Desktop 生成新的配对二维码。
+- Mobile 对**同一个 Desktop Host**允许安全接受新 Token；如果 Host 不同，仍要求先同步并备份，防止误切门店。
+
+## 账号与权限
+
+Desktop Users 支持：
+
+- Add
+- Edit display name
+- ADMIN / STAFF role
+- Enable / Disable
+- PIN Reset
+- 最后一个有效 Admin 保护
+
+Mobile 的 Admin 管理入口仅对 Admin 显示；Staff 不会因为新增 OCR/CRUD 页面绕过管理权限。
 
 ## 开发与验证
 
@@ -234,52 +246,37 @@ flutter test
 flutter build windows --release
 ```
 
-输出：
+Full Fix 的自动化测试重点包括：
 
-```text
-build/windows/x64/runner/Release/
-```
+- EAN-13 / Code128 实际 bars
+- Barcode queue Lost-ACK idempotency
+- Desktop v7 → v8 migration preserving business/outbox data
+- Backup create / validate / restore / rollback safety
+- OCR Purchase / duplicate invoice / Admin override audit
+- Purchase Reverse 后续库存变化阻止
+- Desktop → Mobile Purchase History localhost HTTP / read-only stock safety
+- Original attachment SHA-256 / Lost-ACK / localhost HTTP
+- 中文附件文件名导出
+- Product image authenticated endpoint
+- Legacy sale collision safety
+- Product tombstone 防复活
+- Pairing QR expiry / Token rotation / revoke
+- User role / Disable / PIN / last-admin protection
 
-### v0.3.3 正式 CI
-
-https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/34024473482
-
-已通过：
-
-- Flutter 环境准备
-- `flutter pub get`
-- `flutter analyze`
-- Desktop tests
-- Windows Release build
-- Artifact 上传
-- GitHub Release 创建
-
-OCR 配套功能已验证：
-
-- OCR Purchase mutation
-- OCR 元数据保存
-- `purchase_reverse` 幂等
-- Desktop / Mobile HTTP 回归
-- 初始断线重连
-- ACK 丢失重试
-- 原有销售 / 作废 / 盘点同步回归
-
-配套 Mobile v1.9.0 也已通过 32 项 Flutter tests、Android Release APK、R8 和 Chinese + Latin ML Kit bundled model 打包。
+CI 必须同时通过 Desktop tests、Desktop-Mobile integration 与 Windows Release build 后才允许合并 Full Fix。
 
 ## 当前不包含
 
 - Windows 摄像头 OCR
-- 云 OCR
-- AI / LLM OCR
+- 云 OCR / AI / LLM OCR
 - MyInvois / Malaysia e-Invoice
 - 无人工确认自动入库
 - 云端多门店同步
 
 ## 相关入口
 
-- Desktop v0.3.3：https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.3
-- Mobile v1.9.0：https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.9.0-mobile
-- Mobile Flutter 源码：https://github.com/tyz11234/CNKH_POS_Mobile_APK/tree/source/main
-- Desktop OCR Sync PR #7：https://github.com/tyz11234/CNKH_POS_Desktop/pull/7
-- Mobile OCR PR #6：https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/6
-- 稳定性修复 PR #6：https://github.com/tyz11234/CNKH_POS_Desktop/pull/6
+- Desktop Releases: https://github.com/tyz11234/CNKH_POS_Desktop/releases
+- Mobile Releases: https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases
+- Mobile Flutter source: https://github.com/tyz11234/CNKH_POS_Mobile_APK/tree/source/main
+- Desktop Full Fix PR: https://github.com/tyz11234/CNKH_POS_Desktop/pull/8
+- Mobile Full Fix PR: https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/7
