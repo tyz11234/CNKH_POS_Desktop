@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../services/lan_pairing_host.dart';
 import '../../services/pos_repository.dart';
 import '../../services/user_admin_service.dart';
 import '../../theme/cnkh_theme.dart';
+import '../barcode_scan_screen.dart';
 
 class UserAdminPage extends StatefulWidget {
   const UserAdminPage({super.key, required this.repo});
@@ -27,6 +29,61 @@ class _UserAdminPageState extends State<UserAdminPage> {
   Future<void> _load() async {
     final users = await _service.listUsers();
     if (mounted) setState(() => _users = users);
+  }
+
+  Future<void> _revokePairingCredentials() async {
+    if (_busy) return;
+    final host = LanPairingHost.shared(widget.repo);
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('撤销现有手机配对？'),
+        content: Text(
+          '这会立即废止当前手机同步 Token，并断开 ${host.connectedClients} 个已连接客户端。\n\n'
+          '旧二维码和旧 Token 将无法继续访问 Desktop；随后会生成新的配对二维码。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: CnkhColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('撤销并重新配对'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _busy = true);
+    try {
+      await host.rotatePairingToken();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('旧手机配对凭证已撤销，请扫描新的二维码重新配对。'),
+          backgroundColor: CnkhColors.success,
+        ),
+      );
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => BarcodeScanScreen(
+            repo: widget.repo,
+            pairingOnly: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: CnkhColors.danger),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _edit([Map<String, Object?>? existing]) async {
@@ -247,6 +304,12 @@ class _UserAdminPageState extends State<UserAdminPage> {
                       onPressed: _busy ? null : () => _edit(),
                       icon: const Icon(Icons.person_add_alt_1),
                       label: const Text('新增账号'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _revokePairingCredentials,
+                      icon: const Icon(Icons.phonelink_erase),
+                      label: const Text('撤销手机配对'),
                     ),
                     const Spacer(),
                     Text(
