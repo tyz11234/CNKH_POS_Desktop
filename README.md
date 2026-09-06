@@ -88,6 +88,7 @@ Desktop 通过经过 Token 认证的 `/api/v1/purchases` 提供结构化 Purchas
 - Desktop 后续 Reverse 时，Mobile 只镜像 Reverse 状态与原因；库存仍由 Desktop Catalog 的权威结果同步，不会在 Mobile 再扣一次。
 - Mobile UI 不为 Desktop-origin Purchase 提供本地 Reverse；Repository/SQLite 还有第二层保护，防止绕过 UI 后误执行本地库存反转。
 - Mobile 自己确认并上传的 Purchase 继续保留原本的安全 Reverse / Outbox 幂等逻辑，不会因为 Desktop 回传历史而变成第二张记录。
+- 当前 `purchases_v1` 使用 cursor-compatible 请求/响应格式；即使 Host 返回完整历史，Mobile 仍按稳定 ID 幂等 reconciliation，不会重复库存 mutation。
 
 ## OCR P0 安全规则
 
