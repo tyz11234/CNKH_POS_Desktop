@@ -27,6 +27,8 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_) async => temp.path);
     database = AppDatabase.forTesting('${temp.path}/pos.db', seed: true);
     repo = PosRepository(database: database);
+    // Start sockets in the real setUp zone, before testWidgets installs its fake clock.
+    await LanPairingHost.shared(repo).start();
     await repo.auth.initializeAdmin('839201');
     await repo.auth.login('admin', '839201');
     await repo.auth.setUserPin('staff', '728394');
