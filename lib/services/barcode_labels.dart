@@ -20,11 +20,14 @@ class BarcodeLabelService {
   Barcode _codecFor(String code) {
     final digits = code.replaceAll(RegExp(r'\D'), '');
     if ((digits.length == 12 || digits.length == 13) && digits == code) {
-      try {
-        return Barcode.ean13();
-      } catch (_) {}
+      final ean = Barcode.ean13();
+      if (ean.isValid(code)) return ean;
     }
-    return Barcode.code128();
+    final code128 = Barcode.code128();
+    if (!code128.isValid(code)) {
+      throw StateError('不支持的条码内容 / Unsupported barcode value');
+    }
+    return code128;
   }
 
   Future<String> autoGenerateBarcode() async {
@@ -51,7 +54,7 @@ class BarcodeLabelService {
     return code;
   }
 
-  /// PNG: bars + human-readable code + full product name underneath.
+  /// PNG: real barcode bars + human-readable code + full product name.
   Future<Uint8List> renderPng({
     required String barcode,
     required String productName,
@@ -63,23 +66,21 @@ class BarcodeLabelService {
     final name = productName.trim().isEmpty ? code : productName.trim();
 
     final codec = _codecFor(code);
-    final svg = codec.toSvg(
-      code,
-      width: width.toDouble(),
-      height: barHeight.toDouble(),
-      drawText: false,
-    );
-    final rectRe = RegExp(
-      r'<rect[^>]*x="([\d.]+)"[^>]*y="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="([\d.]+)"',
-    );
-    final rects = <Rect>[];
-    for (final m in rectRe.allMatches(svg)) {
-      rects.add(Rect.fromLTWH(
-        double.parse(m.group(1)!),
-        double.parse(m.group(2)!),
-        double.parse(m.group(3)!),
-        double.parse(m.group(4)!),
-      ));
+    // The barcode package already exposes backend-neutral drawing operations.
+    // Use them directly instead of parsing its SVG text. The old SVG RegExp
+    // only understood <rect> output and could silently produce a white image
+    // when the package emitted another valid SVG representation.
+    final bars = codec
+        .make(
+          code,
+          width: width.toDouble(),
+          height: barHeight.toDouble(),
+          drawText: false,
+        )
+        .whereType<BarcodeBar>()
+        .toList(growable: false);
+    if (bars.isEmpty) {
+      throw StateError('条码生成失败：没有可绘制的条码线条');
     }
 
     final nameStyle = const TextStyle(
@@ -119,8 +120,11 @@ class BarcodeLabelService {
       Paint()..color = Colors.white,
     );
     final barPaint = Paint()..color = Colors.black;
-    for (final r in rects) {
-      canvas.drawRect(r, barPaint);
+    for (final bar in bars) {
+      canvas.drawRect(
+        Rect.fromLTWH(bar.left, bar.top, bar.width, bar.height),
+        barPaint,
+      );
     }
     var y = barHeight + 12.0;
     codePainter.paint(canvas, Offset((width - codePainter.width) / 2, y));
@@ -154,8 +158,7 @@ class BarcodeLabelService {
     final safe = code.replaceAll(RegExp(r'[^\w\-]'), '_');
     final idBit =
         product.id.length >= 8 ? product.id.substring(0, 8) : product.id;
-    final file =
-        File(p.join(dir.path, 'barcode_${safe}_$idBit.png'));
+    final file = File(p.join(dir.path, 'barcode_${safe}_$idBit.png'));
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
