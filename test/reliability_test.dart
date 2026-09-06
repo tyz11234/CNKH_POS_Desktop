@@ -73,5 +73,9 @@ void main() {
     final row = (await (await database.db).query('user_credentials', where: 'username=?', whereArgs: ['admin'])).single;
     expect(row['pin_hash'], isNot('839201'));
     expect(row.containsValue('839201'), isFalse);
+    await repo.factoryResetLocalData();
+    expect(await repo.auth.needsSetup(), isFalse);
+    expect((await repo.auth.login('admin', '839201')).isAdmin, isTrue);
+    await expectLater(repo.auth.login('staff', '728394'), throwsStateError);
   });
 }

@@ -390,8 +390,9 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
   Future<void> factoryResetLocalData() async {
     final d = await db;
     await d.transaction((txn) async {
+      // Reset business data without reopening unauthenticated admin setup.
+      await txn.delete('user_credentials', where: 'username<>?', whereArgs: ['admin']);
       for (final table in [
-        'user_credentials',
         'sync_entity_ids',
         'sync_outbox',
         'sync_applied_operations',
