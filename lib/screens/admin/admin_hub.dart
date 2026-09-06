@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../../db/app_database.dart';
 import '../../models/app_user.dart';
 import '../../models/money.dart';
 import '../../models/product.dart';
+import '../../services/e_receipt.dart';
 import '../../services/pos_repository.dart';
 import '../../theme/cnkh_theme.dart';
-import '../../services/e_receipt.dart';
 import '../../widgets/money_text.dart';
 import '../sales_list_screen.dart';
+import 'backup_restore_page.dart';
+import 'entities_admin_page.dart';
 import 'products_admin.dart';
 import 'purchase_create_screen.dart';
+import 'user_admin_page.dart';
 
 class AdminHub extends StatelessWidget {
   final AppUser user;
@@ -27,26 +29,45 @@ class AdminHub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiles = <_Tile>[
-      _Tile('主页 Dashboard', Icons.dashboard_outlined, () => _open(context, DashboardPage(repo: repo))),
-      _Tile('商品 Products', Icons.inventory_2_outlined, () => _open(context, ProductsAdminPage(repo: repo, user: user))),
-      _Tile('分类 Categories', Icons.category_outlined, () => _open(context, CategoriesAdminPage(repo: repo))),
-      _Tile('条码队列 Barcode Queue', Icons.qr_code_2, () => _open(context, BarcodeQueuePage(repo: repo))),
-      _Tile('销售 Sales', Icons.receipt_long, () => _open(
-            context,
-            _ScaffoldPage(
-              title: '销售记录 / Sales',
-              body: SalesListScreen(repo: repo, todayOnly: false, canVoid: true),
-            ),
-          )),
-      _Tile('客户 Customers', Icons.people_outline, () => _open(context, EntitiesPage(repo: repo, kind: 'customers'))),
-      _Tile('供应商 Suppliers', Icons.local_shipping_outlined, () => _open(context, EntitiesPage(repo: repo, kind: 'suppliers'))),
-      _Tile('进货 Purchases', Icons.shopping_bag_outlined, () => _open(context, PurchasesPage(repo: repo, user: user))),
-      _Tile('盘点 Stocktake', Icons.fact_check_outlined, () => _open(context, StocktakePage(repo: repo, user: user))),
-      _Tile('员工 Users', Icons.badge_outlined, () => _open(context, UsersPage(repo: repo))),
-      _Tile('报表 Reports', Icons.bar_chart, () => _open(context, ReportsPage(repo: repo))),
-      _Tile('日结 Daily Close', Icons.point_of_sale, () => _open(context, DailyClosePage(repo: repo, user: user))),
-      _Tile('维护 Maintenance', Icons.build_outlined, () => _open(context, MaintenancePage(repo: repo))),
-      _Tile('折扣审计 Audit', Icons.history, () => _open(context, AuditLogPage(repo: repo))),
+      _Tile('主页 Dashboard', Icons.dashboard_outlined,
+          () => _open(context, DashboardPage(repo: repo))),
+      _Tile('商品 Products', Icons.inventory_2_outlined,
+          () => _open(context, ProductsAdminPage(repo: repo, user: user))),
+      _Tile('分类 Categories', Icons.category_outlined,
+          () => _open(context, CategoriesAdminPage(repo: repo))),
+      _Tile('条码队列 Barcode Queue', Icons.qr_code_2,
+          () => _open(context, BarcodeQueuePage(repo: repo))),
+      _Tile(
+        '销售 Sales',
+        Icons.receipt_long,
+        () => _open(
+          context,
+          _ScaffoldPage(
+            title: '销售记录 / Sales',
+            body: SalesListScreen(repo: repo, todayOnly: false, canVoid: true),
+          ),
+        ),
+      ),
+      _Tile('客户 Customers', Icons.people_outline,
+          () => _open(context, EntitiesPage(repo: repo, kind: 'customers'))),
+      _Tile('供应商 Suppliers', Icons.local_shipping_outlined,
+          () => _open(context, EntitiesPage(repo: repo, kind: 'suppliers'))),
+      _Tile('进货 Purchases', Icons.shopping_bag_outlined,
+          () => _open(context, PurchasesPage(repo: repo, user: user))),
+      _Tile('盘点 Stocktake', Icons.fact_check_outlined,
+          () => _open(context, StocktakePage(repo: repo, user: user))),
+      _Tile('员工 Users', Icons.badge_outlined,
+          () => _open(context, UsersPage(repo: repo))),
+      _Tile('报表 Reports', Icons.bar_chart,
+          () => _open(context, ReportsPage(repo: repo))),
+      _Tile('日结 Daily Close', Icons.point_of_sale,
+          () => _open(context, DailyClosePage(repo: repo, user: user))),
+      _Tile('备份与恢复 Backup', Icons.backup_outlined,
+          () => _open(context, BackupRestorePage(repo: repo))),
+      _Tile('维护 Maintenance', Icons.build_outlined,
+          () => _open(context, MaintenancePage(repo: repo))),
+      _Tile('折扣审计 Audit', Icons.history,
+          () => _open(context, AuditLogPage(repo: repo))),
     ];
 
     return ListView(
@@ -54,14 +75,19 @@ class AdminHub extends StatelessWidget {
       children: [
         Text('管理 / Admin', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 4),
-        const Text('本地演示数据 · Local-first parity screens',
-            style: TextStyle(color: CnkhColors.muted)),
+        const Text(
+          'Windows 本机业务管理 · Local-first Desktop administration',
+          style: TextStyle(color: CnkhColors.muted),
+        ),
         const SizedBox(height: 12),
         ...tiles.map(
           (t) => Card(
             child: ListTile(
               leading: Icon(t.icon, color: CnkhColors.primary),
-              title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              title: Text(
+                t.title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: t.onTap,
             ),
@@ -73,9 +99,13 @@ class AdminHub extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(12),
             child: Text(
-              'PC-only（本版不做）：条码标签硬件打印、Windows 备份/还原二进制格式。\n'
-              'PC-only: barcode label hardware printing; Windows backup/restore binary format.',
-              style: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF7A5A10)),
+              'Desktop 使用 Windows 文件/文件夹选择器处理条码导出与备份恢复；'
+              'Mobile 保留 Android 相机、分享与离线操作方式。两端业务数据通过 LAN 协议保持一致。',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: Color(0xFF7A5A10),
+              ),
             ),
           ),
         ),
@@ -168,119 +198,24 @@ class _DashboardPageState extends State<DashboardPage> {
         title: Text(label),
         trailing: money
             ? MoneyText(amountCents: value, fontSize: 18)
-            : Text('$value', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-      ),
-    );
-  }
-}
-
-
-class EntitiesPage extends StatefulWidget {
-  final PosRepository repo;
-  final String kind; // customers | suppliers
-  const EntitiesPage({super.key, required this.repo, required this.kind});
-  @override
-  State<EntitiesPage> createState() => _EntitiesPageState();
-}
-
-class _EntitiesPageState extends State<EntitiesPage> {
-  List<dynamic> _items = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    if (widget.kind == 'customers') {
-      _items = await widget.repo.listCustomers();
-    } else {
-      _items = await widget.repo.listSuppliers();
-    }
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _edit() async {
-    final name = TextEditingController();
-    final phone = TextEditingController();
-    final extra = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(widget.kind == 'customers' ? '新增客户' : '新增供应商'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: '名称')),
-            TextField(controller: phone, decoration: const InputDecoration(labelText: '电话')),
-            TextField(
-              controller: extra,
-              decoration: InputDecoration(
-                labelText: widget.kind == 'customers' ? '备注' : 'Email',
+            : Text(
+                '$value',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
-        ],
       ),
     );
-    if (ok != true || name.text.trim().isEmpty) return;
-    if (widget.kind == 'customers') {
-      await widget.repo.upsertCustomer(Customer(
-        id: AppDatabase.newId(),
-        name: name.text.trim(),
-        phone: phone.text.trim(),
-        notes: extra.text.trim(),
-      ));
-    } else {
-      await widget.repo.upsertSupplier(Supplier(
-        id: AppDatabase.newId(),
-        name: name.text.trim(),
-        phone: phone.text.trim(),
-        email: extra.text.trim(),
-      ));
-    }
-    await _load();
   }
+}
+
+/// Compatibility wrapper: existing callers keep the old class name while the
+/// actual management UI is now the Windows-native CRUD implementation.
+class EntitiesPage extends StatelessWidget {
+  final PosRepository repo;
+  final String kind;
+  const EntitiesPage({super.key, required this.repo, required this.kind});
 
   @override
-  Widget build(BuildContext context) {
-    return _ScaffoldPage(
-      title: widget.kind == 'customers' ? '客户' : '供应商',
-      actions: [IconButton(onPressed: _edit, icon: const Icon(Icons.add))],
-      body: ListView.builder(
-        itemCount: _items.length,
-        itemBuilder: (context, i) {
-          final e = _items[i];
-          if (e is Customer) {
-            return ListTile(
-              title: Text(e.name),
-              subtitle: Text('${e.phone}\n${e.notes}'),
-              isThreeLine: true,
-              onLongPress: () async {
-                await widget.repo.softDeleteCustomer(e.id);
-                await _load();
-              },
-            );
-          }
-          final s = e as Supplier;
-          return ListTile(
-            title: Text(s.name),
-            subtitle: Text('${s.phone}\n${s.email}'),
-            isThreeLine: true,
-            onLongPress: () async {
-              await widget.repo.softDeleteSupplier(s.id);
-              await _load();
-            },
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => EntitiesAdminPage(repo: repo, kind: kind);
 }
 
 class PurchasesPage extends StatefulWidget {
@@ -366,7 +301,9 @@ class _PurchasesPageState extends State<PurchasesPage> {
                         title: Text('${r['purchase_no']} · ${r['supplier_name']}'),
                         subtitle: Text('${r['purchased_at']}'),
                         trailing: MoneyText(
-                            amountCents: r['total_cents'] as int, fontSize: 14),
+                          amountCents: r['total_cents'] as int,
+                          fontSize: 14,
+                        ),
                       );
                     },
                   ),
@@ -407,8 +344,14 @@ class _StocktakePageState extends State<StocktakePage> {
           decoration: const InputDecoration(labelText: '实盘数量'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -443,57 +386,13 @@ class _StocktakePageState extends State<StocktakePage> {
   }
 }
 
-class UsersPage extends StatefulWidget {
+/// Compatibility wrapper for callers that still reference UsersPage.
+class UsersPage extends StatelessWidget {
   final PosRepository repo;
   const UsersPage({super.key, required this.repo});
-  @override
-  State<UsersPage> createState() => _UsersPageState();
-}
-
-class _UsersPageState extends State<UsersPage> {
-  Future<void> _setPin(String username) async {
-    final pin=TextEditingController();final confirmation=TextEditingController();
-    final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-      title:Text('设置 $username PIN'),
-      content:Column(mainAxisSize:MainAxisSize.min,children:[
-        TextField(controller:pin,obscureText:true,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'新 PIN（6–12 位数字）')),
-        TextField(controller:confirmation,obscureText:true,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'再次输入 PIN')),
-      ]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('取消')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('保存'))]));
-    try{if(ok==true){if(pin.text!=confirmation.text)throw StateError('两次 PIN 不一致');await widget.repo.auth.setUserPin(username,pin.text);if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('PIN 已保存')));}}
-    catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
-    finally{pin.dispose();confirmation.dispose();}
-  }
-
-  List<Map<String, Object?>> _users = [];
-  @override
-  void initState() {
-    super.initState();
-    widget.repo.listUsers().then((v) {
-      if (mounted) setState(() => _users = v);
-    });
-  }
 
   @override
-  Widget build(BuildContext context) {
-    return _ScaffoldPage(
-      title: '员工账号',
-      body: ListView.builder(
-        itemCount: _users.length,
-        itemBuilder: (context, i) {
-          final u = _users[i];
-          return ListTile(
-            leading: Icon(
-              u['role'] == 'ADMIN' ? Icons.admin_panel_settings : Icons.person,
-              color: CnkhColors.primary,
-            ),
-            title: Text('${u['display_name']}'),
-            subtitle: Text('${u['username']} · ${u['role']}'),
-            onTap:()=>_setPin(u['username'] as String),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => UserAdminPage(repo: repo);
 }
 
 class ReportsPage extends StatefulWidget {
@@ -615,7 +514,9 @@ class _ReportsPageState extends State<ReportsPage> {
                 Text(
                   '期间：$rangeLabel',
                   style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 16),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -623,9 +524,10 @@ class _ReportsPageState extends State<ReportsPage> {
                   style: TextStyle(color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 12),
-                const Text('利润 / Profit',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                const Text(
+                  '利润 / Profit',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
                 const SizedBox(height: 6),
                 _metricCard(
                   title: '销售额',
@@ -651,22 +553,22 @@ class _ReportsPageState extends State<ReportsPage> {
                       '${(((profit['grossMarginPercent'] as num?)?.toDouble()) ?? 0).toStringAsFixed(1)}%',
                 ),
                 const SizedBox(height: 16),
-                const Text('收款方式 / By payment',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                const Text(
+                  '收款方式 / By payment',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
                 const SizedBox(height: 6),
                 for (final k in [
                   'CASH',
                   'CARD',
                   'DUITNOW_QR',
                   'CREDIT',
-                  'TOTAL'
+                  'TOTAL',
                 ])
                   Card(
                     child: ListTile(
                       title: Text(k),
-                      trailing:
-                          MoneyText(amountCents: pay[k] ?? 0, fontSize: 16),
+                      trailing: MoneyText(amountCents: pay[k] ?? 0, fontSize: 16),
                     ),
                   ),
               ],
@@ -674,7 +576,6 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 }
-
 
 class DailyClosePage extends StatefulWidget {
   final PosRepository repo;
@@ -730,18 +631,40 @@ class _DailyClosePageState extends State<DailyClosePage> {
         children: [
           Text('系统现金 / System cash: ${formatRm(_systemCash)}'),
           const SizedBox(height: 8),
-          TextField(controller: _open, decoration: const InputDecoration(labelText: '开档现金 RM', prefixText: 'RM ')),
-          TextField(controller: _count, decoration: const InputDecoration(labelText: '实盘现金 RM', prefixText: 'RM ')),
-          TextField(controller: _notes, decoration: const InputDecoration(labelText: '备注')),
+          TextField(
+            controller: _open,
+            decoration: const InputDecoration(
+              labelText: '开档现金 RM',
+              prefixText: 'RM ',
+            ),
+          ),
+          TextField(
+            controller: _count,
+            decoration: const InputDecoration(
+              labelText: '实盘现金 RM',
+              prefixText: 'RM ',
+            ),
+          ),
+          TextField(
+            controller: _notes,
+            decoration: const InputDecoration(labelText: '备注'),
+          ),
           const SizedBox(height: 12),
           FilledButton(onPressed: _save, child: const Text('保存日结')),
           const Divider(height: 32),
-          const Text('历史 / History', style: TextStyle(fontWeight: FontWeight.w800)),
-          ..._history.map((h) => ListTile(
-                title: Text('${h['business_date']}'),
-                subtitle: Text(
-                    '系统 ${formatRm(h['system_cash_cents'] as int)} · 实盘 ${formatRm(h['counted_cash_cents'] as int)}'),
-              )),
+          const Text(
+            '历史 / History',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          ..._history.map(
+            (h) => ListTile(
+              title: Text('${h['business_date']}'),
+              subtitle: Text(
+                '系统 ${formatRm(h['system_cash_cents'] as int)} · '
+                '实盘 ${formatRm(h['counted_cash_cents'] as int)}',
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -785,7 +708,10 @@ class MaintenancePage extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: CnkhColors.danger),
             onPressed: () {
@@ -798,6 +724,7 @@ class MaintenancePage extends StatelessWidget {
         ],
       ),
     );
+    ctrl.dispose();
     if (ok != true) return;
     await repo.factoryResetLocalData();
     final deleted = await clearEReceiptCache();
@@ -823,11 +750,19 @@ class MaintenancePage extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.all(12),
               child: Text(
-                '桌面端维护：可清除演示交易，或执行完整「初始化」工厂重置。\n'
-                'Windows 旧版二进制备份/还原仍由 -CNKH_POS_V5 提供；本工程为 Flutter 桌面本地库。',
+                '桌面端维护可执行独立 CNKH POS 备份/恢复、清除演示交易或完整初始化。'
+                '备份与恢复使用本 Flutter Desktop 自己的 SQLite 与商品图片，不依赖旧工程。',
                 style: TextStyle(height: 1.4),
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => BackupRestorePage(repo: repo)),
+            ),
+            icon: const Icon(Icons.backup_outlined),
+            label: const Text('备份与恢复 / Backup & Restore'),
           ),
           const SizedBox(height: 12),
           FilledButton(
@@ -839,8 +774,14 @@ class MaintenancePage extends StatelessWidget {
                   title: const Text('清除演示交易？'),
                   content: const Text('不会删除商品/客户种子数据。'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('清除')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('取消'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('清除'),
+                    ),
                   ],
                 ),
               );
@@ -863,8 +804,10 @@ class MaintenancePage extends StatelessWidget {
             ),
             onPressed: () => _factoryReset(context),
             icon: const Icon(Icons.warning_amber_rounded),
-            label: const Text('初始化清空全部数据 / Factory reset',
-                style: TextStyle(fontWeight: FontWeight.w900)),
+            label: const Text(
+              '初始化清空全部数据 / Factory reset',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -876,7 +819,6 @@ class MaintenancePage extends StatelessWidget {
     );
   }
 }
-
 
 class AuditLogPage extends StatefulWidget {
   final PosRepository repo;
@@ -953,6 +895,9 @@ class _AuditLogPageState extends State<AuditLogPage> {
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (ctx, i) {
                           final a = _rows[i];
+                          final time = a.occurredAt.replaceFirst('T', ' ');
+                          final displayTime =
+                              time.length >= 19 ? time.substring(0, 19) : time;
                           return ListTile(
                             dense: true,
                             title: Text(
@@ -960,7 +905,7 @@ class _AuditLogPageState extends State<AuditLogPage> {
                               style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             subtitle: Text(
-                              '${a.occurredAt.replaceFirst('T', ' ').substring(0, 19)}\n'
+                              '$displayTime\n'
                               '${a.username} (${a.role})  ${a.oldValue} → ${a.newValue}'
                               '${a.reason.isEmpty ? '' : ' · ${a.reason}'}',
                             ),
