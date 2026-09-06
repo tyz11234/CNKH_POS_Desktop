@@ -1231,29 +1231,65 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     if (rawItems is! List) {
       throw const FormatException('items must be a list');
     }
+    final db = await _db.db;
     var saved = 0;
+    var skipped = 0;
+    final acknowledged = <String>[];
     for (final raw in rawItems) {
       if (raw is! Map) continue;
       var productId = raw['product_id']?.toString().trim() ?? '';
       if (productId.startsWith('pc-')) {
         productId = productId.substring(3);
       }
-      final barcode = raw['barcode']?.toString() ?? '';
-      final productName = raw['product_name']?.toString() ?? '';
+      final barcode = raw['barcode']?.toString().trim() ?? '';
+      final productName = raw['product_name']?.toString().trim() ?? '';
+      final operationId = raw['operation_id']?.toString().trim() ?? '';
       if (barcode.isEmpty || productName.isEmpty) continue;
-      await repo.enqueueBarcodePrint(
-        productId: productId,
-        barcode: barcode,
-        productName: productName,
-        sku: raw['sku']?.toString() ?? '',
-        priceCents: _asInt(raw['price_cents']),
-        copies: _asInt(raw['copies'], fallback: 1),
+
+      if (operationId.isEmpty) {
+        await repo.enqueueBarcodePrint(
+          productId: productId,
+          barcode: barcode,
+          productName: productName,
+          sku: raw['sku']?.toString() ?? '',
+          priceCents: _asInt(raw['price_cents']),
+          copies: _asInt(raw['copies'], fallback: 1),
+        );
+        saved++;
+        continue;
+      }
+
+      final queueId = 'mobile-barcode-$operationId';
+      final rowId = await db.insert(
+        'barcode_print_queue',
+        <String, Object?>{
+          'id': queueId,
+          'product_id': productId,
+          'barcode': barcode,
+          'product_name': productName,
+          'sku': raw['sku']?.toString() ?? '',
+          'price_cents': _asInt(raw['price_cents']),
+          'copies': max(1, _asInt(raw['copies'], fallback: 1)),
+          'status': 'pending',
+          'created_at': raw['created_at']?.toString().trim().isNotEmpty == true
+              ? raw['created_at'].toString()
+              : DateTime.now().toIso8601String(),
+          'synced_at': null,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-      saved++;
+      if (rowId == 0) {
+        skipped++;
+      } else {
+        saved++;
+      }
+      acknowledged.add(operationId);
     }
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'saved': saved,
+      'skipped': skipped,
+      'acknowledged': acknowledged,
     });
   }
 
