@@ -26,3 +26,8 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+# The companion-package harness is analyzed and tested in its own CI job.
+analyzer:
+  exclude:
+    - integration/**

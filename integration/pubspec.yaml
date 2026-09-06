@@ -1,0 +1,15 @@
+name: cnkh_pair_regression
+publish_to: none
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  cnkh_pos_desktop:
+    path: ..
+  cnkh_pos_mobile:
+    path: ../../CNKH_POS_Mobile_APK
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  sqflite_common_ffi: ^2.3.4+4

@@ -1,0 +1,33 @@
+name: Desktop Mobile integration
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pair-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: CNKH_POS_Desktop
+      - uses: actions/checkout@v4
+        with:
+          repository: tyz11234/CNKH_POS_Mobile_APK
+          ref: e0494b3bd22d712416a14cee1924b376e8b2ae80
+          path: CNKH_POS_Mobile_APK
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve companion dependencies
+        working-directory: CNKH_POS_Desktop/integration
+        run: flutter pub get
+      - name: Analyze integration tests
+        working-directory: CNKH_POS_Desktop/integration
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Test real HTTP synchronization and reconnect
+        working-directory: CNKH_POS_Desktop/integration
+        run: flutter test
