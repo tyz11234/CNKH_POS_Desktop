@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -102,6 +103,27 @@ void main() {
       }
       expect(live.connected,isTrue);
     } finally { await live.disconnect(); }
+  });
+  test('lost purchase acknowledgement does not add stock again on retry', () async {
+    await mobile.createPurchase(supplierId:'s1', supplierName:'Supplier', lines:[{'productId':'phone-product','qty':5,'unitCostCents':60}],totalCents:300,operator:'admin');
+    final op = (await (await mobileDb.db).query('sync_outbox')).single;
+    final transport = HttpClient();
+    try {
+      final request = await transport.postUrl(Uri.parse('${config.normalizedBase}/api/v1/mutations'));
+      request.headers.set('X-CNKH-Token',config.token);
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'operations':[{'id':op['id'],'kind':op['kind'],'payload':jsonDecode(op['payload_json'] as String)}]}));
+      final response = await request.close();
+      expect(response.statusCode,200);
+      await response.drain<void>();
+      // Simulate app death before saving the acknowledgement: outbox is retained.
+    } finally { transport.close(force:true); }
+    expect((await desktop.getProduct('desktop-product'))!.stock,15);
+    await client.synchronize(config);
+    expect((await desktop.getProduct('desktop-product'))!.stock,15);
+    expect((await mobile.getProduct('phone-product'))!.stock,15);
+    expect(await (await desktopDb.db).query('purchases'),hasLength(1));
+    expect(await (await mobileDb.db).query('sync_outbox'),isEmpty);
   });
   test('PC void propagates without another sale upload', () async {
     await sell();
