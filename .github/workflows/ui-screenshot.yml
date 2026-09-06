@@ -1,0 +1,57 @@
+name: UI Screenshot Test
+
+on:
+  push:
+    branches: ["test/ui-screenshot-20260906"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture-ui:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Launch app and capture desktop
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path screenshots | Out-Null
+          $exe = Resolve-Path "build/windows/x64/runner/Release/cnkh_pos_desktop.exe"
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 12
+          "ProcessId=$($p.Id) HasExited=$($p.HasExited)" | Out-File screenshots/process.txt
+          if (-not $p.HasExited) {
+            try { $p.Refresh(); "MainWindowTitle=$($p.MainWindowTitle)" | Add-Content screenshots/process.txt } catch {}
+          }
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bmp.Save((Join-Path $PWD 'screenshots/desktop.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+          $g.Dispose(); $bmp.Dispose()
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: cnkh-pos-ui-screenshots
+          path: screenshots/
+          if-no-files-found: error
