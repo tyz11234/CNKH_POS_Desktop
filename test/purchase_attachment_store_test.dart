@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cnkh_pos_desktop/db/app_database.dart';
 import 'package:cnkh_pos_desktop/db/ocr_purchase_schema.dart';
@@ -32,7 +33,9 @@ void main() {
         'lines_json': '[]',
         'notes': '',
       });
-      final bytes = List<int>.generate(2048, (i) => (i * 13) & 0xff);
+      final bytes = Uint8List.fromList(
+        List<int>.generate(2048, (i) => (i * 13) & 0xff),
+      );
       final hash = hex((await Sha256().hash(bytes)).bytes);
       await db.insert('purchase_attachments', {
         'id': 'att-export',
@@ -84,7 +87,7 @@ void main() {
         'kind': 'invoice_original',
         'filename': 'bad.jpg',
         'content_hash': List<String>.filled(64, '0').join(),
-        'content': <int>[1, 2, 3, 4],
+        'content': Uint8List.fromList(<int>[1, 2, 3, 4]),
         'source': 'mobile',
         'created_at': '2026-09-06T10:00:01Z',
       });
