@@ -31,8 +31,17 @@ String buildPairingPayload({
   required String baseUrl,
   required String token,
   String name = 'CNKH-PC',
+  DateTime? expiresAt,
 }) {
-  return '$kPairingPrefix${jsonEncode(<String, Object?>{'baseUrl': baseUrl, 'token': token, 'name': name})}';
+  final now = DateTime.now().toUtc();
+  final expiry = (expiresAt ?? now.add(const Duration(minutes: 7))).toUtc();
+  return '$kPairingPrefix${jsonEncode(<String, Object?>{
+    'baseUrl': baseUrl,
+    'token': token,
+    'name': name,
+    'iat': now.millisecondsSinceEpoch ~/ 1000,
+    'exp': expiry.millisecondsSinceEpoch ~/ 1000,
+  })}';
 }
 
 /// Desktop is the authoritative LAN host for Mobile clients.
@@ -158,6 +167,22 @@ class LanPairingHost {
       token: _token,
       name: name,
     );
+  }
+
+  Future<String> rotatePairingToken() async {
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    final token = base64UrlEncode(bytes).replaceAll('=', '');
+    await repo.setSetting(_tokenSetting, token);
+    _token = token;
+    for (final socket in _sockets.toList()) {
+      try {
+        await socket.close(WebSocketStatus.policyViolation, 'Pairing token rotated');
+      } catch (_) {}
+    }
+    _sockets.clear();
+    _emitConnectionCount();
+    return token;
   }
 
   Future<void> forceBroadcast() async {
@@ -373,6 +398,8 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'void_sales',
           'cost_snapshot',
           'suppliers_v1',
+          'product_images_v1',
+          'barcode_queue_idempotency',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -390,6 +417,14 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     }
     if (request.method == 'GET' && path == '/api/v1/products') {
       await _getProducts(request);
+      return;
+    }
+    if (request.method == 'GET' &&
+        request.uri.pathSegments.length == 4 &&
+        request.uri.pathSegments[0] == 'api' &&
+        request.uri.pathSegments[1] == 'v1' &&
+        request.uri.pathSegments[2] == 'product_images') {
+      await _getProductImage(request, request.uri.pathSegments[3]);
       return;
     }
     if (request.method == 'GET' && path == '/api/v1/customers') {
@@ -620,6 +655,8 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     Map<String, Object?> m, {
     String updatedAt = '',
   }) {
+    final imagePath = m['image_path']?.toString().trim() ?? '';
+    final hasImage = imagePath.isNotEmpty && File(imagePath).existsSync();
     return <String, Object?>{
       'pc_id': m['id'],
       'name_zh': m['name_zh'],
@@ -633,9 +670,55 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'category': m['category'],
       'is_deleted': m['is_deleted'],
       'reorder_level': m['reorder_level'],
-      'has_image': false,
+      'has_image': hasImage,
       'updated_at': updatedAt,
     };
+  }
+
+  Future<void> _getProductImage(HttpRequest request, String productId) async {
+    final db = await _db.db;
+    final rows = await db.query(
+      'products',
+      where: 'id=? AND is_deleted=0',
+      whereArgs: <Object?>[productId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      await _json(request.response, HttpStatus.notFound, <String, Object?>{
+        'ok': false,
+        'error': 'product_not_found',
+      });
+      return;
+    }
+    final imagePath = rows.first['image_path']?.toString().trim() ?? '';
+    if (imagePath.isEmpty) {
+      await _json(request.response, HttpStatus.notFound, <String, Object?>{
+        'ok': false,
+        'error': 'image_not_found',
+      });
+      return;
+    }
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      await _json(request.response, HttpStatus.notFound, <String, Object?>{
+        'ok': false,
+        'error': 'image_not_found',
+      });
+      return;
+    }
+    final bytes = await file.readAsBytes();
+    final name = file.uri.pathSegments.isEmpty ? '' : file.uri.pathSegments.last;
+    final dot = name.lastIndexOf('.');
+    final ext = dot >= 0 && dot < name.length - 1
+        ? name.substring(dot + 1).toLowerCase()
+        : 'jpg';
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'product_id': productId,
+      'ext': ext,
+      'bytes': bytes.length,
+      'base64': base64Encode(bytes),
+    });
   }
 
   Future<void> _getCustomers(HttpRequest request) async {
@@ -1174,15 +1257,59 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     Map<String, Object?> existing,
     Map<String, Object?> incoming,
   ) {
-    final sameTime =
-        (existing['sold_at']?.toString() ?? '') ==
-            (incoming['sold_at']?.toString() ?? '');
-    final sameTotal =
-        _asInt(existing['total_cents']) == _asInt(incoming['total_cents']);
-    final samePayment =
-        (existing['payment_method']?.toString() ?? '') ==
-            (incoming['payment_method']?.toString() ?? '');
-    return sameTime && sameTotal && samePayment;
+    if ((existing['sold_at']?.toString() ?? '') !=
+        (incoming['sold_at']?.toString() ?? '')) return false;
+    if (_asInt(existing['total_cents']) != _asInt(incoming['total_cents'])) {
+      return false;
+    }
+    if ((existing['payment_method']?.toString() ?? '') !=
+        (incoming['payment_method']?.toString() ?? '')) return false;
+    if ((existing['cashier']?.toString() ?? '') !=
+        (incoming['cashier']?.toString() ?? '')) return false;
+    if (_asInt(existing['subtotal_cents']) != _asInt(incoming['subtotal_cents'])) {
+      return false;
+    }
+    if (_asInt(existing['paid_cents']) !=
+        _asInt(incoming['paid_cents'], fallback: _asInt(incoming['total_cents']))) {
+      return false;
+    }
+    if (_asInt(existing['change_cents']) != _asInt(incoming['change_cents'])) {
+      return false;
+    }
+    if ((existing['customer_name']?.toString() ?? '') !=
+        (incoming['customer_name']?.toString() ?? '')) return false;
+    if ((existing['customer_phone']?.toString() ?? '') !=
+        (incoming['customer_phone']?.toString() ?? '')) return false;
+
+    Object? existingLines;
+    try {
+      existingLines = jsonDecode(existing['lines_json']?.toString() ?? '[]');
+    } catch (_) {
+      existingLines = const <Object?>[];
+    }
+    final incomingLines = incoming['lines'] ?? const <Object?>[];
+    return _lineFingerprint(existingLines) == _lineFingerprint(incomingLines);
+  }
+
+  String _lineFingerprint(Object? rawLines) {
+    if (rawLines is! List) return '[]';
+    final normalized = <Map<String, Object?>>[];
+    for (final raw in rawLines) {
+      if (raw is! Map) continue;
+      final m = Map<String, Object?>.from(raw);
+      normalized.add(<String, Object?>{
+        'product': (m['productId'] ?? m['product_id'] ?? '').toString(),
+        'sku': m['sku']?.toString() ?? '',
+        'barcode': m['barcode']?.toString() ?? '',
+        'name': (m['nameZh'] ?? m['name_zh'] ?? m['name'] ?? '').toString(),
+        'qty': _asDouble(m['qty'] ?? m['quantity']),
+        'unit_price_cents': _asInt(
+          m['unitPriceCents'] ?? m['unit_price_cents'] ?? m['price_cents'],
+        ),
+        'discount_cents': _asInt(m['discountCents'] ?? m['discount_cents']),
+      });
+    }
+    return jsonEncode(normalized);
   }
 
   String _shortId(String value) {
@@ -1194,8 +1321,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
 
   String _legacySaleSuffix(Map<String, Object?> sale) {
     final raw =
-        '${sale['sold_at']}|${sale['total_cents']}|'
-        '${sale['cashier']}|${sale['payment_method']}';
+        '${sale['sold_at']}|${sale['total_cents']}|${sale['subtotal_cents']}|'
+        '${sale['cashier']}|${sale['payment_method']}|${sale['paid_cents']}|'
+        '${sale['customer_name']}|${sale['customer_phone']}|'
+        '${_lineFingerprint(sale['lines'])}';
     var hash = 2166136261;
     for (final byte in utf8.encode(raw)) {
       hash ^= byte;
