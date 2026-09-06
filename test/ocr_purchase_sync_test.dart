@@ -42,16 +42,23 @@ void main() {
     await temp.delete(recursive: true);
   });
 
-  Map<String, dynamic> purchaseOp({String opId = 'op-purchase-1'}) =>
+  Map<String, dynamic> purchaseOp({
+    String opId = 'op-purchase-1',
+    String purchaseId = 'mobile-purchase-1',
+    String draftId = 'draft-1',
+    String invoiceNo = 'INV-001',
+    bool duplicateOverride = false,
+    String duplicateOverrideReason = '',
+  }) =>
       <String, dynamic>{
         'id': opId,
         'kind': 'purchase',
         'payload': {
-          'id': 'mobile-purchase-1',
+          'id': purchaseId,
           'supplier_id': 's1',
           'supplier_name': 'ABC Trading',
           'purchased_at': '2026-09-06T10:00:00.000',
-          'invoice_no': 'INV-001',
+          'invoice_no': invoiceNo,
           'invoice_date': '2026-09-06',
           'total_cents': 1600,
           'discount_cents': 0,
@@ -59,9 +66,11 @@ void main() {
           'delivery_fee_cents': 0,
           'other_fee_cents': 0,
           'source': 'ocr',
-          'draft_id': 'draft-1',
+          'draft_id': draftId,
           'ocr_raw_text': 'Coca Cola 5 PCS 3.20 16.00',
-          'operator': 'staff',
+          'operator': duplicateOverride ? 'admin' : 'staff',
+          'duplicate_override': duplicateOverride,
+          'duplicate_override_reason': duplicateOverrideReason,
           'lines': [
             {
               'productId': 'p1',
@@ -173,6 +182,82 @@ void main() {
     );
   });
 
+  test('same supplier invoice from another device is blocked before stock changes', () async {
+    final db = await database.db;
+    await applyLanMutation(db, purchaseOp());
+
+    final secondDevice = purchaseOp(
+      opId: 'op-purchase-device-2',
+      purchaseId: 'mobile-purchase-2',
+      draftId: 'draft-device-2',
+    );
+    await expectLater(
+      applyLanMutation(db, secondDevice),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('跨设备重复入库'),
+        ),
+      ),
+    );
+
+    final product =
+        (await db.query('products', where: 'id=?', whereArgs: ['p1'])).single;
+    expect((product['stock'] as num).toDouble(), 15);
+    expect(
+      await db.query('purchases', where: 'id=?', whereArgs: ['mobile-purchase-2']),
+      isEmpty,
+    );
+    expect(
+      await db.query(
+        'sync_applied_operations',
+        where: 'id=?',
+        whereArgs: ['op-purchase-device-2'],
+      ),
+      isEmpty,
+    );
+  });
+
+  test('explicit duplicate override requires reason and is audited', () async {
+    final db = await database.db;
+    await applyLanMutation(db, purchaseOp());
+
+    await expectLater(
+      applyLanMutation(
+        db,
+        purchaseOp(
+          opId: 'op-purchase-override-bad',
+          purchaseId: 'mobile-purchase-override-bad',
+          draftId: 'draft-override-bad',
+          duplicateOverride: true,
+        ),
+      ),
+      throwsA(isA<FormatException>()),
+    );
+
+    await applyLanMutation(
+      db,
+      purchaseOp(
+        opId: 'op-purchase-override-ok',
+        purchaseId: 'mobile-purchase-override-ok',
+        draftId: 'draft-override-ok',
+        duplicateOverride: true,
+        duplicateOverrideReason: 'Supplier reissued the same invoice number',
+      ),
+    );
+    final product =
+        (await db.query('products', where: 'id=?', whereArgs: ['p1'])).single;
+    expect((product['stock'] as num).toDouble(), 20);
+    final audit = await db.query(
+      'purchase_audit_log',
+      where: 'purchase_id=? AND action=?',
+      whereArgs: ['mobile-purchase-override-ok', 'duplicate_invoice_override_synced'],
+    );
+    expect(audit, hasLength(1));
+    expect(audit.single['details'], 'Supplier reissued the same invoice number');
+  });
+
   test('invoice attachment is hash checked and idempotent after lost ACK', () async {
     final db = await database.db;
     await applyLanMutation(db, purchaseOp());
@@ -197,8 +282,6 @@ void main() {
     };
 
     await applyLanMutation(db, attachmentOp);
-    // Simulate a successful first POST whose ACK was lost and the exact same
-    // operation was retried.
     await applyLanMutation(db, attachmentOp);
 
     final attachments = await db.query(
