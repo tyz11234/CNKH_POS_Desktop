@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -52,6 +53,113 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
 
   List<Product> get _selectedProducts =>
       _items.where((p) => _selected.contains(p.id)).toList();
+
+  Future<bool> _confirmDelete(String title, String message) async {
+    if (!mounted) return false;
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: CnkhColors.danger),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('确认删除'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _showExportResult(
+    BarcodeExportResult result,
+    String directoryPath,
+  ) async {
+    if (!mounted) return;
+    final parts = <String>[];
+    if (result.files.isNotEmpty) parts.add('已导出 ${result.files.length} 张条码图片');
+    if (result.skippedNoBarcode.isNotEmpty) {
+      parts.add('${result.skippedNoBarcode.length} 个商品没有条码');
+    }
+    if (result.failures.isNotEmpty) {
+      parts.add('${result.failures.length} 个商品导出失败');
+    }
+    if (parts.isEmpty) parts.add('没有可导出的条码图片');
+    final failed = result.failures.entries
+        .take(5)
+        .map((e) => '${e.key}: ${e.value}')
+        .join('\n');
+    final message = [
+      parts.join('；'),
+      '保存位置：$directoryPath',
+      if (failed.isNotEmpty) failed,
+    ].join('\n');
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(result.isSuccess ? '导出完成' : (result.files.isEmpty ? '导出失败' : '部分导出完成')),
+        content: SelectableText(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭'),
+          ),
+          if (result.files.isNotEmpty)
+            FilledButton.icon(
+              onPressed: () async {
+                try {
+                  await _labels.openFolder(directoryPath);
+                } catch (e) {
+                  if (!ctx.mounted) return;
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text('无法打开文件夹：$e'),
+                      backgroundColor: CnkhColors.danger,
+                    ),
+                  );
+                  return;
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              icon: const Icon(Icons.folder_open),
+              label: const Text('打开文件夹'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportProductsNative(List<Product> products) async {
+    if (products.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('没有可导出的商品 / No products to export'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
+    final folder = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: '选择条码图片保存目录',
+    );
+    if (folder == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已取消导出 / Export cancelled')),
+      );
+      return;
+    }
+    final result = await _labels.exportManyToDirectory(products, folder);
+    await _showExportResult(result, folder);
+  }
 
   Future<void> _pickCategory(TextEditingController catCtrl) async {
     final cats = await widget.repo.listCategories();
@@ -252,7 +360,6 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
     }
 
     final id = existing?.id ?? AppDatabase.newId();
-    // If image was saved with temp id for new product, already used id above when picking
     final p = Product(
       id: id,
       nameZh: nameZh.text.trim(),
@@ -291,7 +398,7 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
             ListTile(
               leading: const Icon(Icons.image_outlined),
               title: const Text('导出条码图片 / Export barcode image'),
-              subtitle: const Text('条码 + 品名，可分享到相册/文件夹'),
+              subtitle: const Text('选择 Windows 文件夹保存 PNG'),
               onTap: () => Navigator.pop(ctx, 'export'),
             ),
             ListTile(
@@ -314,15 +421,19 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
           const SnackBar(content: Text('已加入打印队列 / Queued for PC print')),
         );
       } else if (action == 'export') {
-        final file = await _labels.exportPngFile(p);
-        await _labels.shareFiles([file]);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已导出 ${file.path.split('/').last}')),
-        );
+        await _exportProductsNative([p]);
       } else if (action == 'del') {
+        final confirmed = await _confirmDelete(
+          '删除商品',
+          '确定删除「${p.nameZh}」吗？\n历史销售、进货和库存记录会保留。',
+        );
+        if (!confirmed) return;
         await widget.repo.softDeleteProduct(p.id);
         await _load();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('商品已删除，历史记录已保留')),
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -334,7 +445,13 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
 
   Future<void> _batchAction(String kind) async {
     final sel = _selectedProducts;
-    if (sel.isEmpty) return;
+    if (sel.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先选择商品 / Select products first')),
+      );
+      return;
+    }
     try {
       if (kind == 'queue') {
         await _labels.enqueueMany(sel);
@@ -343,23 +460,37 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
           SnackBar(content: Text('已加入 ${sel.length} 项到打印队列')),
         );
       } else if (kind == 'export') {
-        final files = await _labels.exportMany(sel);
-        if (files.isEmpty) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('所选商品无条码 / No barcodes'),
-              backgroundColor: CnkhColors.danger,
-            ),
-          );
-          return;
+        await _exportProductsNative(sel);
+      } else if (kind == 'delete') {
+        final confirmed = await _confirmDelete(
+          '批量删除商品',
+          '确定删除所选的 ${sel.length} 个商品吗？\n历史销售、进货和库存记录会保留。',
+        );
+        if (!confirmed) return;
+        var deleted = 0;
+        final failures = <String>[];
+        for (final product in sel) {
+          try {
+            await widget.repo.softDeleteProduct(product.id);
+            deleted++;
+          } catch (e) {
+            failures.add('${product.nameZh}: $e');
+          }
         }
-        await _labels.shareFiles(files);
+        await _load();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已导出 ${files.length} 张条码图（含品名）')),
+          SnackBar(
+            content: Text(
+              failures.isEmpty
+                  ? '已删除 $deleted 个商品'
+                  : '已删除 $deleted 个；${failures.length} 个失败',
+            ),
+            backgroundColor: failures.isEmpty ? null : CnkhColors.danger,
+          ),
         );
       }
+      if (!mounted) return;
       setState(() {
         _selected.clear();
         _selectMode = false;
@@ -378,6 +509,21 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
       appBar: AppBar(
         title: Text(_selectMode ? '已选 ${_selected.length}' : '商品 / Products'),
         actions: [
+          if (_selectMode && _items.isNotEmpty)
+            TextButton(
+              onPressed: () => setState(() {
+                if (_selected.length == _items.length) {
+                  _selected.clear();
+                } else {
+                  _selected
+                    ..clear()
+                    ..addAll(_items.map((p) => p.id));
+                }
+              }),
+              child: Text(
+                _selected.length == _items.length ? '取消全选' : '全选当前列表',
+              ),
+            ),
           IconButton(
             tooltip: _selectMode ? '取消多选' : '多选',
             icon: Icon(_selectMode ? Icons.close : Icons.checklist),
@@ -425,6 +571,18 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                           : () => _batchAction('export'),
                       icon: const Icon(Icons.photo_library_outlined),
                       label: const Text('批量导出图片'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                          backgroundColor: CnkhColors.danger),
+                      onPressed: _selected.isEmpty
+                          ? null
+                          : () => _batchAction('delete'),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('删除所选'),
                     ),
                   ),
                 ],
@@ -578,6 +736,44 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
     }
   }
 
+  Future<void> _deleteCategory(Category category) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('删除分类'),
+            content: Text(
+              '确定删除「${category.name}」吗？\n该分类下的商品不会删除，只会改为未分类。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: CnkhColors.danger),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('确认删除'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    try {
+      final n = await widget.repo.deleteCategory(category.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已删除；$n 个商品改为未分类')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('删除失败：$e'), backgroundColor: CnkhColors.danger),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -600,14 +796,7 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
                     onPressed: () => _addOrRename(c)),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: CnkhColors.danger),
-                  onPressed: () async {
-                    final n = await widget.repo.deleteCategory(c.id);
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已删除；$n 个商品改为未分类')),
-                    );
-                    await _load();
-                  },
+                  onPressed: () => _deleteCategory(c),
                 ),
               ],
             ),
@@ -640,6 +829,100 @@ class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
     if (mounted) setState(() => _rows = rows);
   }
 
+  Future<void> _exportQueue() async {
+    if (_rows.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('打印队列为空 / Print queue is empty')),
+      );
+      return;
+    }
+    final folder = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: '选择队列条码图片保存目录',
+    );
+    if (folder == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已取消导出 / Export cancelled')),
+      );
+      return;
+    }
+
+    final products = <Product>[];
+    var missingProducts = 0;
+    for (final r in _rows) {
+      final id = r['product_id'] as String?;
+      if (id == null || id.isEmpty) {
+        missingProducts++;
+        continue;
+      }
+      final product = await widget.repo.getProduct(id);
+      if (product == null) {
+        missingProducts++;
+      } else {
+        products.add(product);
+      }
+    }
+
+    try {
+      final result = await _labels.exportManyToDirectory(products, folder);
+      if (!mounted) return;
+      final details = <String>[
+        '已导出 ${result.files.length} 张条码图片',
+        if (missingProducts > 0) '$missingProducts 个队列商品已不存在',
+        if (result.skippedNoBarcode.isNotEmpty)
+          '${result.skippedNoBarcode.length} 个商品没有条码',
+        if (result.failures.isNotEmpty) '${result.failures.length} 个导出失败',
+        '保存位置：$folder',
+      ];
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            result.files.isNotEmpty &&
+                    missingProducts == 0 &&
+                    result.skippedNoBarcode.isEmpty &&
+                    result.failures.isEmpty
+                ? '队列导出完成'
+                : (result.files.isEmpty ? '队列导出失败' : '队列部分导出完成'),
+          ),
+          content: SelectableText(details.join('\n')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('关闭'),
+            ),
+            if (result.files.isNotEmpty)
+              FilledButton.icon(
+                onPressed: () async {
+                  try {
+                    await _labels.openFolder(folder);
+                  } catch (e) {
+                    if (!ctx.mounted) return;
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Text('无法打开文件夹：$e'),
+                        backgroundColor: CnkhColors.danger,
+                      ),
+                    );
+                    return;
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                icon: const Icon(Icons.folder_open),
+                label: const Text('打开文件夹'),
+              ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('队列导出失败：$e'), backgroundColor: CnkhColors.danger),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -649,17 +932,7 @@ class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
           IconButton(
             tooltip: '导出队列图片',
             icon: const Icon(Icons.photo_library_outlined),
-            onPressed: () async {
-              final products = <Product>[];
-              for (final r in _rows) {
-                final id = r['product_id'] as String?;
-                if (id == null) continue;
-                final p = await widget.repo.getProduct(id);
-                if (p != null) products.add(p);
-              }
-              final files = await _labels.exportMany(products);
-              await _labels.shareFiles(files);
-            },
+            onPressed: _exportQueue,
           ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
@@ -678,9 +951,19 @@ class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () async {
-                      await widget.repo
-                          .removeBarcodeQueueItem(r['id'] as String);
-                      await _load();
+                      try {
+                        await widget.repo
+                            .removeBarcodeQueueItem(r['id'] as String);
+                        await _load();
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('删除队列项目失败：$e'),
+                            backgroundColor: CnkhColors.danger,
+                          ),
+                        );
+                      }
                     },
                   ),
                 );
