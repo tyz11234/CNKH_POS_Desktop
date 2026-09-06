@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'auth_service.dart';
+import 'sale_reversal.dart';
+import 'sync_store.dart';
 
 import 'package:sqflite/sqflite.dart';
 
@@ -20,11 +23,11 @@ class Customer {
     this.notes = '',
   });
   factory Customer.fromMap(Map<String, Object?> m) => Customer(
-        id: m['id']! as String,
-        name: m['name']! as String,
-        phone: (m['phone'] as String?) ?? '',
-        notes: (m['notes'] as String?) ?? '',
-      );
+    id: m['id']! as String,
+    name: m['name']! as String,
+    phone: (m['phone'] as String?) ?? '',
+    notes: (m['notes'] as String?) ?? '',
+  );
 }
 
 class Supplier {
@@ -41,12 +44,12 @@ class Supplier {
     this.notes = '',
   });
   factory Supplier.fromMap(Map<String, Object?> m) => Supplier(
-        id: m['id']! as String,
-        name: m['name']! as String,
-        phone: (m['phone'] as String?) ?? '',
-        email: (m['email'] as String?) ?? '',
-        notes: (m['notes'] as String?) ?? '',
-      );
+    id: m['id']! as String,
+    name: m['name']! as String,
+    phone: (m['phone'] as String?) ?? '',
+    email: (m['email'] as String?) ?? '',
+    notes: (m['notes'] as String?) ?? '',
+  );
 }
 
 class SaleRecord {
@@ -95,27 +98,27 @@ class SaleRecord {
   });
 
   factory SaleRecord.fromMap(Map<String, Object?> m) => SaleRecord(
-        id: m['id']! as String,
-        receiptNo: m['receipt_no']! as String,
-        soldAt: m['sold_at']! as String,
-        cashier: m['cashier']! as String,
-        paymentMethod: m['payment_method']! as String,
-        depositMethod: m['deposit_method'] as String?,
-        customerId: m['customer_id'] as String?,
-        customerName: m['customer_name'] as String?,
-        customerPhone: m['customer_phone'] as String?,
-        subtotalCents: m['subtotal_cents']! as int,
-        itemDiscountCents: m['item_discount_cents']! as int,
-        orderDiscountCents: m['order_discount_cents']! as int,
-        roundingCents: m['rounding_cents']! as int,
-        totalCents: m['total_cents']! as int,
-        paidCents: m['paid_cents']! as int,
-        changeCents: m['change_cents']! as int,
-        creditOutstandingCents: m['credit_outstanding_cents']! as int,
-        linesJson: m['lines_json']! as String,
-        voided: (m['voided'] as int?) ?? 0,
-        voidNote: (m['void_note'] as String?) ?? '',
-      );
+    id: m['id']! as String,
+    receiptNo: m['receipt_no']! as String,
+    soldAt: m['sold_at']! as String,
+    cashier: m['cashier']! as String,
+    paymentMethod: m['payment_method']! as String,
+    depositMethod: m['deposit_method'] as String?,
+    customerId: m['customer_id'] as String?,
+    customerName: m['customer_name'] as String?,
+    customerPhone: m['customer_phone'] as String?,
+    subtotalCents: m['subtotal_cents']! as int,
+    itemDiscountCents: m['item_discount_cents']! as int,
+    orderDiscountCents: m['order_discount_cents']! as int,
+    roundingCents: m['rounding_cents']! as int,
+    totalCents: m['total_cents']! as int,
+    paidCents: m['paid_cents']! as int,
+    changeCents: m['change_cents']! as int,
+    creditOutstandingCents: m['credit_outstanding_cents']! as int,
+    linesJson: m['lines_json']! as String,
+    voided: (m['voided'] as int?) ?? 0,
+    voidNote: (m['void_note'] as String?) ?? '',
+  );
 }
 
 class HeldOrder {
@@ -132,12 +135,12 @@ class HeldOrder {
     required this.payloadJson,
   });
   factory HeldOrder.fromMap(Map<String, Object?> m) => HeldOrder(
-        id: m['id']! as String,
-        holdNo: m['hold_no']! as String,
-        cashier: m['cashier']! as String,
-        heldAt: m['held_at']! as String,
-        payloadJson: m['payload_json']! as String,
-      );
+    id: m['id']! as String,
+    holdNo: m['hold_no']! as String,
+    cashier: m['cashier']! as String,
+    heldAt: m['held_at']! as String,
+    payloadJson: m['payload_json']! as String,
+  );
 }
 
 class AuditEntry {
@@ -168,24 +171,27 @@ class AuditEntry {
     this.reason = '',
   });
   factory AuditEntry.fromMap(Map<String, Object?> m) => AuditEntry(
-        id: m['id']! as String,
-        occurredAt: m['occurred_at']! as String,
-        username: m['username']! as String,
-        role: (m['role'] as String?) ?? '',
-        action: m['action']! as String,
-        module: (m['module'] as String?) ?? 'pos',
-        productId: m['product_id'] as String?,
-        productName: m['product_name'] as String?,
-        context: (m['context'] as String?) ?? '',
-        oldValue: (m['old_value'] as String?) ?? '',
-        newValue: (m['new_value'] as String?) ?? '',
-        reason: (m['reason'] as String?) ?? '',
-      );
+    id: m['id']! as String,
+    occurredAt: m['occurred_at']! as String,
+    username: m['username']! as String,
+    role: (m['role'] as String?) ?? '',
+    action: m['action']! as String,
+    module: (m['module'] as String?) ?? 'pos',
+    productId: m['product_id'] as String?,
+    productName: m['product_name'] as String?,
+    context: (m['context'] as String?) ?? '',
+    oldValue: (m['old_value'] as String?) ?? '',
+    newValue: (m['new_value'] as String?) ?? '',
+    reason: (m['reason'] as String?) ?? '',
+  );
 }
 
 class PosRepository {
-  PosRepository({AppDatabase? database}) : _db = database ?? AppDatabase.instance;
+  PosRepository({AppDatabase? database})
+    : _db = database ?? AppDatabase.instance;
   final AppDatabase _db;
+  AppDatabase get database => _db;
+  late final AuthService auth = AuthService(database: _db);
 
   Future<List<Product>> searchProducts(
     String query, {
@@ -257,14 +263,14 @@ class PosRepository {
   }
 
   Future<void> upsertProduct(Product p) async {
-    final d = await _db.db;
-    await d.insert('products', p.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    if (p.priceCents < 0 || p.costCents < 0 || !p.stock.isFinite)
+      throw ArgumentError('商品资料无效');
+    await _saveEntity('product', 'products', p.toMap());
   }
 
   Future<void> softDeleteProduct(String id) async {
-    final d = await _db.db;
-    await d.update('products', {'is_deleted': 1}, where: 'id=?', whereArgs: [id]);
+    final p = await getProduct(id);
+    if (p != null) await upsertProduct(p.copyWith(isDeleted: 1));
   }
 
   Future<void> adjustStock({
@@ -274,15 +280,31 @@ class PosRepository {
     String reason = 'stocktake',
     String notes = '',
   }) async {
+    if (!newStock.isFinite) throw ArgumentError('库存数量无效');
     final d = await _db.db;
     await d.transaction((txn) async {
-      final rows =
-          await txn.query('products', where: 'id=?', whereArgs: [productId]);
+      final rows = await txn.query(
+        'products',
+        where: 'id=?',
+        whereArgs: [productId],
+      );
       if (rows.isEmpty) throw StateError('product missing');
       final old = (rows.first['stock'] as num).toDouble();
       final delta = newStock - old;
-      await txn.update('products', {'stock': newStock},
-          where: 'id=?', whereArgs: [productId]);
+      await queueMutation(txn, 'stocktake', productId, {
+        'product_id': await remoteEntityId(txn, 'product', productId),
+        'before_stock': old,
+        'stock': newStock,
+        'operator': operator,
+        'reason': reason,
+        'notes': notes,
+      });
+      await txn.update(
+        'products',
+        {'stock': newStock},
+        where: 'id=?',
+        whereArgs: [productId],
+      );
       await txn.insert('stock_moves', {
         'id': AppDatabase.newId(),
         'product_id': productId,
@@ -297,60 +319,76 @@ class PosRepository {
 
   Future<List<Customer>> listCustomers() async {
     final d = await _db.db;
-    final rows = await d.query('customers',
-        where: 'is_deleted=0', orderBy: 'name COLLATE NOCASE');
+    final rows = await d.query(
+      'customers',
+      where: 'is_deleted=0',
+      orderBy: 'name COLLATE NOCASE',
+    );
     return rows.map(Customer.fromMap).toList();
   }
 
-  Future<void> upsertCustomer(Customer c) async {
+  Future<void> _saveEntity(
+    String entity,
+    String table,
+    Map<String, Object?> row,
+  ) async {
     final d = await _db.db;
-    await d.insert(
-      'customers',
-      {
+    await d.transaction((txn) async {
+      final id = row['id'] as String;
+      final old = await txn.query(table, where: 'id=?', whereArgs: [id]);
+      await txn.insert(
+        table,
+        row,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      final remoteId = await remoteEntityId(txn, entity, id);
+      await queueMutation(txn, '${entity}_upsert', id, {
+        'row': {
+          ...row,
+          'id': remoteId,
+          if (entity == 'product') 'image_path': '',
+        },
+        'before': old.isEmpty ? null : {...old.first, 'id': remoteId},
+      });
+    });
+  }
+
+  Future<void> upsertCustomer(Customer c) =>
+      _saveEntity('customer', 'customers', {
         'id': c.id,
         'name': c.name,
         'phone': c.phone,
         'notes': c.notes,
         'is_deleted': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      });
+  Future<void> _deleteEntity(String entity, String table, String id) async {
+    final rows = await (await _db.db).query(
+      table,
+      where: 'id=?',
+      whereArgs: [id],
     );
+    if (rows.isNotEmpty)
+      await _saveEntity(entity, table, {...rows.first, 'is_deleted': 1});
   }
 
-  Future<void> softDeleteCustomer(String id) async {
-    final d = await _db.db;
-    await d.update('customers', {'is_deleted': 1},
-        where: 'id=?', whereArgs: [id]);
-  }
-
-  Future<List<Supplier>> listSuppliers() async {
-    final d = await _db.db;
-    final rows = await d.query('suppliers',
-        where: 'is_deleted=0', orderBy: 'name COLLATE NOCASE');
-    return rows.map(Supplier.fromMap).toList();
-  }
-
-  Future<void> upsertSupplier(Supplier s) async {
-    final d = await _db.db;
-    await d.insert(
-      'suppliers',
-      {
+  Future<void> softDeleteCustomer(String id) =>
+      _deleteEntity('customer', 'customers', id);
+  Future<List<Supplier>> listSuppliers() async => (await (await _db.db).query(
+    'suppliers',
+    where: 'is_deleted=0',
+    orderBy: 'name COLLATE NOCASE',
+  )).map(Supplier.fromMap).toList();
+  Future<void> upsertSupplier(Supplier s) =>
+      _saveEntity('supplier', 'suppliers', {
         'id': s.id,
         'name': s.name,
         'phone': s.phone,
         'email': s.email,
         'notes': s.notes,
         'is_deleted': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<void> softDeleteSupplier(String id) async {
-    final d = await _db.db;
-    await d.update('suppliers', {'is_deleted': 1},
-        where: 'id=?', whereArgs: [id]);
-  }
+      });
+  Future<void> softDeleteSupplier(String id) =>
+      _deleteEntity('supplier', 'suppliers', id);
 
   Future<SaleRecord> createSale({
     required CartState cart,
@@ -366,9 +404,14 @@ class PosRepository {
     if (isCredit && customer == null) {
       throw ArgumentError('Credit requires customer');
     }
-    if (isCredit && paidCents > 0 && (depositMethod == null || depositMethod.isEmpty)) {
+    if (isCredit &&
+        paidCents > 0 &&
+        (depositMethod == null || depositMethod.isEmpty)) {
       throw ArgumentError('Credit deposit requires deposit method');
     }
+    if (cart.items.isEmpty || cart.items.any((i) => i.qty <= 0))
+      throw ArgumentError('购物车数量无效');
+    final lines = cart.toLinesJson();
     final raw = cart.rawPayableCents;
     final total = cart.payableCents(isCredit: isCredit);
     if (!isCredit && paidCents < total) {
@@ -380,7 +423,7 @@ class PosRepository {
     final change = isCredit ? 0 : (paidCents - total);
     final outstanding = isCredit ? (raw - paidCents) : 0;
     final rounding = isCredit ? 0 : checkoutRoundingAdjustment(raw);
-    final receipt = await _db.nextReceiptNo();
+    var receipt = '';
     final id = AppDatabase.newId();
     final now = DateTime.now().toIso8601String();
     final record = {
@@ -401,22 +444,46 @@ class PosRepository {
       'paid_cents': paidCents,
       'change_cents': change,
       'credit_outstanding_cents': outstanding,
-      'lines_json': jsonEncode(cart.toLinesJson()),
+      'lines_json': jsonEncode(lines),
       'voided': 0,
       'void_note': '',
     };
     final d = await _db.db;
     await d.transaction((txn) async {
+      receipt = await _db.nextReceiptNo(executor: txn);
+      record['receipt_no'] = receipt;
+      final policy = await readSetting(txn, 'stock_policy', fallback: 'warn');
+      final requiredQty = <String, double>{};
+      for (final line in lines) {
+        final pid = line['productId'] as String;
+        requiredQty[pid] =
+            (requiredQty[pid] ?? 0) + (line['qty'] as num).toDouble();
+      }
+      for (final e in requiredQty.entries) {
+        final rows = await txn.query(
+          'products',
+          where: 'id=? AND is_deleted=0',
+          whereArgs: [e.key],
+        );
+        if (rows.isEmpty) throw StateError('商品不存在或已删除');
+        if (policy == 'block' && (rows.first['stock'] as num) < e.value)
+          throw StateError('库存不足：${rows.first['name_zh']}');
+        for (final line in lines.where((l) => l['productId'] == e.key)) {
+          line['unitCostCents'] = rows.first['cost_cents'];
+        }
+      }
+      record['lines_json'] = jsonEncode(lines);
       await txn.insert('sales', record);
-      for (final item in cart.items) {
+      await queueMutation(txn, 'sale_upload', id, {'sale_id': id});
+      for (final line in lines) {
         await txn.rawUpdate(
           'UPDATE products SET stock = stock - ? WHERE id = ?',
-          [item.qty.toDouble(), item.product.id],
+          [(line['qty'] as num).toDouble(), line['productId']],
         );
         await txn.insert('stock_moves', {
           'id': AppDatabase.newId(),
-          'product_id': item.product.id,
-          'change': -item.qty.toDouble(),
+          'product_id': line['productId'],
+          'change': -(line['qty'] as num).toDouble(),
           'reason': 'sale',
           'created_at': now,
           'operator': cashier,
@@ -439,21 +506,25 @@ class PosRepository {
     return rows.map(SaleRecord.fromMap).toList();
   }
 
-  Future<List<SaleRecord>> salesAll({int limit = 200}) async {
+  Future<List<SaleRecord>> salesAll({int? limit}) async {
     final d = await _db.db;
-    final rows =
-        await d.query('sales', orderBy: 'sold_at DESC', limit: limit);
+    final rows = await d.query('sales', orderBy: 'sold_at DESC', limit: limit);
     return rows.map(SaleRecord.fromMap).toList();
   }
 
   Future<void> voidSale(String id, String note) async {
     final d = await _db.db;
-    await d.update(
-      'sales',
-      {'voided': 1, 'void_note': note},
-      where: 'id=?',
-      whereArgs: [id],
-    );
+    await d.transaction((txn) async {
+      final rows = await txn.query('sales', where: 'id=?', whereArgs: [id]);
+      if (rows.isEmpty) throw StateError('销售不存在');
+      if (rows.first['voided'] == 1) return;
+      await reverseSale(txn, id, note);
+      await queueMutation(txn, 'sale_void', id, {
+        'client_sale_id': id,
+        'receipt_no': rows.first['receipt_no'],
+        'note': note,
+      });
+    });
   }
 
   Future<HeldOrder> holdCart({
@@ -472,7 +543,7 @@ class PosRepository {
             'productId': i.product.id,
             'qty': i.qty,
             'discountCents': i.discountCents,
-          }
+          },
       ],
     };
     final row = {
@@ -506,11 +577,13 @@ class PosRepository {
       final m = raw as Map<String, dynamic>;
       final product = await getProduct(m['productId'] as String);
       if (product == null) continue;
-      cart.items.add(CartItem(
-        product: product,
-        qty: m['qty'] as int,
-        discountCents: m['discountCents'] as int? ?? 0,
-      ));
+      cart.items.add(
+        CartItem(
+          product: product,
+          qty: m['qty'] as int,
+          discountCents: m['discountCents'] as int? ?? 0,
+        ),
+      );
     }
     final d = await _db.db;
     await d.delete('held_orders', where: 'id=?', whereArgs: [held.id]);
@@ -530,11 +603,42 @@ class PosRepository {
     required String operator,
     String notes = '',
   }) async {
+    if (lines.isEmpty || totalCents < 0) throw ArgumentError('进货内容无效');
+    for (final l in lines) {
+      final q = (l['qty'] as num).toDouble();
+      if (!q.isFinite || q <= 0 || ((l['unitCostCents'] as num?) ?? 0) < 0)
+        throw ArgumentError('进货数量或成本无效');
+    }
     final d = await _db.db;
     final id = AppDatabase.newId();
     final no = await _db.nextPurchaseNo();
     final now = DateTime.now().toIso8601String();
     await d.transaction((txn) async {
+      final remoteLines = <Map<String, Object?>>[];
+      for (final line in lines) {
+        final pid = line['productId'] as String;
+        if ((await txn.query(
+          'products',
+          where: 'id=? AND is_deleted=0',
+          whereArgs: [pid],
+        )).isEmpty)
+          throw StateError('进货商品不存在');
+        remoteLines.add({
+          ...line,
+          'productId': await remoteEntityId(txn, 'product', pid),
+        });
+      }
+      await queueMutation(txn, 'purchase', id, {
+        'id': id,
+        'purchase_no': no,
+        'purchased_at': now,
+        'supplier_id': await remoteEntityId(txn, 'supplier', supplierId),
+        'supplier_name': supplierName,
+        'lines': remoteLines,
+        'total_cents': totalCents,
+        'operator': operator,
+        'notes': notes,
+      });
       await txn.insert('purchases', {
         'id': id,
         'purchase_no': no,
@@ -600,7 +704,7 @@ class PosRepository {
           break;
       }
     }
-    final all = await salesAll(limit: 5000);
+    final all = await salesAll();
     var creditOpen = 0;
     for (final s in all) {
       if (s.voided == 0) creditOpen += s.creditOutstandingCents;
@@ -616,7 +720,6 @@ class PosRepository {
     };
   }
 
-
   /// Revenue / COGS / gross profit for [startDay]..[endDay] (inclusive, YYYY-MM-DD).
   /// COGS uses sale-line `unitCostCents` when present; otherwise sold qty × current
   /// product [cost_cents] (catalog estimate).
@@ -627,7 +730,8 @@ class PosRepository {
     final d = await _db.db;
     final rows = await d.query(
       'sales',
-      where: 'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
+      where:
+          'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
       whereArgs: [startDay, endDay],
     );
     final products = await d.query(
@@ -657,7 +761,8 @@ class PosRepository {
     final d = await _db.db;
     final rows = await d.query(
       'sales',
-      where: 'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
+      where:
+          'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
       whereArgs: [startDay, endDay],
     );
     final out = <String, int>{
@@ -684,20 +789,16 @@ class PosRepository {
     String notes = '',
   }) async {
     final d = await _db.db;
-    await d.insert(
-      'daily_closings',
-      {
-        'id': AppDatabase.newId(),
-        'business_date': businessDate,
-        'opening_cash_cents': openingCashCents,
-        'counted_cash_cents': countedCashCents,
-        'system_cash_cents': systemCashCents,
-        'notes': notes,
-        'closed_at': DateTime.now().toIso8601String(),
-        'closed_by': closedBy,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await d.insert('daily_closings', {
+      'id': AppDatabase.newId(),
+      'business_date': businessDate,
+      'opening_cash_cents': openingCashCents,
+      'counted_cash_cents': countedCashCents,
+      'system_cash_cents': systemCashCents,
+      'notes': notes,
+      'closed_at': DateTime.now().toIso8601String(),
+      'closed_by': closedBy,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, Object?>>> listClosings() async {
@@ -712,19 +813,17 @@ class PosRepository {
 
   Future<String> getSetting(String key, {String fallback = ''}) async {
     final d = await _db.db;
-    final rows =
-        await d.query('settings', where: 'key=?', whereArgs: [key]);
+    final rows = await d.query('settings', where: 'key=?', whereArgs: [key]);
     if (rows.isEmpty) return fallback;
     return rows.first['value'] as String? ?? fallback;
   }
 
   Future<void> setSetting(String key, String value) async {
     final d = await _db.db;
-    await d.insert(
-      'settings',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await d.insert('settings', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> clearDemoData() => _db.clearDemoTransactionalData();
@@ -788,7 +887,6 @@ class PosRepository {
     return rows.map(AuditEntry.fromMap).toList();
   }
 
-
   Future<List<Category>> listCategories({bool includeDeleted = false}) async {
     final d = await _db.db;
     final rows = await d.query(
@@ -814,8 +912,7 @@ class PosRepository {
         ? (existing.first['id'] as String)
         : (c.id.isEmpty ? AppDatabase.newId() : c.id);
     final cat = Category(id: id, name: name, isDeleted: 0, updatedAt: now);
-    await d.insert('categories', cat.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await _saveEntity('category','categories',cat.toMap());
     return cat;
   }
 
@@ -828,6 +925,8 @@ class PosRepository {
     final oldName = rows.first['name'] as String;
     final now = DateTime.now().toIso8601String();
     await d.transaction((txn) async {
+      final remote=await remoteEntityId(txn,'category',id);
+      await queueMutation(txn,'category_upsert',id,{'row':{...rows.first,'id':remote,'name':name,'updated_at':now},'before':{...rows.first,'id':remote}});
       await txn.update(
         'categories',
         {'name': name, 'updated_at': now, 'is_deleted': 0},
@@ -850,17 +949,18 @@ class PosRepository {
     final name = rows.first['name'] as String;
     var cleared = 0;
     await d.transaction((txn) async {
+      final remote=await remoteEntityId(txn,'category',id);
+      await queueMutation(txn,'category_upsert',id,{'row':{...rows.first,'id':remote,'is_deleted':1},'before':{...rows.first,'id':remote}});
       cleared = await txn.update(
         'products',
         {'category': ''},
         where: 'category=? AND is_deleted=0',
         whereArgs: [name],
       );
-      await txn.delete('categories', where: 'id=?', whereArgs: [id]);
+      await txn.update('categories', {'is_deleted':1}, where:'id=?',whereArgs:[id]);
     });
     return cleared;
   }
-
 
   Future<void> enqueueBarcodePrint({
     required String productId,
@@ -885,7 +985,9 @@ class PosRepository {
     });
   }
 
-  Future<List<Map<String, Object?>>> listBarcodeQueue({String status = 'pending'}) async {
+  Future<List<Map<String, Object?>>> listBarcodeQueue({
+    String status = 'pending',
+  }) async {
     final d = await _db.db;
     return d.query(
       'barcode_print_queue',
@@ -895,7 +997,10 @@ class PosRepository {
     );
   }
 
-  Future<void> clearBarcodeQueueItem(String id, {String status = 'done'}) async {
+  Future<void> clearBarcodeQueueItem(
+    String id, {
+    String status = 'done',
+  }) async {
     final d = await _db.db;
     await d.update(
       'barcode_print_queue',
@@ -955,6 +1060,7 @@ class PosRepository {
         if (DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true) h,
     ];
   }
+
   Future<int> customerOutstandingCents(String customerId) async {
     if (customerId.isEmpty) return 0;
     final d = await _db.db;
@@ -964,5 +1070,4 @@ class PosRepository {
     );
     return (rows.first['s'] as int?) ?? 0;
   }
-
 }

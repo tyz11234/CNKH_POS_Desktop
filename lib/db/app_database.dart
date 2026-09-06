@@ -13,13 +13,20 @@ import 'package:sqlite3/open.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/product.dart';
+import 'reliability_schema.dart';
 
 /// Local-first SQLite for CNKH POS Desktop (local-first).
 class AppDatabase {
   AppDatabase._();
   static final AppDatabase instance = AppDatabase._();
 
+  AppDatabase.forTesting(String path,{bool seed=false}):_testPath=path,_seedData=seed;
+  String? _testPath;
+  bool _seedData=true;
   Database? _db;
+  Future<Database>? _opening;
+  Future<void> close() async { await _db?.close();_db=null;_opening=null; }
+  Future<Database> get db => _opening ??= _open().catchError((Object e){_opening=null;throw e;});
   static bool _ffiReady = false;
 
   static void ensureFfi() {
@@ -53,14 +60,14 @@ class AppDatabase {
     _ffiReady = true;
   }
 
-  Future<Database> get db async {
+  Future<Database> _open() async {
     if (_db != null) return _db!;
     ensureFfi();
-    final dir = await getApplicationDocumentsDirectory();
-    final path = p.join(dir.path, 'cnkh_pos_desktop.db');
+    final dir = _testPath==null?await getApplicationDocumentsDirectory():null;
+    final path = _testPath??p.join(dir!.path, 'cnkh_pos_desktop.db');
     _db = await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -69,7 +76,7 @@ class AppDatabase {
               await db.rawQuery('SELECT COUNT(*) FROM products'),
             ) ??
             0;
-        if (count == 0) await _seed(db);
+        if (_seedData && count == 0) await _seed(db);
       },
     );
     return _db!;
@@ -222,10 +229,12 @@ CREATE TABLE audit_logs (
   new_value TEXT NOT NULL DEFAULT '',
   reason TEXT NOT NULL DEFAULT ''
 )''');
-    await _seed(db);
+    await ensureReliabilitySchema(db);
+    if(_seedData) await _seed(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if(oldVersion<7) await ensureReliabilitySchema(db);
     if (oldVersion < 2) {
       final cols = await db.rawQuery('PRAGMA table_info(sales)');
       final names = <String>{
@@ -381,7 +390,14 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
   Future<void> factoryResetLocalData() async {
     final d = await db;
     await d.transaction((txn) async {
+      // Reset business data without reopening unauthenticated admin setup.
+      await txn.delete('user_credentials', where: 'username<>?', whereArgs: ['admin']);
       for (final table in [
+        'sync_entity_ids',
+        'sync_outbox',
+        'sync_applied_operations',
+        'stock_reversals',
+        'lan_sync_mobile_sales',
         'sales',
         'held_orders',
         'purchases',
@@ -404,8 +420,8 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
     await _seed(d);
   }
 
-  Future<String> nextReceiptNo() async {
-    final d = await db;
+  Future<String> nextReceiptNo({DatabaseExecutor? executor}) async {
+    final d=executor??await db;
     final day = DateTime.now().toIso8601String().substring(0, 10).replaceAll('-', '');
     final rows = await d.rawQuery(
       "SELECT COUNT(*) AS c FROM sales WHERE receipt_no LIKE ?",

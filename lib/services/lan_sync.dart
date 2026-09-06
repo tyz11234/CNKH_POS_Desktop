@@ -105,7 +105,7 @@ bool looksLikePairingPayload(String raw) {
 
 class LanSyncClient {
   LanSyncClient(this.repo, {AppDatabase? database})
-      : _db = database ?? AppDatabase.instance;
+      : _db = database ?? repo.database;
 
   final PosRepository repo;
   final AppDatabase _db;

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
+import '../services/pos_repository.dart';
 import '../theme/cnkh_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   final ValueChanged<AppUser> onLoggedIn;
+  final PosRepository repo;
 
-  const LoginScreen({super.key, required this.onLoggedIn});
+  const LoginScreen({super.key, required this.onLoggedIn,required this.repo});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -44,36 +46,23 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  /// Map username hints → role, but segmented control is authoritative.
-  AppUser _resolveUser(String username, AppRole selectedRole) {
-    final u = username.trim().toLowerCase();
-    // Username can reinforce selection for demo accounts.
-    if (u == 'admin' || u.startsWith('admin')) {
-      return AppUser(username: username.trim(), role: AppRole.admin);
-    }
-    if (u == 'staff' || u == 'staff1' || u.startsWith('staff')) {
-      return AppUser(username: username.trim(), role: AppRole.staff);
-    }
-    // Otherwise use the segmented control selection.
-    return AppUser(username: username.trim(), role: selectedRole);
-  }
-
+  String? _setupPin;
   Future<void> _submit() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (_userCtrl.text.trim().isEmpty || _pinCtrl.text.trim().isEmpty) {
-      setState(() {
-        _busy = false;
-        _error = '请输入账号与 PIN / Enter username and PIN';
-      });
-      return;
-    }
-    if (!mounted) return;
-    // Demo usernames admin*/staff* map to role; otherwise use segmented control.
-    widget.onLoggedIn(_resolveUser(_userCtrl.text, _role));
+    if(_busy)return;
+    setState((){_busy=true;_error=null;});
+    try{
+      final username=_userCtrl.text.trim();final pin=_pinCtrl.text.trim();
+      if(await widget.repo.auth.needsSetup()){
+        if(username.toLowerCase()!='admin')throw StateError('首次使用请选管理员，用 admin 设置 6–12 位 PIN');
+        if(!RegExp(r'^\d{6,12}$').hasMatch(pin))throw StateError('请设置 6–12 位数字 PIN');
+        if(_setupPin==null){_setupPin=pin;_pinCtrl.clear();throw StateError('请再次输入刚才的 PIN，然后点击登录完成初始化');}
+        if(_setupPin!=pin){_setupPin=null;throw StateError('两次 PIN 不一致，请重新设置');}
+        await widget.repo.auth.initializeAdmin(pin);_setupPin=null;
+      }
+      final user=await widget.repo.auth.login(username,pin);
+      if(mounted)widget.onLoggedIn(user);
+    }catch(e){if(mounted)setState(()=>_error='$e');}
+    finally{if(mounted)setState(()=>_busy=false);}
   }
 
   @override
@@ -142,8 +131,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '选择角色后输入账号与 PIN（演示任意 PIN）\n'
-                              'Pick role, then username + PIN (any PIN for demo)',
+                              '输入账号与已设置的 PIN\n'
+                              'Sign in with your assigned account and PIN',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             const SizedBox(height: 16),
@@ -219,8 +208,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      '演示：admin → 管理员；staff / staff1 → 员工\n'
-                      'Demo: admin → Admin; staff / staff1 → Staff',
+                      '首次使用：admin 设置 PIN；员工 PIN 由管理员设置\n'
+                      'First use: set admin PIN; admin assigns staff PINs',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFFC3D2E5), fontSize: 12),
                     ),

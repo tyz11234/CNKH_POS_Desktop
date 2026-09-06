@@ -44,6 +44,7 @@ class _DesktopShellState extends State<DesktopShell> {
   final CartState _cart = CartState();
   late final LanPairingHost _host;
   StreamSubscription<int>? _hostSub;
+  StreamSubscription<void>? _hostDataSub;
   int _connectedClients = 0;
   int _pending = 0;
   int _overdueHolds = 0;
@@ -54,6 +55,7 @@ class _DesktopShellState extends State<DesktopShell> {
   void initState() {
     super.initState();
     _host = LanPairingHost.shared(widget.repo);
+    _hostDataSub=_host.dataChanges.listen((_)=>_bumpData());
     _connectedClients = _host.connectedClients;
     _hostSub = _host.connectionCounts.listen((count) {
       if (!mounted) return;
@@ -86,6 +88,7 @@ class _DesktopShellState extends State<DesktopShell> {
   void dispose() {
     _holdPoll?.cancel();
     _hostSub?.cancel();
+    _hostDataSub?.cancel();
     super.dispose();
   }
 

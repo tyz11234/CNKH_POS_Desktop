@@ -451,6 +451,19 @@ class UsersPage extends StatefulWidget {
 }
 
 class _UsersPageState extends State<UsersPage> {
+  Future<void> _setPin(String username) async {
+    final pin=TextEditingController();final confirmation=TextEditingController();
+    final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title:Text('设置 $username PIN'),
+      content:Column(mainAxisSize:MainAxisSize.min,children:[
+        TextField(controller:pin,obscureText:true,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'新 PIN（6–12 位数字）')),
+        TextField(controller:confirmation,obscureText:true,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'再次输入 PIN')),
+      ]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('取消')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('保存'))]));
+    try{if(ok==true){if(pin.text!=confirmation.text)throw StateError('两次 PIN 不一致');await widget.repo.auth.setUserPin(username,pin.text);if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('PIN 已保存')));}}
+    catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
+    finally{pin.dispose();confirmation.dispose();}
+  }
+
   List<Map<String, Object?>> _users = [];
   @override
   void initState() {
@@ -463,7 +476,7 @@ class _UsersPageState extends State<UsersPage> {
   @override
   Widget build(BuildContext context) {
     return _ScaffoldPage(
-      title: '员工账号 (demo)',
+      title: '员工账号',
       body: ListView.builder(
         itemCount: _users.length,
         itemBuilder: (context, i) {
@@ -475,6 +488,7 @@ class _UsersPageState extends State<UsersPage> {
             ),
             title: Text('${u['display_name']}'),
             subtitle: Text('${u['username']} · ${u['role']}'),
+            onTap:()=>_setPin(u['username'] as String),
           );
         },
       ),
