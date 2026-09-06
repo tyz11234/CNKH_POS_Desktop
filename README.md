@@ -79,6 +79,16 @@ Independent Attachment Outbox → Desktop Original Invoice attachment
 
 Purchase 与附件是两个独立 operation。图片失败只重试图片，不会重放 Purchase，也不会重复增加库存。
 
+### Purchase History 双端一致性
+
+Desktop 通过经过 Token 认证的 `/api/v1/purchases` 提供结构化 Purchase History，Mobile 会同步供应商、Invoice、费用、商品明细、OCR evidence 与 Reverse 状态。
+
+- Desktop 建立的 Purchase 在 Mobile 标记为 `desktop_sync`，作为**只读历史**显示。
+- Mobile 拉取 Desktop Purchase History 只更新历史资料，**不会再次增加库存、修改成本或新增 stock move**。
+- Desktop 后续 Reverse 时，Mobile 只镜像 Reverse 状态与原因；库存仍由 Desktop Catalog 的权威结果同步，不会在 Mobile 再扣一次。
+- Mobile UI 不为 Desktop-origin Purchase 提供本地 Reverse；Repository/SQLite 还有第二层保护，防止绕过 UI 后误执行本地库存反转。
+- Mobile 自己确认并上传的 Purchase 继续保留原本的安全 Reverse / Outbox 幂等逻辑，不会因为 Desktop 回传历史而变成第二张记录。
+
 ## OCR P0 安全规则
 
 ### Conversion
@@ -174,7 +184,7 @@ Desktop 是 LAN 权威主机，协议继续为 `cnkh-sync:v1`。
 - Products / Categories / Customers / Suppliers
 - Product images
 - Sales / Void
-- Purchases / OCR Purchases / Purchase Reverse
+- Purchases / OCR Purchases / Purchase Reverse / Purchase History
 - Original Invoice attachments
 - Stocktake
 - Barcode print queue
@@ -243,6 +253,7 @@ Full Fix 的自动化测试重点包括：
 - Backup create / validate / restore / rollback safety
 - OCR Purchase / duplicate invoice / Admin override audit
 - Purchase Reverse 后续库存变化阻止
+- Desktop → Mobile Purchase History localhost HTTP / read-only stock safety
 - Original attachment SHA-256 / Lost-ACK / localhost HTTP
 - 中文附件文件名导出
 - Product image authenticated endpoint
