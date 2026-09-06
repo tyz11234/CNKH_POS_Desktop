@@ -190,6 +190,7 @@ class PosRepository {
   PosRepository({AppDatabase? database})
     : _db = database ?? AppDatabase.instance;
   final AppDatabase _db;
+  AppDatabase get database => _db;
   late final AuthService auth = AuthService(database: _db);
 
   Future<List<Product>> searchProducts(

@@ -45,7 +45,7 @@ class LanPairingHost {
     AppDatabase? database,
     this.configuredPort = 8787,
     this.name = 'CNKH-PC',
-  }) : _db = database ?? AppDatabase.instance;
+  }) : _db = database ?? repo.database;
 
   LanPairingHost.forTesting(
     this.repo, {
@@ -53,10 +53,10 @@ class LanPairingHost {
     this.configuredPort = 0,
     this.name = 'CNKH-PC',
   }) : _db = database;
-  static LanPairingHost? _shared;
+  static final Expando<LanPairingHost> _hosts = Expando<LanPairingHost>();
 
   static LanPairingHost shared(PosRepository repo) {
-    return _shared ??= LanPairingHost._(repo);
+    return _hosts[repo.database] ??= LanPairingHost._(repo);
   }
 
   static const String _tokenSetting = 'lan_host_token';
@@ -85,7 +85,10 @@ class LanPairingHost {
   Stream<void> get dataChanges => _dataChanges.stream;
   Stream<int> get connectionCounts => _connectionCounts.stream;
 
-  Future<void> start() async {
+  Future<void>? _starting;
+  Future<void> start() => _starting ??= _start().whenComplete(() => _starting = null);
+
+  Future<void> _start() async {
     if (_server != null) return;
 
     _token = await _ensureToken();
@@ -163,6 +166,7 @@ class LanPairingHost {
   }
 
   Future<void> stop() async {
+    try { await _starting; } catch (_) {}
     _changePoll?.cancel();
     _changePoll = null;
     for (final socket in _sockets.toList()) {

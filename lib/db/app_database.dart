@@ -391,6 +391,12 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
     final d = await db;
     await d.transaction((txn) async {
       for (final table in [
+        'user_credentials',
+        'sync_entity_ids',
+        'sync_outbox',
+        'sync_applied_operations',
+        'stock_reversals',
+        'lan_sync_mobile_sales',
         'sales',
         'held_orders',
         'purchases',

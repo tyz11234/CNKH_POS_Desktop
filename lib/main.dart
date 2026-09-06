@@ -31,7 +31,8 @@ void main() {
 }
 
 class CnkhPosDesktopApp extends StatelessWidget {
-  const CnkhPosDesktopApp({super.key});
+  const CnkhPosDesktopApp({super.key, this.repository});
+  final PosRepository? repository;
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +40,14 @@ class CnkhPosDesktopApp extends StatelessWidget {
       title: '黄金发宝号 POS Desktop',
       debugShowCheckedModeBanner: false,
       theme: buildCnkhTheme(),
-      home: const _Root(),
+      home: _Root(repository: repository),
     );
   }
 }
 
 class _Root extends StatefulWidget {
-  const _Root();
+  const _Root({this.repository});
+  final PosRepository? repository;
   @override
   State<_Root> createState() => _RootState();
 }
@@ -53,7 +55,7 @@ class _Root extends StatefulWidget {
 class _RootState extends State<_Root> {
   AppUser? _user;
   final _qr = QrStorage();
-  final _repo = PosRepository();
+  late final _repo = widget.repository ?? PosRepository();
 
   @override
   void initState() {
