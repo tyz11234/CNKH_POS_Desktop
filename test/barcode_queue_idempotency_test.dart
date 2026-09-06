@@ -9,8 +9,6 @@ import 'package:cnkh_pos_desktop/services/lan_pairing_host.dart';
 import 'package:cnkh_pos_desktop/services/pos_repository.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   group('barcode queue LAN idempotency', () {
     late Directory dir;
     late AppDatabase database;
