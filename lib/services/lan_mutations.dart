@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../db/app_database.dart';
 import '../db/ocr_purchase_schema.dart';
+import 'purchase_reverse_safety.dart';
 import 'sale_reversal.dart';
 
 Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
@@ -219,84 +220,14 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         limit: 1,
       );
       if (rows.isEmpty) throw StateError('撤销目标进货尚未同步');
-      final purchase = rows.first;
-      if (purchase['reversed'] != 1) {
-        final lines = (jsonDecode(purchase['lines_json'] as String) as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        for (final line in lines) {
-          final productId = line['productId']?.toString() ?? '';
-          final qty = (line['qty'] as num?)?.toDouble() ?? 0;
-          if (productId.isEmpty || !qty.isFinite || qty <= 0) {
-            throw const FormatException('invalid reversal line');
-          }
-          final productRows = await txn.query(
-            'products',
-            where: 'id=? AND is_deleted=0',
-            whereArgs: [productId],
-            limit: 1,
-          );
-          if (productRows.isEmpty) throw StateError('撤销进货商品不存在');
-          final currentCost =
-              (productRows.first['cost_cents'] as num?)?.toInt() ?? 0;
-          final purchaseCost = (line['unitCostCents'] as num?)?.toInt();
-          final beforeCost = (line['beforeCostCents'] as num?)?.toInt();
-          final update = <String, Object?>{
-            'stock': (productRows.first['stock'] as num).toDouble() - qty,
-          };
-          if (purchaseCost != null &&
-              beforeCost != null &&
-              currentCost == purchaseCost) {
-            update['cost_cents'] = beforeCost;
-          }
-          await txn.update(
-            'products',
-            update,
-            where: 'id=?',
-            whereArgs: [productId],
-          );
-          await txn.insert('stock_moves', {
-            'id': AppDatabase.newId(),
-            'product_id': productId,
-            'change': -qty,
-            'reason': 'purchase_reversal',
-            'created_at': now,
-            'operator': p['operator'] ?? 'mobile-sync',
-            'notes': '${purchase['purchase_no']} · ${p['reason'] ?? 'reversal'}',
-          });
-        }
-        await txn.insert('purchase_reversals', {
-          'id': AppDatabase.newId(),
-          'purchase_id': purchaseId,
-          'reversed_at': now,
-          'reversed_by': p['operator'] ?? 'mobile-sync',
-          'reason': p['reason'] ?? 'reversal',
-          'notes': p['notes'] ?? '',
-        });
-        await txn.update(
-          'purchases',
-          {
-            'reversed': 1,
-            'reversed_at': now,
-            'reversed_by': p['operator'] ?? 'mobile-sync',
-            'reversal_reason': p['reason'] ?? 'reversal',
-            'reversal_notes': p['notes'] ?? '',
-          },
-          where: 'id=?',
-          whereArgs: [purchaseId],
-        );
-        await txn.insert('purchase_audit_log', {
-          'id': AppDatabase.newId(),
-          'purchase_id': purchaseId,
-          'occurred_at': now,
-          'username': p['operator'] ?? 'mobile-sync',
-          'action': 'purchase_reversed_from_mobile',
-          'field_name': 'status',
-          'original_value': 'committed',
-          'final_value': 'reversed',
-          'details': '${p['reason'] ?? ''}${(p['notes']?.toString() ?? '').isEmpty ? '' : ': ${p['notes']}'}',
-        });
-      }
+      await reversePurchaseSafely(
+        txn,
+        purchase: rows.first,
+        operator: p['operator']?.toString() ?? 'mobile-sync',
+        reason: p['reason']?.toString() ?? 'reversal',
+        notes: p['notes']?.toString() ?? '',
+        occurredAt: now,
+      );
     } else if (kind == 'sale_void') {
       var rows = await txn.rawQuery(
         'SELECT sales.* FROM sales JOIN lan_sync_mobile_sales m ON sales.id=m.sale_id WHERE m.client_sale_id=?',
