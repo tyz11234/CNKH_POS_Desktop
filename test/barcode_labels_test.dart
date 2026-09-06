@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cnkh_pos_desktop/services/barcode_labels.dart';
 import 'package:cnkh_pos_desktop/services/pos_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +8,7 @@ import 'package:image/image.dart' as img;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  void expectRealBars(List<int> bytes, {int sampleY = 80}) {
+  void expectRealBars(Uint8List bytes, {int sampleY = 80}) {
     final decoded = img.decodePng(bytes);
     expect(decoded, isNotNull);
     final image = decoded!;
