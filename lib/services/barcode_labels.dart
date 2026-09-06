@@ -99,7 +99,7 @@ class BarcodeLabelService {
     // Integer pixel bounds make the exported PNG deterministic and scanner-safe.
     final raster = img.Image(width: width, height: height, numChannels: 4);
     img.fill(raster, color: img.ColorRgba8(255, 255, 255, 255));
-    const black = img.ColorRgba8(0, 0, 0, 255);
+    final black = img.ColorRgba8(0, 0, 0, 255);
     for (final bar in blackBars) {
       final x1 = bar.left.floor().clamp(0, width - 1);
       final y1 = bar.top.floor().clamp(0, height - 1);
