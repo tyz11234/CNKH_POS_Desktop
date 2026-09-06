@@ -399,6 +399,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'cost_snapshot',
           'suppliers_v1',
           'product_images_v1',
+          'purchases_v1',
           'barcode_queue_idempotency',
         ],
         'stock_policy': await repo.stockPolicy(),
@@ -437,6 +438,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     }
     if (request.method == 'GET' && path == '/api/v1/categories') {
       await _getCategories(request);
+      return;
+    }
+    if (request.method == 'GET' && path == '/api/v1/purchases') {
+      await _getPurchases(request);
       return;
     }
     if (request.method == 'GET' && path == '/api/v1/sales') {
@@ -902,6 +907,54 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'name': m['name'],
       'is_deleted': m['is_deleted'],
       'updated_at': updatedAt ?? m['updated_at'] ?? '',
+    };
+  }
+
+  Future<void> _getPurchases(HttpRequest request) async {
+    final db = await _db.db;
+    final rows = await db.query('purchases', orderBy: 'purchased_at ASC');
+    final items = <Map<String, Object?>>[];
+    for (final row in rows) {
+      items.add(_purchasePayload(row));
+    }
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'items': items,
+      'cursor': await _latestChangeSeq(db),
+    });
+  }
+
+  Map<String, Object?> _purchasePayload(Map<String, Object?> m) {
+    Object? lines;
+    try {
+      lines = jsonDecode(m['lines_json']?.toString() ?? '[]');
+    } catch (_) {
+      lines = <Object?>[];
+    }
+    return <String, Object?>{
+      'pc_id': m['id'],
+      'purchase_no': m['purchase_no'],
+      'supplier_id': m['supplier_id'],
+      'supplier_name': m['supplier_name'],
+      'purchased_at': m['purchased_at'],
+      'total_cents': m['total_cents'],
+      'lines': lines,
+      'notes': m['notes'],
+      'invoice_no': m['invoice_no'],
+      'invoice_date': m['invoice_date'],
+      'discount_cents': m['discount_cents'],
+      'tax_cents': m['tax_cents'],
+      'delivery_fee_cents': m['delivery_fee_cents'],
+      'other_fee_cents': m['other_fee_cents'],
+      'source': m['source'],
+      'draft_id': m['draft_id'],
+      'ocr_raw_text': m['ocr_raw_text'],
+      'reversed': m['reversed'],
+      'reversed_at': m['reversed_at'],
+      'reversed_by': m['reversed_by'],
+      'reversal_reason': m['reversal_reason'],
+      'reversal_notes': m['reversal_notes'],
+      'is_deleted': 0,
     };
   }
 
