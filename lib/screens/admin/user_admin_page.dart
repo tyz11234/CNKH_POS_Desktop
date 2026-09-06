@@ -298,7 +298,6 @@ class _UserAdminPageState extends State<UserAdminPage> {
                           ),
                         ],
                       ),
-                      onDoubleTap: _busy ? null : () => _edit(user),
                     );
                   },
                 ),
