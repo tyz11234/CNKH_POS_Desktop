@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/app_database.dart';
@@ -208,6 +209,66 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
           'details': 'invoice=${p['invoice_no'] ?? ''}',
         });
       }
+    } else if (kind == 'purchase_attachment') {
+      final attachmentId = p['attachment_id']?.toString().trim() ?? '';
+      final purchaseId = p['purchase_id']?.toString().trim() ?? '';
+      final expectedHash = p['content_hash']?.toString().toLowerCase().trim() ?? '';
+      final encoded = p['base64']?.toString() ?? '';
+      if (attachmentId.isEmpty ||
+          purchaseId.isEmpty ||
+          expectedHash.isEmpty ||
+          encoded.isEmpty) {
+        throw const FormatException('invalid purchase attachment');
+      }
+      if ((await txn.query(
+        'purchases',
+        where: 'id=?',
+        whereArgs: [purchaseId],
+        limit: 1,
+      )).isEmpty) {
+        throw StateError('附件对应的进货尚未同步');
+      }
+      final bytes = base64Decode(encoded);
+      if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
+        throw const FormatException('invalid attachment size');
+      }
+      final actualHash = _hex((await Sha256().hash(bytes)).bytes);
+      if (actualHash != expectedHash) {
+        throw StateError('附件校验失败，请重新同步');
+      }
+      final existingAttachment = await txn.query(
+        'purchase_attachments',
+        where: 'id=?',
+        whereArgs: [attachmentId],
+        limit: 1,
+      );
+      if (existingAttachment.isNotEmpty) {
+        if (existingAttachment.first['content_hash']?.toString() != expectedHash) {
+          throw StateError('附件 ID 冲突');
+        }
+      } else {
+        await txn.insert('purchase_attachments', {
+          'id': attachmentId,
+          'purchase_id': purchaseId,
+          'kind': p['kind']?.toString() ?? 'invoice_original',
+          'filename': p['filename']?.toString() ?? '',
+          'content_hash': expectedHash,
+          'content': bytes,
+          'source': 'mobile',
+          'created_at': p['created_at']?.toString() ?? now,
+        });
+        await txn.insert('purchase_audit_log', {
+          'id': AppDatabase.newId(),
+          'purchase_id': purchaseId,
+          'occurred_at': now,
+          'username': p['operator']?.toString() ?? 'mobile-sync',
+          'action': 'invoice_attachment_received',
+          'field_name': 'attachment',
+          'original_value': '',
+          'final_value': attachmentId,
+          'details': 'hash=$expectedHash; kind=${p['kind'] ?? 'invoice_original'}',
+        });
+      }
     } else if (kind == 'purchase_reverse') {
       final purchaseId = p['purchase_id']?.toString() ?? '';
       if (purchaseId.isEmpty) {
@@ -252,3 +313,6 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
     await txn.insert('sync_applied_operations', {'id': id, 'applied_at': now});
   });
 }
+
+String _hex(List<int> bytes) =>
+    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
