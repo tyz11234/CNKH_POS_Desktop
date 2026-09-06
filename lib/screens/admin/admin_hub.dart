@@ -12,6 +12,7 @@ import 'backup_restore_page.dart';
 import 'entities_admin_page.dart';
 import 'products_admin.dart';
 import 'purchase_create_screen.dart';
+import 'purchase_detail_page.dart';
 import 'user_admin_page.dart';
 
 class AdminHub extends StatelessWidget {
@@ -252,6 +253,20 @@ class _PurchasesPageState extends State<PurchasesPage> {
     if (ok == true) await _load();
   }
 
+  Future<void> _openDetail(Map<String, Object?> purchase) async {
+    final id = purchase['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => PurchaseDetailPage(
+          repo: widget.repo,
+          purchaseId: id,
+        ),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return _ScaffoldPage(
@@ -300,9 +315,17 @@ class _PurchasesPageState extends State<PurchasesPage> {
                       return ListTile(
                         title: Text('${r['purchase_no']} · ${r['supplier_name']}'),
                         subtitle: Text('${r['purchased_at']}'),
-                        trailing: MoneyText(
-                          amountCents: r['total_cents'] as int,
-                          fontSize: 14,
+                        onTap: () => _openDetail(r),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            MoneyText(
+                              amountCents: r['total_cents'] as int,
+                              fontSize: 14,
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right),
+                          ],
                         ),
                       );
                     },
