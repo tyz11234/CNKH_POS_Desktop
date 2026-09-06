@@ -36,7 +36,6 @@ String buildPairingPayload({
 }
 
 /// Desktop is the authoritative LAN host for Mobile clients.
-///
 /// Database triggers keep a monotonic change log so catalog/sales endpoints can
 /// serve real incremental updates without changing the POS business tables.
 class LanPairingHost {
@@ -86,7 +85,8 @@ class LanPairingHost {
   Stream<int> get connectionCounts => _connectionCounts.stream;
 
   Future<void>? _starting;
-  Future<void> start() => _starting ??= _start().whenComplete(() => _starting = null);
+  Future<void> start() =>
+      _starting ??= _start().whenComplete(() => _starting = null);
 
   Future<void> _start() async {
     if (_server != null) return;
@@ -135,7 +135,9 @@ class LanPairingHost {
         }),
       );
     } on SocketException catch (e) {
-      throw StateError('无法启动局域网同步服务 :$configuredPort。端口可能被占用或被系统阻止。$e');
+      throw StateError(
+        '无法启动局域网同步服务 :$configuredPort。端口可能被占用或被系统阻止。$e',
+      );
     }
   }
 
@@ -147,7 +149,11 @@ class LanPairingHost {
     }
     final baseUrl = 'http://$_localIp:$port';
     return LanPairingOffer(
-      payload: buildPairingPayload(baseUrl: baseUrl, token: _token, name: name),
+      payload: buildPairingPayload(
+        baseUrl: baseUrl,
+        token: _token,
+        name: name,
+      ),
       baseUrl: baseUrl,
       token: _token,
       name: name,
@@ -166,7 +172,9 @@ class LanPairingHost {
   }
 
   Future<void> stop() async {
-    try { await _starting; } catch (_) {}
+    try {
+      await _starting;
+    } catch (_) {}
     _changePoll?.cancel();
     _changePoll = null;
     for (final socket in _sockets.toList()) {
@@ -240,6 +248,18 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       '''CREATE TRIGGER IF NOT EXISTS lan_sync_customers_ad AFTER DELETE ON customers BEGIN
         INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
         VALUES('customer',OLD.id,OLD.name,1,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_suppliers_ai AFTER INSERT ON suppliers BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('supplier',NEW.id,NEW.name,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_suppliers_au AFTER UPDATE ON suppliers BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('supplier',NEW.id,NEW.name,NEW.is_deleted,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_suppliers_ad AFTER DELETE ON suppliers BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('supplier',OLD.id,OLD.name,1,$nowSql);
       END''',
       '''CREATE TRIGGER IF NOT EXISTS lan_sync_categories_ai AFTER INSERT ON categories BEGIN
         INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
@@ -317,7 +337,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       _lastChangeSeq = maxSeq;
       _dataChanges.add(null);
       if (hasCatalog) {
-        _publish(<String, Object?>{'type': 'catalog', 'data_cursor': maxSeq});
+        _publish(<String, Object?>{
+          'type': 'catalog',
+          'data_cursor': maxSeq,
+        });
       }
       if (hasSale) {
         _publish(<String, Object?>{'type': 'sale', 'data_cursor': maxSeq});
@@ -349,6 +372,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'stable_ids',
           'void_sales',
           'cost_snapshot',
+          'suppliers_v1',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -372,6 +396,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       await _getCustomers(request);
       return;
     }
+    if (request.method == 'GET' && path == '/api/v1/suppliers') {
+      await _getSuppliers(request);
+      return;
+    }
     if (request.method == 'GET' && path == '/api/v1/categories') {
       await _getCategories(request);
       return;
@@ -383,8 +411,9 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     if (request.method == 'POST' && path == '/api/v1/mutations') {
       final body = await _readJson(request);
       final operations = body['operations'];
-      if (operations is! List)
+      if (operations is! List) {
         throw const FormatException('operations must be a list');
+      }
       final db = await _db.db;
       final ack = <String>[];
       String? error;
@@ -671,6 +700,70 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     };
   }
 
+  Future<void> _getSuppliers(HttpRequest request) async {
+    final db = await _db.db;
+    final since = _requestedCursor(request);
+    final cursor = await _latestChangeSeq(db);
+    final items = <Map<String, Object?>>[];
+
+    if (since <= 0) {
+      final rows = await db.query('suppliers', orderBy: 'name');
+      for (final row in rows) {
+        items.add(_supplierPayload(row));
+      }
+    } else {
+      final changes = await _changesFor(db, 'supplier', since);
+      for (final entry in changes.entries) {
+        final change = entry.value;
+        final rows = await db.query(
+          'suppliers',
+          where: 'id=?',
+          whereArgs: <Object?>[entry.key],
+          limit: 1,
+        );
+        if (rows.isEmpty) {
+          items.add(<String, Object?>{
+            'pc_id': entry.key,
+            'name': change['entity_name'] ?? '',
+            'phone': '',
+            'email': '',
+            'notes': '',
+            'is_deleted': 1,
+            'updated_at': change['changed_at'] ?? '',
+          });
+        } else {
+          items.add(
+            _supplierPayload(
+              rows.first,
+              updatedAt: change['changed_at']?.toString() ?? '',
+            ),
+          );
+        }
+      }
+    }
+
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'items': items,
+      'cursor': cursor,
+    });
+  }
+
+  Map<String, Object?> _supplierPayload(
+    Map<String, Object?> m, {
+    String updatedAt = '',
+  }) {
+    return <String, Object?>{
+      'pc_id': m['id'],
+      'name': m['name'],
+      'phone': m['phone'],
+      'email': m['email'],
+      'notes': m['notes'],
+      'is_deleted': m['is_deleted'],
+      'updated_at': updatedAt,
+    };
+  }
+
   Future<void> _getCategories(HttpRequest request) async {
     final db = await _db.db;
     final since = _requestedCursor(request);
@@ -803,7 +896,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'subtotal_cents': m['subtotal_cents'],
       'discount_cents':
           ((m['item_discount_cents'] as int?) ?? 0) +
-          ((m['order_discount_cents'] as int?) ?? 0),
+              ((m['order_discount_cents'] as int?) ?? 0),
       'order_discount_cents': m['order_discount_cents'],
       'total_cents': m['total_cents'],
       'paid_cents': m['paid_cents'],
@@ -849,17 +942,18 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
             limit: 1,
           );
           if (mapped.isNotEmpty) {
-            if (_asInt(sale['voided']) == 1)
+            if (_asInt(sale['voided']) == 1) {
               await reverseSale(
                 txn,
                 mapped.first['sale_id'] as String,
                 sale['void_note']?.toString() ?? 'void',
               );
+            }
             return <String, Object?>{
               'inserted': false,
               'receipt':
                   mapped.first['canonical_receipt']?.toString() ??
-                  originalReceipt,
+                      originalReceipt,
             };
           }
         }
@@ -908,37 +1002,44 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         final requiredQty = <String, double>{};
         for (final raw in (sale['lines'] as List? ?? [])) {
           final line = Map<String, Object?>.from(raw as Map);
-          var pid = (line['productId'] ?? line['product_id'])?.toString() ?? '';
+          var pid =
+              (line['productId'] ?? line['product_id'])?.toString() ?? '';
           if (pid.startsWith('pc-')) pid = pid.substring(3);
           var products = await txn.query(
             'products',
             where: 'id=?',
             whereArgs: [pid],
           );
-          if (products.isEmpty && (line['sku']?.toString() ?? '').isNotEmpty)
+          if (products.isEmpty &&
+              (line['sku']?.toString() ?? '').isNotEmpty) {
             products = await txn.query(
               'products',
               where: 'sku=? AND is_deleted=0',
               whereArgs: [line['sku']],
             );
+          }
           if (products.length != 1 ||
-              (!incomingVoided && products.first['is_deleted'] == 1))
+              (!incomingVoided && products.first['is_deleted'] == 1)) {
             throw StateError('销售商品未找到或不唯一：${line['nameZh'] ?? pid}');
+          }
           pid = products.first['id'] as String;
           final qty = _asDouble(line['qty'] ?? line['quantity']);
-          if (!qty.isFinite || qty <= 0)
+          if (!qty.isFinite || qty <= 0) {
             throw const FormatException('invalid quantity');
+          }
           requiredQty[pid] = (requiredQty[pid] ?? 0) + qty;
           if (!incomingVoided &&
               policy == 'block' &&
-              (products.first['stock'] as num) < requiredQty[pid]!)
+              (products.first['stock'] as num) < requiredQty[pid]!) {
             throw StateError('库存不足，销售保留在手机待处理');
+          }
           lines.add({...line, 'productId': pid});
         }
         if (lines.isEmpty) throw const FormatException('empty sale');
         String? customerId = sale['customer_id']?.toString();
-        if (customerId != null && customerId.startsWith('pc-c-'))
+        if (customerId != null && customerId.startsWith('pc-c-')) {
           customerId = customerId.substring(5);
+        }
         var customers = customerId == null
             ? <Map<String, Object?>>[]
             : await txn.query(
@@ -947,19 +1048,20 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
                 whereArgs: [customerId],
               );
         if (customers.isEmpty &&
-            (sale['customer_name']?.toString() ?? '').isNotEmpty)
+            (sale['customer_name']?.toString() ?? '').isNotEmpty) {
           customers = await txn.query(
             'customers',
             where: 'name=? AND phone=?',
             whereArgs: [sale['customer_name'], sale['customer_phone'] ?? ''],
           );
-        customerId = customers.length == 1
-            ? customers.first['id'] as String
-            : null;
+        }
+        customerId =
+            customers.length == 1 ? customers.first['id'] as String : null;
         if ((sale['payment_method']?.toString() ?? '').toUpperCase() ==
                 'CREDIT' &&
-            customerId == null)
+            customerId == null) {
           throw StateError('赊账客户尚未同步或存在歧义');
+        }
         final subtotal = _asInt(sale['subtotal_cents']);
         final orderDiscount = _asInt(sale['order_discount_cents']);
         final totalDiscount = _asInt(sale['discount_cents']);
@@ -999,11 +1101,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
 
         for (final rawLine
             in incomingVoided ? <Map<String, Object?>>[] : lines) {
-          if (rawLine is! Map) continue;
           final line = Map<String, Object?>.from(rawLine);
           var productId =
               (line['productId'] ?? line['product_id'])?.toString().trim() ??
-              '';
+                  '';
           if (productId.startsWith('pc-')) {
             productId = productId.substring(3);
           }
@@ -1027,19 +1128,27 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         }
 
         if (clientSaleId.isNotEmpty) {
-          await txn.insert('lan_sync_mobile_sales', <String, Object?>{
-            'client_sale_id': clientSaleId,
-            'sale_id': saleId,
-            'original_receipt': originalReceipt,
-            'canonical_receipt': canonicalReceipt,
-            'created_at': now,
-          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          await txn.insert(
+            'lan_sync_mobile_sales',
+            <String, Object?>{
+              'client_sale_id': clientSaleId,
+              'sale_id': saleId,
+              'original_receipt': originalReceipt,
+              'canonical_receipt': canonicalReceipt,
+              'created_at': now,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
         }
 
-        return <String, Object?>{'inserted': true, 'receipt': canonicalReceipt};
+        return <String, Object?>{
+          'inserted': true,
+          'receipt': canonicalReceipt,
+        };
       });
 
-      final canonicalReceipt = result['receipt']?.toString() ?? originalReceipt;
+      final canonicalReceipt =
+          result['receipt']?.toString() ?? originalReceipt;
       receipts.add(<String, Object?>{
         if (clientSaleId.isNotEmpty) 'client_sale_id': clientSaleId,
         'original_receipt': originalReceipt,
@@ -1067,17 +1176,18 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
   ) {
     final sameTime =
         (existing['sold_at']?.toString() ?? '') ==
-        (incoming['sold_at']?.toString() ?? '');
+            (incoming['sold_at']?.toString() ?? '');
     final sameTotal =
         _asInt(existing['total_cents']) == _asInt(incoming['total_cents']);
     final samePayment =
         (existing['payment_method']?.toString() ?? '') ==
-        (incoming['payment_method']?.toString() ?? '');
+            (incoming['payment_method']?.toString() ?? '');
     return sameTime && sameTotal && samePayment;
   }
 
   String _shortId(String value) {
-    final cleaned = value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final cleaned =
+        value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (cleaned.isEmpty) return 'MOBILE';
     return cleaned.length <= 6 ? cleaned : cleaned.substring(0, 6);
   }
