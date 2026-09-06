@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -88,6 +90,10 @@ void main() {
         },
       };
 
+  String hexHash(List<int> bytes) {
+    throw UnimplementedError();
+  }
+
   test('OCR purchase mutation and reversal are idempotent', () async {
     final db = await database.db;
     final purchase = purchaseOp();
@@ -167,6 +173,65 @@ void main() {
         where: 'purchase_id=?',
         whereArgs: ['mobile-purchase-1'],
       ),
+      isEmpty,
+    );
+  });
+
+  test('invoice attachment is hash checked and idempotent after lost ACK', () async {
+    final db = await database.db;
+    await applyLanMutation(db, purchaseOp());
+
+    final bytes = utf8.encode('fake-invoice-image-bytes');
+    final digest = await Sha256().hash(bytes);
+    final hash = digest.bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
+    final attachmentOp = <String, dynamic>{
+      'id': 'purchase_attachment:att-1',
+      'kind': 'purchase_attachment',
+      'payload': {
+        'attachment_id': 'att-1',
+        'purchase_id': 'mobile-purchase-1',
+        'kind': 'invoice_original',
+        'filename': 'invoice.jpg',
+        'content_hash': hash,
+        'base64': base64Encode(bytes),
+        'created_at': '2026-09-06T10:00:05.000',
+      },
+    };
+
+    await applyLanMutation(db, attachmentOp);
+    // Simulate a successful first POST whose ACK was lost and the exact same
+    // operation was retried.
+    await applyLanMutation(db, attachmentOp);
+
+    final attachments = await db.query(
+      'purchase_attachments',
+      where: 'purchase_id=?',
+      whereArgs: ['mobile-purchase-1'],
+    );
+    expect(attachments, hasLength(1));
+    expect(attachments.single['content_hash'], hash);
+    expect(List<int>.from(attachments.single['content'] as List), bytes);
+
+    final bad = <String, dynamic>{
+      'id': 'purchase_attachment:att-bad',
+      'kind': 'purchase_attachment',
+      'payload': {
+        'attachment_id': 'att-bad',
+        'purchase_id': 'mobile-purchase-1',
+        'kind': 'invoice_original',
+        'filename': 'bad.jpg',
+        'content_hash': '00' * 32,
+        'base64': base64Encode(bytes),
+      },
+    };
+    await expectLater(
+      applyLanMutation(db, bad),
+      throwsA(isA<StateError>()),
+    );
+    expect(
+      await db.query('purchase_attachments', where: 'id=?', whereArgs: ['att-bad']),
       isEmpty,
     );
   });
