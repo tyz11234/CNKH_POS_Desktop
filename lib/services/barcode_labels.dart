@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:barcode/barcode.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -22,12 +23,14 @@ class BarcodeExportResult {
     required this.failures,
   });
 
-  bool get isSuccess => files.isNotEmpty && skippedNoBarcode.isEmpty && failures.isEmpty;
-  bool get isPartial => files.isNotEmpty && (skippedNoBarcode.isNotEmpty || failures.isNotEmpty);
+  bool get isSuccess =>
+      files.isNotEmpty && skippedNoBarcode.isEmpty && failures.isEmpty;
+  bool get isPartial =>
+      files.isNotEmpty && (skippedNoBarcode.isNotEmpty || failures.isNotEmpty);
 }
 
 /// Generate barcode PNG with **full product name under the bars**.
-/// Uses Flutter canvas so CJK names render (system fonts).
+/// Uses deterministic raster bars plus Flutter text rendering so CJK names work.
 class BarcodeLabelService {
   BarcodeLabelService(this.repo);
   final PosRepository repo;
@@ -60,13 +63,67 @@ class BarcodeLabelService {
     var code = '$base${checkDigit(base)}';
     var n = 0;
     while (await repo.findByBarcodeOrSku(code) != null && n < 30) {
-      final next =
-          (int.parse(base) + 1 + n).toString().padLeft(12, '0').substring(0, 12);
+      final next = (int.parse(base) + 1 + n)
+          .toString()
+          .padLeft(12, '0')
+          .substring(0, 12);
       base = next;
       code = '$base${checkDigit(base)}';
       n++;
     }
     return code;
+  }
+
+  Future<ui.Image> _renderBarsImage({
+    required Barcode codec,
+    required String code,
+    required int width,
+    required int height,
+  }) async {
+    final elements = codec
+        .make(
+          code,
+          width: width.toDouble(),
+          height: height.toDouble(),
+          drawText: false,
+        )
+        .whereType<BarcodeBar>()
+        .toList(growable: false);
+    final blackBars = elements.where((bar) => bar.black).toList(growable: false);
+    if (blackBars.isEmpty) {
+      throw StateError('条码生成失败：没有可绘制的黑色条码线条');
+    }
+
+    // Rasterize the bars with the image package first. This deliberately avoids
+    // parsing SVG and also avoids relying on sub-pixel Canvas bar drawing.
+    // Integer pixel bounds make the exported PNG deterministic and scanner-safe.
+    final raster = img.Image(width: width, height: height, numChannels: 4);
+    img.fill(raster, color: img.ColorRgba8(255, 255, 255, 255));
+    const black = img.ColorRgba8(0, 0, 0, 255);
+    for (final bar in blackBars) {
+      final x1 = bar.left.floor().clamp(0, width - 1);
+      final y1 = bar.top.floor().clamp(0, height - 1);
+      final x2 = (bar.left + bar.width).ceil().clamp(1, width) - 1;
+      final y2 = (bar.top + bar.height).ceil().clamp(1, height) - 1;
+      if (x2 < x1 || y2 < y1) continue;
+      img.fillRect(
+        raster,
+        x1: x1,
+        y1: y1,
+        x2: x2,
+        y2: y2,
+        color: black,
+      );
+    }
+
+    final png = Uint8List.fromList(img.encodePng(raster));
+    final imageCodec = await ui.instantiateImageCodec(png);
+    try {
+      final frame = await imageCodec.getNextFrame();
+      return frame.image;
+    } finally {
+      imageCodec.dispose();
+    }
   }
 
   /// PNG: real barcode bars + human-readable code + full product name.
@@ -81,18 +138,12 @@ class BarcodeLabelService {
     final name = productName.trim().isEmpty ? code : productName.trim();
 
     final codec = _codecFor(code);
-    final bars = codec
-        .make(
-          code,
-          width: width.toDouble(),
-          height: barHeight.toDouble(),
-          drawText: false,
-        )
-        .whereType<BarcodeBar>()
-        .toList(growable: false);
-    if (bars.isEmpty) {
-      throw StateError('条码生成失败：没有可绘制的条码线条');
-    }
+    final barsImage = await _renderBarsImage(
+      codec: codec,
+      code: code,
+      width: width,
+      height: barHeight,
+    );
 
     final nameStyle = const TextStyle(
       color: Colors.black,
@@ -130,13 +181,13 @@ class BarcodeLabelService {
       Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
       Paint()..color = Colors.white,
     );
-    final barPaint = Paint()..color = Colors.black;
-    for (final bar in bars) {
-      canvas.drawRect(
-        Rect.fromLTWH(bar.left, bar.top, bar.width, bar.height),
-        barPaint,
-      );
-    }
+    canvas.drawImage(
+      barsImage,
+      Offset.zero,
+      Paint()
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none,
+    );
     var y = barHeight + 12.0;
     codePainter.paint(canvas, Offset((width - codePainter.width) / 2, y));
     y += codePainter.height + 8;
@@ -145,6 +196,8 @@ class BarcodeLabelService {
     final picture = recorder.endRecording();
     final image = await picture.toImage(width, height);
     final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+    barsImage.dispose();
+    image.dispose();
     if (bd == null) throw StateError('png encode failed');
     return bd.buffer.asUint8List();
   }
@@ -223,7 +276,10 @@ class BarcodeLabelService {
     }
     final result = await Process.run('explorer.exe', [directoryPath]);
     if (result.exitCode != 0) {
-      throw FileSystemException('无法打开文件夹 / Failed to open folder', directoryPath);
+      throw FileSystemException(
+        '无法打开文件夹 / Failed to open folder',
+        directoryPath,
+      );
     }
   }
 
