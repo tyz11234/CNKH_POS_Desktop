@@ -90,10 +90,6 @@ void main() {
         },
       };
 
-  String hexHash(List<int> bytes) {
-    throw UnimplementedError();
-  }
-
   test('OCR purchase mutation and reversal are idempotent', () async {
     final db = await database.db;
     final purchase = purchaseOp();
@@ -222,7 +218,7 @@ void main() {
         'purchase_id': 'mobile-purchase-1',
         'kind': 'invoice_original',
         'filename': 'bad.jpg',
-        'content_hash': '00' * 32,
+        'content_hash': List<String>.filled(64, '0').join(),
         'base64': base64Encode(bytes),
       },
     };
