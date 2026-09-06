@@ -11,6 +11,21 @@ import 'package:share_plus/share_plus.dart';
 import '../models/product.dart';
 import 'pos_repository.dart';
 
+class BarcodeExportResult {
+  final List<File> files;
+  final List<String> skippedNoBarcode;
+  final Map<String, String> failures;
+
+  const BarcodeExportResult({
+    required this.files,
+    required this.skippedNoBarcode,
+    required this.failures,
+  });
+
+  bool get isSuccess => files.isNotEmpty && skippedNoBarcode.isEmpty && failures.isEmpty;
+  bool get isPartial => files.isNotEmpty && (skippedNoBarcode.isNotEmpty || failures.isNotEmpty);
+}
+
 /// Generate barcode PNG with **full product name under the bars**.
 /// Uses Flutter canvas so CJK names render (system fonts).
 class BarcodeLabelService {
@@ -66,10 +81,6 @@ class BarcodeLabelService {
     final name = productName.trim().isEmpty ? code : productName.trim();
 
     final codec = _codecFor(code);
-    // The barcode package already exposes backend-neutral drawing operations.
-    // Use them directly instead of parsing its SVG text. The old SVG RegExp
-    // only understood <rect> output and could silently produce a white image
-    // when the package emitted another valid SVG representation.
     final bars = codec
         .make(
           code,
@@ -150,11 +161,15 @@ class BarcodeLabelService {
     return d;
   }
 
-  Future<File> exportPngFile(Product product) async {
+  Future<File> exportPngFile(
+    Product product, {
+    String? directoryPath,
+  }) async {
     final code = product.barcode.trim();
     if (code.isEmpty) throw StateError('商品无条码 / Product has no barcode');
     final bytes = await renderPng(barcode: code, productName: product.nameZh);
-    final dir = await _exportDir();
+    final dir = directoryPath == null ? await _exportDir() : Directory(directoryPath);
+    if (!await dir.exists()) await dir.create(recursive: true);
     final safe = code.replaceAll(RegExp(r'[^\w\-]'), '_');
     final idBit =
         product.id.length >= 8 ? product.id.substring(0, 8) : product.id;
@@ -170,6 +185,46 @@ class BarcodeLabelService {
       out.add(await exportPngFile(product));
     }
     return out;
+  }
+
+  /// Windows-oriented batch export with per-item failure reporting. A failed
+  /// product never hides successfully written labels and never silently returns.
+  Future<BarcodeExportResult> exportManyToDirectory(
+    List<Product> products,
+    String directoryPath,
+  ) async {
+    final files = <File>[];
+    final skipped = <String>[];
+    final failures = <String, String>{};
+    final dir = Directory(directoryPath);
+    if (!await dir.exists()) await dir.create(recursive: true);
+
+    for (final product in products) {
+      if (product.barcode.trim().isEmpty) {
+        skipped.add(product.nameZh.isEmpty ? product.id : product.nameZh);
+        continue;
+      }
+      try {
+        files.add(await exportPngFile(product, directoryPath: directoryPath));
+      } catch (e) {
+        failures[product.nameZh.isEmpty ? product.id : product.nameZh] = '$e';
+      }
+    }
+    return BarcodeExportResult(
+      files: files,
+      skippedNoBarcode: skipped,
+      failures: failures,
+    );
+  }
+
+  Future<void> openFolder(String directoryPath) async {
+    if (!Platform.isWindows) {
+      throw UnsupportedError('Open Folder is only available on Windows');
+    }
+    final result = await Process.run('explorer.exe', [directoryPath]);
+    if (result.exitCode != 0) {
+      throw FileSystemException('无法打开文件夹 / Failed to open folder', directoryPath);
+    }
   }
 
   Future<void> shareFiles(List<File> files) async {
