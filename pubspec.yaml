@@ -34,7 +34,7 @@ dependencies:
   barcode: ^2.2.9
   qr: ^3.0.2
   image: ^4.9.2
-  google_mlkit_text_recognition: ^0.15.0
+  google_mlkit_text_recognition: ^0.16.0
 
 dev_dependencies:
   flutter_test:
