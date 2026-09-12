@@ -31,11 +31,32 @@ class DesktopBackupService {
     this.databasePath,
     this.productImagesDirectory,
     this.closeDatabase,
+    this.cleanupArtifact,
   });
 
   final String? databasePath;
   final String? productImagesDirectory;
   final Future<void> Function()? closeDatabase;
+  /// Optional filesystem adapter for removing restore artifacts. A cleanup
+  /// failure must never undo an already validated database/image restore.
+  final Future<void> Function(FileSystemEntity)? cleanupArtifact;
+
+  Future<void> _cleanup(FileSystemEntity artifact) async {
+    try {
+      if (await artifact.exists()) {
+        final cleanup = cleanupArtifact;
+        if (cleanup != null) {
+          await cleanup(artifact);
+        } else {
+          await artifact.delete(recursive: true);
+        }
+      }
+    } catch (_) {
+      // Leave the artifact in place if it is locked or cannot be deleted.
+      // Cleanup is not part of the restore transaction and must not roll back
+      // active data or hide the original restore error.
+    }
+  }
 
   Future<String> _dbPath() async {
     if (databasePath != null) return databasePath!;
@@ -235,10 +256,8 @@ class DesktopBackupService {
       // below must roll back both DB and images as one restore operation.
       await _validateDatabaseFile(activeDb.path);
 
-      if (await rollbackDb.exists()) await rollbackDb.delete();
-      if (await rollbackImages.exists()) {
-        await rollbackImages.delete(recursive: true);
-      }
+      await _cleanup(rollbackDb);
+      await _cleanup(rollbackImages);
     } catch (e) {
       await closeDatabase?.call();
       try {
@@ -255,9 +274,7 @@ class DesktopBackupService {
       } catch (_) {}
       throw StateError('恢复失败，已尝试回滚原数据：$e');
     } finally {
-      if (await stageDir.exists()) {
-        await stageDir.delete(recursive: true);
-      }
+      await _cleanup(stageDir);
     }
   }
 

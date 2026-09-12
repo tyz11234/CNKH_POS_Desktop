@@ -106,6 +106,43 @@ void main() {
       expect(image, <int>[1, 2, 3, 4, 5]);
     });
 
+    for (final failure in ['database', 'images', 'staging']) {
+      test('$failure cleanup failure keeps the validated restored database and images', () async {
+        final path = '${root.path}${Platform.pathSeparator}cleanup.cnkhbackup';
+        await backups.createBackup(path);
+        final db = await database.db;
+        await db.update('products', {'stock': 99.0});
+        await File('$imagesPath${Platform.pathSeparator}p1.jpg')
+            .writeAsBytes([9, 9, 9], flush: true);
+        var injected = false;
+        final service = DesktopBackupService(
+          databasePath: dbPath,
+          productImagesDirectory: imagesPath,
+          closeDatabase: database.close,
+          cleanupArtifact: (artifact) async {
+            final rollback = artifact.path.contains('.before_restore_');
+            final shouldFail = (failure == 'database' && rollback && artifact is File) ||
+                (failure == 'images' && rollback && artifact is Directory) ||
+                (failure == 'staging' && artifact.path.contains('.cnkh_restore_'));
+            if (shouldFail) {
+              injected = true;
+              throw FileSystemException('simulated locked cleanup artifact', artifact.path);
+            }
+            await artifact.delete(recursive: true);
+          },
+        );
+
+        await service.restoreBackup(path);
+        expect(injected, isTrue);
+        expect(await File(dbPath).exists(), isTrue);
+        final restored = await database.db;
+        final products = await restored.query('products', where: 'id=?', whereArgs: ['p1']);
+        expect(products.single['stock'], 8.0);
+        expect(await File('$imagesPath${Platform.pathSeparator}p1.jpg').readAsBytes(),
+            [1, 2, 3, 4, 5]);
+      });
+    }
+
     test('invalid backup is rejected before current database is modified', () async {
       final bad = File('${root.path}${Platform.pathSeparator}bad.cnkhbackup');
       await bad.writeAsString('not a zip', flush: true);
