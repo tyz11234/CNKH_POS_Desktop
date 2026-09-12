@@ -1102,7 +1102,17 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           limit: 1,
         );
         if (existingOriginal.isNotEmpty) {
-          if (_sameIncomingSale(existingOriginal.first, sale)) {
+          // Modern sales are identified only by client_sale_id. Two devices
+          // may legitimately submit identical receipts and line contents.
+          if (clientSaleId.isEmpty &&
+              _sameIncomingSale(existingOriginal.first, sale)) {
+            if (_asInt(sale['voided']) == 1) {
+              await reverseSale(
+                txn,
+                existingOriginal.first['id'] as String,
+                sale['void_note']?.toString() ?? 'void',
+              );
+            }
             return <String, Object?>{
               'inserted': false,
               'receipt': originalReceipt,
@@ -1121,7 +1131,15 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
               limit: 1,
             );
             if (collision.isEmpty) break;
-            if (_sameIncomingSale(collision.first, sale)) {
+            if (clientSaleId.isEmpty &&
+                _sameIncomingSale(collision.first, sale)) {
+              if (_asInt(sale['voided']) == 1) {
+                await reverseSale(
+                  txn,
+                  collision.first['id'] as String,
+                  sale['void_note']?.toString() ?? 'void',
+                );
+              }
               return <String, Object?>{
                 'inserted': false,
                 'receipt': canonicalReceipt,
@@ -1350,8 +1368,12 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     for (final raw in rawLines) {
       if (raw is! Map) continue;
       final m = Map<String, Object?>.from(raw);
+      var productId = (m['productId'] ?? m['product_id'] ?? '').toString();
+      // Import resolves legacy pc-prefixed IDs before storing sale lines.
+      // Compare that same identity when a client retries after a lost ACK.
+      if (productId.startsWith('pc-')) productId = productId.substring(3);
       normalized.add(<String, Object?>{
-        'product': (m['productId'] ?? m['product_id'] ?? '').toString(),
+        'product': productId,
         'sku': m['sku']?.toString() ?? '',
         'barcode': m['barcode']?.toString() ?? '',
         'name': (m['nameZh'] ?? m['name_zh'] ?? m['name'] ?? '').toString(),
