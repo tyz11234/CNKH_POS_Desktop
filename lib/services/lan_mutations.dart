@@ -100,6 +100,18 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         await txn.insert(table, {'id': entityId, ...changes});
       } else if (changes.isNotEmpty) {
         await txn.update(table, changes, where: 'id=?', whereArgs: [entityId]);
+        if (entity == 'product' && changes.containsKey('stock') &&
+            changes['stock'] != existing.first['stock']) {
+          await txn.insert('stock_moves', {
+            'id': AppDatabase.newId(),
+            'product_id': entityId,
+            'change': (changes['stock'] as num) - (existing.first['stock'] as num),
+            'reason': 'product_edit',
+            'created_at': now,
+            'operator': 'mobile-sync',
+            'notes': '商品编辑调整库存',
+          });
+        }
         if (entity == 'category' &&
             (changes.containsKey('name') || changes['is_deleted'] == 1)) {
           await txn.update(
