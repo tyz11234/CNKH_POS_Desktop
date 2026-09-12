@@ -553,6 +553,7 @@ class PurchaseLineMatcher {
           if (existing != null && existing.costCents != line.unitCostCents) {
             await repo.upsertProduct(
               existing.copyWith(costCents: line.unitCostCents),
+              original: existing,
             );
           }
         }
