@@ -1,11 +1,10 @@
-import 'dart:convert';
-
 import 'package:sqflite/sqflite.dart';
 
 import '../db/app_database.dart';
 
-const String kUnsafePurchaseReverseMessage =
-    '该进货后的库存已经发生后续变化，无法安全直接撤销，请使用库存调整或人工处理。';
+import 'purchase_reverse_plan.dart';
+
+export 'purchase_reverse_plan.dart' show kUnsafePurchaseReverseMessage;
 
 /// Reverses a committed purchase only when every affected product can be
 /// proven safe to roll back. The whole preflight and mutation happen inside the
@@ -37,81 +36,7 @@ Future<void> reversePurchaseSafely(
   );
   if (existingReversal.isNotEmpty) return;
 
-  final rawLines = jsonDecode(purchase['lines_json']?.toString() ?? '[]');
-  if (rawLines is! List || rawLines.isEmpty) {
-    throw const FormatException('invalid reversal lines');
-  }
-
-  final plans = <_ReversePlan>[];
-  for (final raw in rawLines) {
-    if (raw is! Map) throw const FormatException('invalid reversal line');
-    final line = Map<String, dynamic>.from(raw);
-    final productId = line['productId']?.toString() ?? '';
-    final qty = (line['qty'] as num?)?.toDouble() ?? 0;
-    if (productId.isEmpty || !qty.isFinite || qty <= 0) {
-      throw const FormatException('invalid reversal line');
-    }
-
-    final productRows = await txn.query(
-      'products',
-      where: 'id=? AND is_deleted=0',
-      whereArgs: <Object?>[productId],
-      limit: 1,
-    );
-    if (productRows.isEmpty) {
-      throw StateError('原进货商品已不存在，无法安全撤销');
-    }
-    final product = productRows.first;
-    final currentStock = (product['stock'] as num?)?.toDouble() ?? double.nan;
-    if (!currentStock.isFinite || currentStock + 0.0000001 < qty) {
-      throw StateError(kUnsafePurchaseReverseMessage);
-    }
-
-    // Locate the stock move created by this exact purchase. We deliberately use
-    // the unique purchase number rather than purchased_at because Mobile and
-    // Desktop clocks may differ when an offline purchase is synchronized.
-    final moves = await txn.query(
-      'stock_moves',
-      columns: <String>['id', 'reason', 'created_at', 'notes'],
-      where: 'product_id=?',
-      whereArgs: <Object?>[productId],
-      orderBy: 'created_at ASC, rowid ASC',
-    );
-    final ownMoveIndexes = <int>[];
-    for (var i = 0; i < moves.length; i++) {
-      final move = moves[i];
-      if (move['reason']?.toString() == 'purchase' &&
-          move['notes']?.toString() == purchaseNo) {
-        ownMoveIndexes.add(i);
-      }
-    }
-    if (ownMoveIndexes.length != 1) {
-      throw StateError(kUnsafePurchaseReverseMessage);
-    }
-    final ownIndex = ownMoveIndexes.single;
-    // Any later business move makes attribution unsafe. If another move shares
-    // the same timestamp but follows the purchase row, it is also considered a
-    // later change and blocks automatic reversal.
-    if (ownIndex != moves.length - 1) {
-      throw StateError(kUnsafePurchaseReverseMessage);
-    }
-
-    final currentCost = (product['cost_cents'] as num?)?.toInt() ?? 0;
-    final purchaseCost = (line['unitCostCents'] as num?)?.toInt();
-    final beforeCost = (line['beforeCostCents'] as num?)?.toInt();
-    plans.add(
-      _ReversePlan(
-        productId: productId,
-        quantity: qty,
-        currentStock: currentStock,
-        restoreCost: purchaseCost != null &&
-                beforeCost != null &&
-                currentCost == purchaseCost
-            ? beforeCost
-            : null,
-      ),
-    );
-  }
+  final plans = await planPurchaseReverse(txn, purchase);
 
   final now = occurredAt ?? DateTime.now().toIso8601String();
   for (final plan in plans) {
@@ -167,18 +92,4 @@ Future<void> reversePurchaseSafely(
     'final_value': 'reversed',
     'details': '${reason.trim()}${notes.trim().isEmpty ? '' : ': ${notes.trim()}'}',
   });
-}
-
-class _ReversePlan {
-  const _ReversePlan({
-    required this.productId,
-    required this.quantity,
-    required this.currentStock,
-    this.restoreCost,
-  });
-
-  final String productId;
-  final double quantity;
-  final double currentStock;
-  final int? restoreCost;
 }

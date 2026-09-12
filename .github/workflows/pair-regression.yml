@@ -9,7 +9,7 @@ on:
       mobile_ref:
         description: Mobile branch/tag/SHA to pair with this Desktop ref
         required: false
-        default: source/main
+        default: main
 
 permissions:
   contents: read
@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tyz11234/CNKH_POS_Mobile_APK
-          ref: ${{ github.event.inputs.mobile_ref || 'source/main' }}
+          ref: ${{ github.event.inputs.mobile_ref || 'main' }}
           path: CNKH_POS_Mobile_APK
 
       - name: Record exact paired source SHAs
@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           echo "Desktop ref: ${{ github.head_ref || github.ref_name }}"
           echo "Desktop SHA: $(git -C CNKH_POS_Desktop rev-parse HEAD)"
-          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || 'source/main' }}"
+          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || 'main' }}"
           echo "Mobile SHA: $(git -C CNKH_POS_Mobile_APK rev-parse HEAD)"
 
       - name: Setup Flutter
