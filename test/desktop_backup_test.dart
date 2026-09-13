@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as p;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -142,6 +143,39 @@ void main() {
             [1, 2, 3, 4, 5]);
       });
     }
+
+    for (final windowsPath in [false, true]) {
+      test('restore to a new directory rebases ${windowsPath ? "Windows" : "native"} image paths', () async {
+        final oldPath = windowsPath ? r'C:\Users\旧用户\Documents\product_images\p1.jpg'
+            : '$imagesPath${Platform.pathSeparator}p1.jpg';
+        await (await database.db).update('products', {'image_path': oldPath},
+            where: 'id=?', whereArgs: ['p1']);
+        final backup = '${root.path}/relocate.cnkhbackup';
+        await backups.createBackup(backup);
+        final destination = Directory('${root.path}/new-account');
+        await destination.create();
+        final newImages = '${destination.path}/product_images';
+        final restored = AppDatabase.forTesting('${destination.path}/pos.db', seed: false);
+        try {
+          await DesktopBackupService(databasePath: '${destination.path}/pos.db',
+              productImagesDirectory: newImages, closeDatabase: restored.close)
+              .restoreBackup(backup);
+          final row = (await (await restored.db).query('products')).single;
+          expect(row['image_path'], p.join(newImages, 'p1.jpg'));
+          expect(await File(row['image_path'] as String).readAsBytes(), [1, 2, 3, 4, 5]);
+          expect(row['stock'], 8);
+        } finally {
+          await restored.close();
+        }
+      });
+    }
+
+    test('restore preserves an intentionally empty product image reference', () async {
+      final backup = '${root.path}/empty-reference.cnkhbackup';
+      await backups.createBackup(backup);
+      await backups.restoreBackup(backup);
+      expect((await (await database.db).query('products')).single['image_path'], '');
+    });
 
     test('invalid backup is rejected before current database is modified', () async {
       final bad = File('${root.path}${Platform.pathSeparator}bad.cnkhbackup');
