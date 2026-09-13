@@ -10,18 +10,73 @@
 
 | 项目 | 当前正式版本 |
 | --- | --- |
-| Desktop | **0.3.5+8 / `v0.3.5`** |
-| 配套 Mobile | **1.9.2+27 / `v1.9.2-mobile`** |
+| Desktop | **0.4.0+9 / `v0.4.0`** |
+| 配套 Mobile | **1.10.0+28 / `v1.10.0-mobile`** |
 | LAN 协议 | `cnkh-sync:v1` |
-| 本地数据库 | Full Fix 后升级为 **schema v8** |
+| 本地数据库 | e-Invoice 升级为 **schema v9** |
 
 ## 下载与更新
 
-- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.3.5/CNKH_POS_Desktop-windows-x64-v0.3.5-8.zip)
-- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.5)
-- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.9.2-mobile)
+- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.4.0/CNKH_POS_Desktop-windows-x64-v0.4.0-9.zip)
+- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.4.0)
+- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.0-mobile)
 
 更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
+
+## Malaysia e-Invoice / MyInvois
+
+本版本以独立模块加入 e-Invoice，保留原收银、商品、库存界面与离线销售。Desktop 负责调用 MyInvois；Mobile 只通过已有配对连接同步状态，不保存 MyInvois 凭据。
+
+### Desktop 设置与提交
+
+1. 管理员登录，打开 **设置 → e-Invoice Setup**。默认选择 **Sandbox**。
+2. 输入公司名称、TIN、BRN、MSIC、业务描述、地址、州代码、电话，以及适用的 SST/TTX 登记资料。无登记时按官方规则填写 `NA`。
+3. 填写适用的商品分类、整单税种及税率。售价按含税金额映射，保留原折扣、舍入和实售金额。当前仅支持整单相同税种、税率与分类的 MYR 国内普通发票；混合税率、汇总发票和贷项/退款票请在 MyInvois Portal 处理。
+4. 输入对应环境的 Client ID / Client Secret，点击 **保存**，再点 **Test Connection**。此按钮验证 OAuth 连接，不等于发票已获验证。
+5. 在 **Submission History** 找到销售，点击 **买方资料 / 生成**。填写真实买方 TIN、登记/身份证明及地址，检查生成的 Invoice JSON。
+6. 确认金额和环境后点击 **提交**，再点击 **查询 MyInvois**。`Submitted` 仅代表接收；`Validated` 才代表通过验证。查询同一发票至少间隔 5 秒。
+7. 正式使用时切换 **Production**，重新保存正式环境专用凭据。Sandbox 与 Production 的设置及提交记录分别保存。
+
+### 状态与错误处理
+
+| 状态 | 含义及操作 |
+| --- | --- |
+| Pending | 本地销售尚未提交；补齐资料后由 Desktop 提交 |
+| Submitted | MyInvois 已接收，等待查询验证结果 |
+| Validated | 官方返回 Valid |
+| Rejected | 被拒收或验证失败；核对资料及 Portal 验证结果 |
+| needs_review / submitting | 提交结果未知或程序中断；先在 Portal 查找 UUID，再使用“核对 UUID”，不要重提 |
+| Cancelled | 官方已确认取消；不会自动退款或改动 POS 库存 |
+
+网络超时、重复提交响应或未知结果会冻结重试，防止重复发票。明确的认证/请求错误允许纠正后重试。取消须填写原因，并由 MyInvois 执行取消期限规则；超期调整、贷项和退款票在 Portal 办理。
+
+### 手机与离线使用
+
+手机继续离线开单。连接 Desktop 后，原 LAN 同步先上传待处理操作并拉取销售；新增 `einvoice_status_v1` 能力通过已认证的 `/api/v1/einvoices` 分页同步状态。手机 **设置 → e-Invoice 状态** 显示本地销售的 Pending / Submitted / Validated / Rejected 等状态，可切换环境。状态同步失败保留上次结果，不阻断销售同步；旧 Desktop 未声明该能力时仍可正常同步原有业务。
+
+### 数据库与凭据
+
+- Desktop schema **v9**：新增 `e_invoice_settings`、`e_invoice_documents`、`e_invoice_logs`；v8 及更早版本自动执行增量迁移，原业务表数据不变。
+- Mobile schema **v9**：新增独立 `e_invoice_status` 镜像表；按电脑地址和环境隔离，不修改 sales。
+- Client ID 和 Secret 以 AES-256-GCM 密文保存在 e_invoice_settings，密钥使用操作系统安全存储；OAuth Token 仅驻留内存。日志不记录凭据或完整发票资料。
+- 旧 scaffold 中若曾人工保存明文凭据，升级后会清空该明文，需重新输入。公司和提交资料保留。旧备份可能仍含其原始内容，请按敏感资料保管。
+- 更换电脑/Windows 用户或丢失 OS 密钥后，需要重新输入凭据。数据库备份保留加密内容，不导出解密密钥。
+
+### CNKH POS Employee Training
+
+右上角及 Settings 原培训入口均提供 11 课：登录与权限、商品销售、收款、退款、库存、手机连接电脑、数据同步、数据备份、e-Invoice 设置、e-Invoice 提交、常见错误处理。
+
+培训使用 `tool/training_capture_test.dart` 实际渲染的应用页面截图；箭头坐标来自真实控件位置，可缩放查看。截图资料为隔离测试数据库内容，配对截图不是门店可用配对码。Mobile 的电脑操作课程使用同版本 Desktop 截图。
+
+### 开发与验证
+
+发布 CI 执行 `flutter analyze`、完整 `flutter test`、真实页面截图捕获，再执行 Windows/APK Release 构建。截图先生成到 `assets/training/` 再打包。源码首次运行前也需要生成截图；Mobile 截图流程须准备 `.training_desktop` 源码及其字体，参照 `mobile-ci.yml`。双端真实 HTTP 回归位于 Desktop `integration/`，运行 `flutter test test regression`。
+
+目前 API 自动测试使用 HTTP 模拟响应，覆盖 OAuth 缓存/过期/401、提交成功/失败、重复提交和结果未知。真实 MyInvois Sandbox / Production 验收需要店主提供的已授权凭据，目前未执行真实税务提交。构建成功不等于真实设备、打印机或门店网络已验收。
+
+实现采用官方仍支持的 **Invoice 1.0**；不含 1.1 数字签章。启用正式环境前应核对 LHDNM 后续版本公告。
+
+官方依据：[环境和版本 FAQ](https://sdk.myinvois.hasil.gov.my/faq/)、[Invoice 1.0](https://sdk.myinvois.hasil.gov.my/documents/invoice-v1-0/)、[OAuth](https://sdk.myinvois.hasil.gov.my/api/07-login-as-taxpayer-system/)、[提交](https://sdk.myinvois.hasil.gov.my/einvoicingapi/02-submit-documents/)、[查询](https://sdk.myinvois.hasil.gov.my/einvoicingapi/06-get-submission/)、[取消](https://sdk.myinvois.hasil.gov.my/einvoicingapi/03-cancel-document/)。
 
 ## 2026-09-13 同步与恢复修复
 
