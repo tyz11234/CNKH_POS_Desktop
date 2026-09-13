@@ -1,3 +1,4 @@
+import 'einvoice_setup_screen.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -175,6 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 16),
         ReceiptTemplateEditor(repo: widget.repo, canEdit: canEdit),
+        Card(child: ListTile(leading: const Icon(Icons.receipt_long_outlined), title: const Text('e-Invoice Setup'), subtitle: const Text('MyInvois 设置与提交记录'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EInvoiceSetupScreen(repo: widget.repo))))),
         const SizedBox(height: 12),
         Card(
           child: Padding(
