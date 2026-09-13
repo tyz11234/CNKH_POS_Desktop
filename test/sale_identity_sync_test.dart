@@ -110,4 +110,28 @@ void main() {
     expect((await repo.getProduct('p1'))!.stock, 9);
     expect(await repo.salesAll(), hasLength(2));
   });
+  test('offline cancelled upload at zero stock is idempotent under block policy', () async {
+    await repo.setSetting('stock_policy', 'block');
+    await repo.adjustStock(productId: 'p1', newStock: 0, operator: 'admin');
+    final cancelled = sale(id: 'offline-cancel', voided: true);
+    await post(cancelled);
+    await post(cancelled);
+    final db = await database.db;
+    expect((await repo.getProduct('p1'))!.stock, 0);
+    expect((await repo.salesAll()).single.voided, 1);
+    expect(await db.query('stock_reversals'), hasLength(1));
+    expect(await db.query('stock_moves', where: "reason IN ('sale','sale_void')"), isEmpty);
+  });
+
+  test('cancel retry restores an already imported sale once after lost ACK', () async {
+    await post(sale(id: 'lost-ack-cancel'));
+    await repo.setSetting('stock_policy', 'block');
+    await repo.adjustStock(productId: 'p1', newStock: 0, operator: 'admin');
+    await post(sale(id: 'lost-ack-cancel', voided: true));
+    await post(sale(id: 'lost-ack-cancel', voided: true));
+    expect((await repo.getProduct('p1'))!.stock, 1);
+    expect(await (await database.db).query('stock_reversals'), hasLength(1));
+    expect(await repo.salesAll(), hasLength(1));
+  });
+
 }

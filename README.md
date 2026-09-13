@@ -10,18 +10,27 @@
 
 | 项目 | 当前正式版本 |
 | --- | --- |
-| Desktop | **0.3.4+7 / `v0.3.4`** |
-| 配套 Mobile | **1.9.1+26 / `v1.9.1-mobile`** |
+| Desktop | **0.3.5+8 / `v0.3.5`** |
+| 配套 Mobile | **1.9.2+27 / `v1.9.2-mobile`** |
 | LAN 协议 | `cnkh-sync:v1` |
 | 本地数据库 | Full Fix 后升级为 **schema v8** |
 
 ## 下载与更新
 
-- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.3.4/CNKH_POS_Desktop-windows-x64-v0.3.4-7.zip)
-- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.4)
-- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.9.1-mobile)
+- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.3.5/CNKH_POS_Desktop-windows-x64-v0.3.5-8.zip)
+- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.5)
+- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.9.2-mobile)
 
 更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
+
+## 2026-09-13 同步与恢复修复
+
+- 手机离线开单后作废，且没有中间库存操作时，直接同步作废状态，避免电脑零库存阻塞整条队列；客户等无库存影响的编辑不阻止合并。
+- 已经入库的销售遇到确认响应丢失，重试作废只回补一次；存在中间盘点等库存依赖时，仍按原操作顺序同步。
+- 手机手动全量对账会等待进货历史同步并执行全量拉取；失败或电脑不支持时显示错误，不再提示全部完成。
+- 电脑版恢复备份时，会把已备份的商品图片引用改为当前电脑路径，兼容旧 Windows 用户目录。
+
+本轮新增 13 项本端回归测试和 2 项真实 HTTP 联调用例；发布流程执行本端完整测试、静态分析和构建。两端组合联调为 8 项。未执行真机升级、打印机和真实门店局域网验收。
 
 ## 2026-09-13 修复发布
 
@@ -32,7 +41,7 @@
 - 商品库存编辑记录流水，手机同步到电脑也保留流水，阻止不安全的旧进货撤销。
 - 备份恢复后清理旧文件失败不会再删除已恢复数据库。
 
-本轮基线通过 86 项 Desktop 测试、78 项 Mobile 测试及 6 项双端 HTTP 联调；发布流程会重新执行本端静态分析、测试和构建，通过后上传安装包。未执行实体设备、打印机和真实门店局域网验收。
+本轮基线通过 91 项 Desktop 测试、86 项 Mobile 测试及 8 项双端 HTTP 联调；发布流程会重新执行本端静态分析、测试和构建，通过后上传安装包。未执行实体设备、打印机和真实门店局域网验收。
 
 完整说明见 [RELEASE_NOTES.md](RELEASE_NOTES.md)，发布结果以 [GitHub Actions](https://github.com/tyz11234/CNKH_POS_Desktop/actions/workflows/windows-release.yml) 和 Release 附件为准。
 

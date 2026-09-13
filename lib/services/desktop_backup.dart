@@ -234,6 +234,8 @@ class DesktopBackupService {
         await out.writeAsBytes(bytes, flush: true);
       }
 
+      await _rebaseProductImagePaths(stagedDb.path, stagedImages, imagesPath);
+      await _validateDatabaseFile(stagedDb.path);
       await closeDatabase?.call();
 
       if (await activeDb.exists()) {
@@ -275,6 +277,41 @@ class DesktopBackupService {
       throw StateError('恢复失败，已尝试回滚原数据：$e');
     } finally {
       await _cleanup(stageDir);
+    }
+  }
+
+  Future<void> _rebaseProductImagePaths(
+    String stagedDbPath,
+    Directory stagedImages,
+    String destinationImagesPath,
+  ) async {
+    final db = sqlite3.open(stagedDbPath);
+    try {
+      if (!db.select('PRAGMA table_info(products)')
+          .any((column) => column['name'] == 'image_path')) return;
+      db.execute('BEGIN IMMEDIATE');
+      try {
+        final products = db.select(
+            "SELECT id, image_path FROM products WHERE COALESCE(image_path,'')<>''");
+        for (final row in products) {
+          // Backups can move between Windows accounts or operating systems.
+          final oldPath = (row['image_path'] as String).replaceAll('\\', '/');
+          const marker = '/product_images/';
+          final index = oldPath.lastIndexOf(marker);
+          final relative = index < 0 ? p.posix.basename(oldPath)
+              : oldPath.substring(index + marker.length);
+          if (!_safeArchiveRelativePath(relative)) continue;
+          if (!await File(p.join(stagedImages.path, relative)).exists()) continue;
+          db.execute('UPDATE products SET image_path=? WHERE id=?',
+              [p.join(destinationImagesPath, relative), row['id']]);
+        }
+        db.execute('COMMIT');
+      } catch (_) {
+        db.execute('ROLLBACK');
+        rethrow;
+      }
+    } finally {
+      db.dispose();
     }
   }
 

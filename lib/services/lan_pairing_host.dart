@@ -1253,6 +1253,15 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'synced_at': now,
         });
 
+        if (incomingVoided) {
+          // An offline sale cancelled before upload never consumed host stock.
+          // Record the reversal identity without inventing stock movements.
+          await txn.insert('stock_reversals', {
+            'sale_id': saleId,
+            'reversed_at': now,
+          });
+        }
+
         for (final rawLine
             in incomingVoided ? <Map<String, Object?>>[] : lines) {
           final line = Map<String, Object?>.from(rawLine);
