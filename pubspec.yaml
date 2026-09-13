@@ -46,6 +46,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/training/
     - assets/fonts/NotoSansSC-Regular.ttf
     - assets/catalog.json
     - assets/seed_customers.json

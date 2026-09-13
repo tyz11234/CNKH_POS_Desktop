@@ -342,7 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                   icon: const Icon(Icons.school_outlined),
-                  label: const Text('培训 / Training（配对→扫码→发收据）'),
+                  label: const Text('员工培训 / Employee Training（11 课）'),
                 ),
               ],
             ),

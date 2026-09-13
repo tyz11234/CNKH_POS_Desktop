@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tyz11234/CNKH_POS_Mobile_APK
-          ref: ${{ github.event.inputs.mobile_ref || 'main' }}
+          ref: ${{ github.event.inputs.mobile_ref || 'feature/myinvois-modular' }}
           path: CNKH_POS_Mobile_APK
 
       - name: Record exact paired source SHAs
@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           echo "Desktop ref: ${{ github.head_ref || github.ref_name }}"
           echo "Desktop SHA: $(git -C CNKH_POS_Desktop rev-parse HEAD)"
-          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || 'main' }}"
+          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || 'feature/myinvois-modular' }}"
           echo "Mobile SHA: $(git -C CNKH_POS_Mobile_APK rev-parse HEAD)"
 
       - name: Setup Flutter
@@ -56,4 +56,4 @@ jobs:
 
       - name: Test real HTTP synchronization and reconnect
         working-directory: CNKH_POS_Desktop/integration
-        run: flutter test
+        run: flutter test test regression

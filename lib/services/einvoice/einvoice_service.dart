@@ -47,11 +47,15 @@ class EInvoiceService {
     final payload = jsonEncode(InvoiceMapper().mapSale(sale, supplier: profile, buyer: buyer, issuedAt: DateTime.now()));
     final envelope = await MyInvoisClient.envelope(sale['receipt_no'] as String, payload);
     final id = previous.isEmpty ? '$environment:$saleId' : previous.single['id'] as String;
-    await db.insert('e_invoice_documents', {
+    await db.transaction((txn) async {
+      final latest = await txn.query('e_invoice_documents', where: 'sale_id=? AND environment=?', whereArgs: [saleId, environment]);
+      if (latest.any((r) => !['pending','rejected'].contains(r['status']) || '${r['document_uuid']}'.isNotEmpty)) throw StateError('提交状态已变更，请刷新列表');
+      await txn.insert('e_invoice_documents', {
       'id': id, 'sale_id': saleId, 'invoice_no': sale['receipt_no'], 'environment': environment,
       'payload_json': payload, 'payload_hash': (envelope['documents'] as List).single['documentHash'],
       'buyer_json': jsonEncode(buyer), 'status': 'pending', 'updated_at': _now(),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
     return payload;
   });
   Future<void> submitPendingInvoice(String saleId, {String environment = 'sandbox'}) => _lock.run(() async {
@@ -70,7 +74,8 @@ class EInvoiceService {
     final client = await _client(environment);
     await client.authenticate(); // Auth failures cannot have submitted the document.
     final id = doc['id'] as String;
-    await _update(db, id, {'status': 'submitting', 'error_message': ''});
+    final claimed = await db.update('e_invoice_documents', {'status': 'submitting', 'error_message': '', 'updated_at': _now()}, where: 'id=? AND status=? AND payload_hash=?', whereArgs: [id, 'pending', doc['payload_hash']]);
+    if (claimed != 1) throw StateError('此发票已被另一操作处理，请刷新');
     try {
       final result = await client.submitDocument(await MyInvoisClient.envelope(doc['invoice_no'] as String, doc['payload_json'] as String));
       final accepted = result['acceptedDocuments'] as List? ?? [];

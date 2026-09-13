@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:cnkh_pos_desktop/db/app_database.dart';
@@ -31,7 +32,7 @@ void main() {
   });
   tearDown(() async { await database.close(); await dir.delete(recursive:true); });
   Future<SaleRecord> sale() async {
-    const p = Product(id:'einvoice-test',nameZh:'测试商品',nameEn:'Test Product',priceCents:1060,stock:20);
+    const p = Product(id:'einvoice-test',sku:'EI-TEST',barcode:'955123000001',nameZh:'测试商品',nameEn:'Test Product',priceCents:1060,stock:20);
     await repo.upsertProduct(p);
     return repo.createSale(cart:CartState(items:[CartItem(product:p,qty:2,discountCents:20)],orderDiscountCents:100),paymentMethod:'CASH',paidCents:2000,cashier:'admin');
   }

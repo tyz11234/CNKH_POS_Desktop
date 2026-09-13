@@ -1,3 +1,4 @@
+import 'package:cnkh_pos_mobile/services/einvoice/einvoice_status_store.dart';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -45,6 +46,25 @@ void main() {
     cart:phone.CartState(items:[phone.CartItem(product:(await mobile.getProduct('phone-product'))!, qty:2)]),
     paymentMethod:credit ? 'CREDIT' : 'CASH', paidCents:credit ? 0 : 200, cashier:'staff',
     customer:credit ? const phone.Customer(id:'phone-customer',name:'Customer',phone:'0123456') : null);
+  test('offline sale keeps pending and authenticated LAN mirrors all e-Invoice states', () async {
+    final sale = await sell();
+    final store = EInvoiceStatusStore(await mobileDb.db);
+    expect((await store.history(config.normalizedBase, 'production')).single['status'], 'pending');
+    await client.synchronize(config);
+    final d = await desktopDb.db;
+    final imported = (await desktop.salesAll()).single;
+    await d.insert('e_invoice_documents', {'id':'status-test','sale_id':imported.id,'invoice_no':imported.receiptNo,'environment':'production','status':'submitted'});
+    for (final state in ['submitted','validated','rejected']) {
+      await d.update('e_invoice_documents', {'status':state}, where:'id=?',whereArgs:['status-test']);
+      await client.synchronize(config);
+      expect((await store.history(config.normalizedBase, 'production')).single['status'], state);
+      expect((await mobile.salesAll()).single.id, sale.id);
+    }
+    expect((await store.history(config.normalizedBase, 'sandbox')).single['status'], 'pending');
+    await host.stop();
+    await expectLater(client.synchronize(config), throwsA(anything));
+    expect((await store.history(config.normalizedBase, 'production')).single['status'], 'rejected');
+  });
   test('cancelled offline sale drains at zero host stock and unblocks later operations', () async {
     await desktop.setSetting('stock_policy', 'block');
     final sale = await sell();
