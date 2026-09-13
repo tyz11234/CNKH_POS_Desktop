@@ -4,19 +4,37 @@
 
 技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
 
-> README 最后更新：**2026-09-06**  
-> Full Fix 开发分支：`fix/ocr-full-fix-20260906`（基于 `main`）
+> README 最后更新：**2026-09-13**。默认源码与发布分支：`main`。
 
 ## 当前正式版本
 
 | 项目 | 当前正式版本 |
 | --- | --- |
-| Desktop | **0.3.3+6 / `v0.3.3`** |
-| 配套 Mobile | **1.9.0+25 / `v1.9.0-mobile`** |
+| Desktop | **0.3.4+7 / `v0.3.4`** |
+| 配套 Mobile | **1.9.1+26 / `v1.9.1-mobile`** |
 | LAN 协议 | `cnkh-sync:v1` |
 | 本地数据库 | Full Fix 后升级为 **schema v8** |
 
-正式 Release 仍以 GitHub Releases 页面为准；Full Fix 在合并前通过 Pull Request CI 验证。
+## 下载与更新
+
+- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.3.4/CNKH_POS_Desktop-windows-x64-v0.3.4-7.zip)
+- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.3.4)
+- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.9.1-mobile)
+
+更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
+
+## 2026-09-13 修复发布
+
+- 修复单号并发重复、销售同步去重及小票改号后的库存流水关联。
+- 修复同一商品多行进货撤销的数量计算，并加强流水缺失、数量不符和系统时间回拨时的撤销保护。
+- 修复商品搜索对只读数据库结果排序导致的异常。
+- 商品编辑按原始快照合并字段，保留期间更新的库存和成本；库存冲突时拒绝覆盖。
+- 商品库存编辑记录流水，手机同步到电脑也保留流水，阻止不安全的旧进货撤销。
+- 备份恢复后清理旧文件失败不会再删除已恢复数据库。
+
+本轮基线通过 86 项 Desktop 测试、78 项 Mobile 测试及 6 项双端 HTTP 联调；发布流程会重新执行本端静态分析、测试和构建，通过后上传安装包。未执行实体设备、打印机和真实门店局域网验收。
+
+完整说明见 [RELEASE_NOTES.md](RELEASE_NOTES.md)，发布结果以 [GitHub Actions](https://github.com/tyz11234/CNKH_POS_Desktop/actions/workflows/windows-release.yml) 和 Release 附件为准。
 
 ## 2026-09-06 Full Fix
 
@@ -289,6 +307,6 @@ CI 必须同时通过 Desktop tests、Desktop-Mobile integration 与 Windows Rel
 
 - Desktop Releases: https://github.com/tyz11234/CNKH_POS_Desktop/releases
 - Mobile Releases: https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases
-- Mobile Flutter source: https://github.com/tyz11234/CNKH_POS_Mobile_APK/tree/source/main
+- Mobile Flutter source: https://github.com/tyz11234/CNKH_POS_Mobile_APK/tree/main
 - Desktop Full Fix PR: https://github.com/tyz11234/CNKH_POS_Desktop/pull/8
 - Mobile Full Fix PR: https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/7
