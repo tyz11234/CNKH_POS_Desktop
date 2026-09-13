@@ -97,7 +97,7 @@ CREATE TABLE sync_outbox (
       final database = AppDatabase.forTesting(path, seed: false);
       final db = await database.db;
       final version = Sqflite.firstIntValue(await db.rawQuery('PRAGMA user_version'));
-      expect(version, 8);
+      expect(version, 9);
 
       final product = await db.query(
         'products',

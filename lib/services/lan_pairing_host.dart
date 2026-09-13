@@ -1103,102 +1103,557 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
                   mapped.first['canonical_receipt']?.toString() ??
                       originalReceipt,
             };
-   …5683 tokens truncated…ULL,
-  total_cents INTEGER NOT NULL,
-  lines_json TEXT NOT NULL,
-  notes TEXT NOT NULL DEFAULT ''
-)''');
-            await db.execute('''
-CREATE TABLE sync_outbox (
-  seq INTEGER PRIMARY KEY AUTOINCREMENT,
-  id TEXT NOT NULL UNIQUE,
-  kind TEXT NOT NULL,
-  entity_id TEXT NOT NULL,
-  payload_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  last_error TEXT NOT NULL DEFAULT ''
-)''');
-          },
-        ),
-      );
-      await legacy.insert('products', {
-        'id': 'legacy-product',
-        'name_zh': '旧商品',
-        'name_en': 'Legacy Product',
-        'sku': 'OLD-1',
-        'barcode': '9550000000099',
-        'price_cents': 500,
-        'cost_cents': 300,
-        'stock': 7.0,
-        'unit': 'pcs',
-        'category': 'Legacy',
-        'is_deleted': 0,
-        'image_path': '',
-        'reorder_level': 1.0,
+          }
+        }
+
+        var canonicalReceipt = originalReceipt;
+        final existingOriginal = await txn.query(
+          'sales',
+          where: 'receipt_no=?',
+          whereArgs: <Object?>[originalReceipt],
+          limit: 1,
+        );
+        if (existingOriginal.isNotEmpty) {
+          // Modern sales are identified only by client_sale_id. Two devices
+          // may legitimately submit identical receipts and line contents.
+          if (clientSaleId.isEmpty &&
+              _sameIncomingSale(existingOriginal.first, sale)) {
+            if (_asInt(sale['voided']) == 1) {
+              await reverseSale(
+                txn,
+                existingOriginal.first['id'] as String,
+                sale['void_note']?.toString() ?? 'void',
+              );
+            }
+            return <String, Object?>{
+              'inserted': false,
+              'receipt': originalReceipt,
+            };
+          }
+          final suffix = clientSaleId.isNotEmpty
+              ? _shortId(clientSaleId)
+              : _legacySaleSuffix(sale);
+          canonicalReceipt = '$originalReceipt-P$suffix';
+          var attempt = 1;
+          while (true) {
+            final collision = await txn.query(
+              'sales',
+              where: 'receipt_no=?',
+              whereArgs: <Object?>[canonicalReceipt],
+              limit: 1,
+            );
+            if (collision.isEmpty) break;
+            if (clientSaleId.isEmpty &&
+                _sameIncomingSale(collision.first, sale)) {
+              if (_asInt(sale['voided']) == 1) {
+                await reverseSale(
+                  txn,
+                  collision.first['id'] as String,
+                  sale['void_note']?.toString() ?? 'void',
+                );
+              }
+              return <String, Object?>{
+                'inserted': false,
+                'receipt': canonicalReceipt,
+              };
+            }
+            attempt++;
+            canonicalReceipt = '$originalReceipt-P$suffix-$attempt';
+          }
+        }
+
+        final lines = <Map<String, Object?>>[];
+        final incomingVoided = _asInt(sale['voided']) == 1;
+        final policy = await readSetting(txn, 'stock_policy', fallback: 'warn');
+        final requiredQty = <String, double>{};
+        for (final raw in (sale['lines'] as List? ?? [])) {
+          final line = Map<String, Object?>.from(raw as Map);
+          var pid =
+              (line['productId'] ?? line['product_id'])?.toString() ?? '';
+          if (pid.startsWith('pc-')) pid = pid.substring(3);
+          var products = await txn.query(
+            'products',
+            where: 'id=?',
+            whereArgs: [pid],
+          );
+          if (products.isEmpty &&
+              (line['sku']?.toString() ?? '').isNotEmpty) {
+            products = await txn.query(
+              'products',
+              where: 'sku=? AND is_deleted=0',
+              whereArgs: [line['sku']],
+            );
+          }
+          if (products.length != 1 ||
+              (!incomingVoided && products.first['is_deleted'] == 1)) {
+            throw StateError('销售商品未找到或不唯一：${line['nameZh'] ?? pid}');
+          }
+          pid = products.first['id'] as String;
+          final qty = _asDouble(line['qty'] ?? line['quantity']);
+          if (!qty.isFinite || qty <= 0) {
+            throw const FormatException('invalid quantity');
+          }
+          requiredQty[pid] = (requiredQty[pid] ?? 0) + qty;
+          if (!incomingVoided &&
+              policy == 'block' &&
+              (products.first['stock'] as num) < requiredQty[pid]!) {
+            throw StateError('库存不足，销售保留在手机待处理');
+          }
+          lines.add({...line, 'productId': pid});
+        }
+        if (lines.isEmpty) throw const FormatException('empty sale');
+        String? customerId = sale['customer_id']?.toString();
+        if (customerId != null && customerId.startsWith('pc-c-')) {
+          customerId = customerId.substring(5);
+        }
+        var customers = customerId == null
+            ? <Map<String, Object?>>[]
+            : await txn.query(
+                'customers',
+                where: 'id=?',
+                whereArgs: [customerId],
+              );
+        if (customers.isEmpty &&
+            (sale['customer_name']?.toString() ?? '').isNotEmpty) {
+          customers = await txn.query(
+            'customers',
+            where: 'name=? AND phone=?',
+            whereArgs: [sale['customer_name'], sale['customer_phone'] ?? ''],
+          );
+        }
+        customerId =
+            customers.length == 1 ? customers.first['id'] as String : null;
+        if ((sale['payment_method']?.toString() ?? '').toUpperCase() ==
+                'CREDIT' &&
+            customerId == null) {
+          throw StateError('赊账客户尚未同步或存在歧义');
+        }
+        final subtotal = _asInt(sale['subtotal_cents']);
+        final orderDiscount = _asInt(sale['order_discount_cents']);
+        final totalDiscount = _asInt(sale['discount_cents']);
+        final itemDiscount = max(0, totalDiscount - orderDiscount);
+        final total = _asInt(sale['total_cents']);
+        final paid = _asInt(sale['paid_cents'], fallback: total);
+        final payment = sale['payment_method']?.toString() ?? 'CASH';
+        final outstanding = payment.toUpperCase() == 'CREDIT'
+            ? max(0, total - paid)
+            : 0;
+        final now = DateTime.now().toIso8601String();
+        final saleId = AppDatabase.newId();
+
+        await txn.insert('sales', <String, Object?>{
+          'id': saleId,
+          'receipt_no': canonicalReceipt,
+          'sold_at': sale['sold_at']?.toString() ?? now,
+          'cashier': sale['cashier']?.toString() ?? 'mobile-sync',
+          'payment_method': payment,
+          'deposit_method': sale['deposit_method']?.toString(),
+          'customer_id': customerId,
+          'customer_name': sale['customer_name']?.toString(),
+          'customer_phone': sale['customer_phone']?.toString(),
+          'subtotal_cents': subtotal,
+          'item_discount_cents': itemDiscount,
+          'order_discount_cents': orderDiscount,
+          'rounding_cents': _asInt(sale['rounding_cents']),
+          'total_cents': total,
+          'paid_cents': paid,
+          'change_cents': _asInt(sale['change_cents']),
+          'credit_outstanding_cents': outstanding,
+          'lines_json': jsonEncode(lines),
+          'voided': incomingVoided ? 1 : 0,
+          'void_note': sale['void_note']?.toString() ?? '',
+          'synced_at': now,
+        });
+
+        if (incomingVoided) {
+          // An offline sale cancelled before upload never consumed host stock.
+          // Record the reversal identity without inventing stock movements.
+          await txn.insert('stock_reversals', {
+            'sale_id': saleId,
+            'reversed_at': now,
+          });
+        }
+
+        for (final rawLine
+            in incomingVoided ? <Map<String, Object?>>[] : lines) {
+          final line = Map<String, Object?>.from(rawLine);
+          var productId =
+              (line['productId'] ?? line['product_id'])?.toString().trim() ??
+                  '';
+          if (productId.startsWith('pc-')) {
+            productId = productId.substring(3);
+          }
+          final qty = _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
+          if (productId.isEmpty || qty <= 0) continue;
+          final changed = await txn.rawUpdate(
+            'UPDATE products SET stock=stock-? WHERE id=?',
+            <Object?>[qty, productId],
+          );
+          if (changed > 0) {
+            await txn.insert('stock_moves', <String, Object?>{
+              'id': AppDatabase.newId(),
+              'product_id': productId,
+              'change': -qty,
+              'reason': 'sale',
+              'created_at': now,
+              'operator': sale['cashier']?.toString() ?? 'mobile-sync',
+              'notes': canonicalReceipt,
+            });
+          }
+        }
+
+        if (clientSaleId.isNotEmpty) {
+          await txn.insert(
+            'lan_sync_mobile_sales',
+            <String, Object?>{
+              'client_sale_id': clientSaleId,
+              'sale_id': saleId,
+              'original_receipt': originalReceipt,
+              'canonical_receipt': canonicalReceipt,
+              'created_at': now,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+
+        return <String, Object?>{
+          'inserted': true,
+          'receipt': canonicalReceipt,
+        };
       });
-      await legacy.insert('purchases', {
-        'id': 'legacy-purchase',
-        'purchase_no': 'PO-LEGACY',
-        'supplier_id': 'legacy-supplier',
-        'supplier_name': '旧供应商',
-        'purchased_at': '2026-08-30T12:00:00Z',
-        'total_cents': 2100,
-        'lines_json': '[]',
-        'notes': 'keep me',
+
+      final canonicalReceipt =
+          result['receipt']?.toString() ?? originalReceipt;
+      receipts.add(<String, Object?>{
+        if (clientSaleId.isNotEmpty) 'client_sale_id': clientSaleId,
+        'original_receipt': originalReceipt,
+        'receipt_no': canonicalReceipt,
       });
-      await legacy.insert('sync_outbox', {
-        'id': 'legacy-outbox',
-        'kind': 'supplier_upsert',
-        'entity_id': 'legacy-supplier',
-        'payload_json': '{}',
-        'created_at': '2026-08-30T12:01:00Z',
-        'last_error': 'offline',
-      });
-      await legacy.close();
-
-      final database = AppDatabase.forTesting(path, seed: false);
-      final db = await database.db;
-      final version = Sqflite.firstIntValue(await db.rawQuery('PRAGMA user_version'));
-      expect(version, 9);
-
-      final product = await db.query(
-        'products',
-        where: 'id=?',
-        whereArgs: ['legacy-product'],
-      );
-      expect(product, hasLength(1));
-      expect(product.single['stock'], 7.0);
-
-      final purchase = await db.query(
-        'purchases',
-        where: 'id=?',
-        whereArgs: ['legacy-purchase'],
-      );
-      expect(purchase, hasLength(1));
-      expect(purchase.single['notes'], 'keep me');
-      expect(purchase.single['invoice_no'], '');
-      expect(purchase.single['reversed'], 0);
-
-      final outbox = await db.query(
-        'sync_outbox',
-        where: 'id=?',
-        whereArgs: ['legacy-outbox'],
-      );
-      expect(outbox, hasLength(1));
-      expect(outbox.single['last_error'], 'offline');
-
-      final attachmentTable = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='purchase_attachments'",
-      );
-      expect(attachmentTable, hasLength(1));
-      final auditTable = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='purchase_audit_log'",
-      );
-      expect(auditTable, hasLength(1));
-
-      await database.close();
-    } finally {
-      if (await temp.exists()) await temp.delete(recursive: true);
+      if (result['inserted'] == true) {
+        imported++;
+      } else {
+        skipped++;
+      }
     }
-  });
+
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'imported': imported,
+      'skipped': skipped,
+      'receipts': receipts,
+      'cursor': await _latestChangeSeq(db),
+    });
+  }
+
+  bool _sameIncomingSale(
+    Map<String, Object?> existing,
+    Map<String, Object?> incoming,
+  ) {
+    if ((existing['sold_at']?.toString() ?? '') !=
+        (incoming['sold_at']?.toString() ?? '')) return false;
+    if (_asInt(existing['total_cents']) != _asInt(incoming['total_cents'])) {
+      return false;
+    }
+    if ((existing['payment_method']?.toString() ?? '') !=
+        (incoming['payment_method']?.toString() ?? '')) return false;
+    if ((existing['cashier']?.toString() ?? '') !=
+        (incoming['cashier']?.toString() ?? '')) return false;
+    if (_asInt(existing['subtotal_cents']) != _asInt(incoming['subtotal_cents'])) {
+      return false;
+    }
+    if (_asInt(existing['paid_cents']) !=
+        _asInt(incoming['paid_cents'], fallback: _asInt(incoming['total_cents']))) {
+      return false;
+    }
+    if (_asInt(existing['change_cents']) != _asInt(incoming['change_cents'])) {
+      return false;
+    }
+    if ((existing['customer_name']?.toString() ?? '') !=
+        (incoming['customer_name']?.toString() ?? '')) return false;
+    if ((existing['customer_phone']?.toString() ?? '') !=
+        (incoming['customer_phone']?.toString() ?? '')) return false;
+
+    Object? existingLines;
+    try {
+      existingLines = jsonDecode(existing['lines_json']?.toString() ?? '[]');
+    } catch (_) {
+      existingLines = const <Object?>[];
+    }
+    final incomingLines = incoming['lines'] ?? const <Object?>[];
+    return _lineFingerprint(existingLines) == _lineFingerprint(incomingLines);
+  }
+
+  String _lineFingerprint(Object? rawLines) {
+    if (rawLines is! List) return '[]';
+    final normalized = <Map<String, Object?>>[];
+    for (final raw in rawLines) {
+      if (raw is! Map) continue;
+      final m = Map<String, Object?>.from(raw);
+      var productId = (m['productId'] ?? m['product_id'] ?? '').toString();
+      // Import resolves legacy pc-prefixed IDs before storing sale lines.
+      // Compare that same identity when a client retries after a lost ACK.
+      if (productId.startsWith('pc-')) productId = productId.substring(3);
+      normalized.add(<String, Object?>{
+        'product': productId,
+        'sku': m['sku']?.toString() ?? '',
+        'barcode': m['barcode']?.toString() ?? '',
+        'name': (m['nameZh'] ?? m['name_zh'] ?? m['name'] ?? '').toString(),
+        'qty': _asDouble(m['qty'] ?? m['quantity']),
+        'unit_price_cents': _asInt(
+          m['unitPriceCents'] ?? m['unit_price_cents'] ?? m['price_cents'],
+        ),
+        'discount_cents': _asInt(m['discountCents'] ?? m['discount_cents']),
+      });
+    }
+    return jsonEncode(normalized);
+  }
+
+  String _shortId(String value) {
+    final cleaned =
+        value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    if (cleaned.isEmpty) return 'MOBILE';
+    return cleaned.length <= 6 ? cleaned : cleaned.substring(0, 6);
+  }
+
+  String _legacySaleSuffix(Map<String, Object?> sale) {
+    final raw =
+        '${sale['sold_at']}|${sale['total_cents']}|${sale['subtotal_cents']}|'
+        '${sale['cashier']}|${sale['payment_method']}|${sale['paid_cents']}|'
+        '${sale['customer_name']}|${sale['customer_phone']}|'
+        '${_lineFingerprint(sale['lines'])}';
+    var hash = 2166136261;
+    for (final byte in utf8.encode(raw)) {
+      hash ^= byte;
+      hash = (hash * 16777619) & 0x7fffffff;
+    }
+    final out = hash.toRadixString(36).toUpperCase();
+    return out.length <= 6 ? out : out.substring(0, 6);
+  }
+
+  Future<void> _postCategories(HttpRequest request) async {
+    final body = await _readJson(request);
+    final rawItems = body['items'];
+    if (rawItems is! List) {
+      throw const FormatException('items must be a list');
+    }
+    var saved = 0;
+    for (final raw in rawItems) {
+      if (raw is! Map) continue;
+      final name = raw['name']?.toString().trim() ?? '';
+      if (name.isEmpty) continue;
+      await repo.upsertCategory(Category(id: '', name: name));
+      saved++;
+    }
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'saved': saved,
+    });
+  }
+
+  Future<void> _postBarcodeQueue(HttpRequest request) async {
+    final body = await _readJson(request);
+    final rawItems = body['items'];
+    if (rawItems is! List) {
+      throw const FormatException('items must be a list');
+    }
+    final db = await _db.db;
+    var saved = 0;
+    var skipped = 0;
+    final acknowledged = <String>[];
+    for (final raw in rawItems) {
+      if (raw is! Map) continue;
+      var productId = raw['product_id']?.toString().trim() ?? '';
+      if (productId.startsWith('pc-')) {
+        productId = productId.substring(3);
+      }
+      final barcode = raw['barcode']?.toString().trim() ?? '';
+      final productName = raw['product_name']?.toString().trim() ?? '';
+      final operationId = raw['operation_id']?.toString().trim() ?? '';
+      if (barcode.isEmpty || productName.isEmpty) continue;
+
+      if (operationId.isEmpty) {
+        await repo.enqueueBarcodePrint(
+          productId: productId,
+          barcode: barcode,
+          productName: productName,
+          sku: raw['sku']?.toString() ?? '',
+          priceCents: _asInt(raw['price_cents']),
+          copies: _asInt(raw['copies'], fallback: 1),
+        );
+        saved++;
+        continue;
+      }
+
+      final queueId = 'mobile-barcode-$operationId';
+      final rowId = await db.insert(
+        'barcode_print_queue',
+        <String, Object?>{
+          'id': queueId,
+          'product_id': productId,
+          'barcode': barcode,
+          'product_name': productName,
+          'sku': raw['sku']?.toString() ?? '',
+          'price_cents': _asInt(raw['price_cents']),
+          'copies': max(1, _asInt(raw['copies'], fallback: 1)),
+          'status': 'pending',
+          'created_at': raw['created_at']?.toString().trim().isNotEmpty == true
+              ? raw['created_at'].toString()
+              : DateTime.now().toIso8601String(),
+          'synced_at': null,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      if (rowId == 0) {
+        skipped++;
+      } else {
+        saved++;
+      }
+      acknowledged.add(operationId);
+    }
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'saved': saved,
+      'skipped': skipped,
+      'acknowledged': acknowledged,
+    });
+  }
+
+  void _publish(Map<String, Object?> event) {
+    final withSeq = <String, Object?>{
+      ...event,
+      'seq': ++_eventSeq,
+      'time': DateTime.now().toIso8601String(),
+    };
+    _events.add(withSeq);
+    if (_events.length > 200) {
+      _events.removeRange(0, _events.length - 200);
+    }
+    final message = jsonEncode(withSeq);
+    for (final socket in _sockets.toList()) {
+      try {
+        socket.add(message);
+      } catch (_) {
+        _sockets.remove(socket);
+        _emitConnectionCount();
+      }
+    }
+  }
+
+  Future<Map<String, Object?>> _readJson(HttpRequest request) async {
+    final text = await utf8.decoder.bind(request).join();
+    if (text.trim().isEmpty) return <String, Object?>{};
+    final decoded = jsonDecode(text);
+    if (decoded is! Map) throw const FormatException('JSON object required');
+    return Map<String, Object?>.from(decoded);
+  }
+
+  Future<void> _json(
+    HttpResponse response,
+    int status,
+    Map<String, Object?> body,
+  ) async {
+    response.statusCode = status;
+    response.headers.contentType = ContentType.json;
+    response.write(jsonEncode(body));
+    await response.close();
+  }
+
+  Future<void> _safeJson(
+    HttpResponse response,
+    int status,
+    Map<String, Object?> body,
+  ) async {
+    try {
+      await _json(response, status, body);
+    } on StateError {
+      // Response was already committed by another route.
+    }
+  }
+
+  static int _asInt(Object? value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  static double _asDouble(Object? value, {double fallback = 0}) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  static Future<String> findBestLocalIPv4() async {
+    List<NetworkInterface> interfaces;
+    try {
+      interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+        includeLinkLocal: false,
+      );
+    } on SocketException {
+      return '127.0.0.1';
+    }
+
+    final candidates = <_IpCandidate>[];
+    for (final interface in interfaces) {
+      for (final address in interface.addresses) {
+        final value = address.address;
+        if (address.isLoopback || value.startsWith('169.254.')) continue;
+        candidates.add(
+          _IpCandidate(
+            value,
+            _interfaceScore(interface.name) + _ipScore(value),
+          ),
+        );
+      }
+    }
+    if (candidates.isEmpty) return '127.0.0.1';
+
+    candidates.sort((a, b) => b.score.compareTo(a.score));
+    return candidates.first.ip;
+  }
+
+  static int _interfaceScore(String rawName) {
+    final name = rawName.toLowerCase();
+    const virtualMarkers = <String>[
+      'virtual',
+      'vmware',
+      'vbox',
+      'virtualbox',
+      'hyper-v',
+      'docker',
+      'wsl',
+      'tun',
+      'tap',
+      'vpn',
+      'tailscale',
+      'zerotier',
+    ];
+    if (virtualMarkers.any(name.contains)) return -1500;
+    if (name.contains('wi-fi') ||
+        name.contains('wifi') ||
+        name.contains('wlan') ||
+        name.contains('wireless')) {
+      return 1000;
+    }
+    if (name.contains('ethernet') || name.startsWith('eth')) return 800;
+    return 0;
+  }
+
+  static int _ipScore(String ip) {
+    if (ip.startsWith('192.168.')) return 300;
+    if (ip.startsWith('10.')) return 220;
+    if (ip.startsWith('172.')) {
+      final parts = ip.split('.');
+      final second = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      if (second != null && second >= 16 && second <= 31) return 210;
+    }
+    return 100;
+  }
+}
+
+class _IpCandidate {
+  const _IpCandidate(this.ip, this.score);
+
+  final String ip;
+  final int score;
 }
