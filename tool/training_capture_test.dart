@@ -72,6 +72,30 @@ void main() {
       }
       expect(target,findsWidgets);
       final boundary=key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      // The headless engine uses Ahem even after loading fonts for styles whose
+      // family is unspecified (e.g. explicit AppBar/Button text styles).
+      // Resolve that engine-only fallback without changing widget text or layout
+      // configuration. Production uses real platform glyphs for these styles.
+      InlineSpan resolveSpan(InlineSpan span) {
+        if (span is! TextSpan) return span;
+        return TextSpan(
+          text: span.text,
+          style: (span.style ?? const TextStyle()).copyWith(fontFamily: span.style?.fontFamily ?? 'Roboto'),
+          children: span.children?.map(resolveSpan).toList(),
+          recognizer: span.recognizer,
+          semanticsLabel: span.semanticsLabel,
+        );
+      }
+      void resolveFallback(RenderObject node) {
+        if (node is RenderParagraph) {
+          final resolved = resolveSpan(node.text);
+          expect(resolved.toPlainText(), node.text.toPlainText());
+          node.text = resolved;
+        }
+        node.visitChildren(resolveFallback);
+      }
+      resolveFallback(boundary);
+      await tester.pump();
       final point=tester.getCenter(target.first);
       final bounds=boundary.size;
       expect(point.dx,inInclusiveRange(0,bounds.width));expect(point.dy,inInclusiveRange(0,bounds.height));
