@@ -67,7 +67,7 @@ void main() {
       await tester.pumpWidget(RepaintBoundary(key:key,child:MaterialApp(debugShowCheckedModeBanner:false,theme:buildCnkhTheme(),home:Scaffold(body:screen))));await settle();
       if(history){await tester.tap(find.text('Submission History'));await tester.pump(const Duration(milliseconds:500));await settle();}
       if(scroll){
-        await tester.scrollUntilVisible(target.first, 500, scrollable: find.byType(Scrollable).first, maxScrolls: 30);
+        await tester.scrollUntilVisible(target, 500, scrollable: find.byType(Scrollable).first, maxScrolls: 30);
         await settle();
       }
       expect(target,findsWidgets);
