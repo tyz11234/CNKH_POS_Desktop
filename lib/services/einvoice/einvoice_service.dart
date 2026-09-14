@@ -30,7 +30,12 @@ class EInvoiceService {
     await (await settings).save(profile, clientId: id, clientSecret: secret);
     _clients.remove(profile['environment'])?.close();
   }
-  Future<void> testConnection(String environment) async { _admin(); await (await _client(environment)).authenticate(); }
+  Future<void> testConnection(String environment) async {
+    _admin();
+    final client = await _client(environment);
+    client.clearToken(); // An explicit connection test must actually contact the server.
+    await client.authenticate();
+  }
   Future<List<Map<String, Object?>>> history(String environment, {String receipt = ''}) async {
     final db = await repo.database.db;
     final result = await db.rawQuery('''SELECT s.id AS sale_id, s.receipt_no, s.customer_name, s.customer_phone, s.total_cents, s.voided,

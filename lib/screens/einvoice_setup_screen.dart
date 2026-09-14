@@ -84,7 +84,7 @@ class _EInvoiceSetupScreenState extends State<EInvoiceSetupScreen> {
     if (confirmed == true) await _run(() => service.submitPendingInvoice(row['sale_id'] as String, environment: environment));
   }
   @override Widget build(BuildContext context) => DefaultTabController(length: 2, child: Scaffold(
-    appBar: AppBar(title: const Text('e-Invoice Setup'), bottom: const TabBar(tabs: [Tab(text: '设置 / Setup'), Tab(text: 'Submission History')])),
+    appBar: AppBar(title: const Text('e-Invoice Setup'), bottom: const TabBar(labelColor: Colors.white, unselectedLabelColor: Colors.white70, indicatorColor: Colors.white, tabs: [Tab(text: '设置 / Setup'), Tab(text: 'Submission History')])),
     body: Column(children: [
       if (busy) const LinearProgressIndicator(),
       if (message.isNotEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(message)),

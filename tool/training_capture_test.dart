@@ -67,7 +67,7 @@ void main() {
       await tester.pumpWidget(RepaintBoundary(key:key,child:MaterialApp(debugShowCheckedModeBanner:false,theme:buildCnkhTheme(),home:Scaffold(body:screen))));await settle();
       if(history){await tester.tap(find.text('Submission History'));await tester.pump(const Duration(milliseconds:500));await settle();}
       if(scroll){
-        await tester.scrollUntilVisible(target, 500, scrollable: find.byType(Scrollable).first, maxScrolls: 30);
+        await tester.scrollUntilVisible(target, 500, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first, maxScrolls: 30);
         await settle();
       }
       expect(target,findsWidgets);
@@ -119,6 +119,7 @@ void main() {
     await capture('sync',SettingsScreen(repo:repo,user:user,qrStorage:QrStorage()),find.text('局域网同步 / LAN Sync'),scroll:true);
     await capture('backup',BackupRestorePage(repo:repo),find.text('建立备份 / Create Backup'));
     await capture('einvoice_setup',EInvoiceSetupScreen(repo:repo),find.byType(TextField));
+    await capture('einvoice_credentials',EInvoiceSetupScreen(repo:repo),find.text('Client ID（留空保留已保存值）'),scroll:true);
     await capture('einvoice_history',EInvoiceSetupScreen(repo:repo),find.text('买方资料 / 生成'),history:true);
   },timeout:const Timeout(Duration(minutes:5)));
 }

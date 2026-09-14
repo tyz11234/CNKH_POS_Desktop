@@ -47,6 +47,9 @@ jobs:
           name: desktop-training-screenshots
           path: assets/training/
 
+      - name: Verify bundled training image and arrow
+        run: flutter test tool/training_view_test.dart
+
       - name: Build Windows release
         run: flutter build windows --release
 

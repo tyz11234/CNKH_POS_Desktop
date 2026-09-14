@@ -28,7 +28,13 @@ class TrainingPage extends StatelessWidget {
       for (var i = 0; i < lessons.length; i++) Card(child: ExpansionTile(
         title: Text('${i+1}. ${lessons[i].$1}'),
         childrenPadding: const EdgeInsets.all(16),
-        children: [Text(lessons[i].$3, style: const TextStyle(height: 1.6)), const SizedBox(height: 12), TrainingScreenshot(name: lessons[i].$2)],
+        children: [Text(lessons[i].$3, style: const TextStyle(height: 1.6)), const SizedBox(height: 12), TrainingScreenshot(name: lessons[i].$2),
+          if (lessons[i].$2 == 'einvoice_setup') ...[
+            const SizedBox(height: 12),
+            const Text('向下滚动填写凭据，保存后测试连接：'),
+            const TrainingScreenshot(name: 'einvoice_credentials'),
+          ],
+        ],
       )),
     ]),
   );
