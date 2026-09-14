@@ -105,7 +105,13 @@ void main() {
     var doc=(await db.query('e_invoice_documents')).single;expect(doc['status'],'submitted');
     await service.refresh(doc['id'] as String);expect((await db.query('e_invoice_documents')).single['status'],'validated');
     await service.cancel(doc['id'] as String,'Test cancellation');expect((await db.query('e_invoice_documents')).single['status'],'cancelled');
-    expect(await db.query('sales'),original);service.dispose();
+    expect(await db.query('sales'),original);
+    await db.delete('sales',where:'id=?',whereArgs:[s.id]);
+    final archived=(await service.history('sandbox',receipt:s.receiptNo)).single;
+    expect(archived['status'],'cancelled');expect(archived['total_cents'],2000);
+    await db.insert('sales',{...original.single,'id':'reused-sale-id'});
+    await expectLater(service.prepare('reused-sale-id','sandbox',buyer),throwsStateError);
+    service.dispose();
   });
   test('ambiguous timeout blocks retries across service restart', () async {
     final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');

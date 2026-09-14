@@ -21,26 +21,26 @@ class _EInvoiceSetupScreenState extends State<EInvoiceSetupScreen> {
     'exemption_reason': 'Tax Exemption Reason（税种 E 必填）',
   };
   late final inputs = {for (final key in fields.keys) key: TextEditingController()};
-  final clientId = TextEditingController(), secret = TextEditingController();
+  final clientId = TextEditingController(), secret = TextEditingController(), search = TextEditingController();
   String environment = 'sandbox', taxType = '06', message = '';
   bool busy = true;
   List<Map<String, Object?>> rows = [];
   bool get admin => widget.repo.auth.currentUser?.role == AppRole.admin;
   @override void initState() { super.initState(); _load(); }
-  @override void dispose() { service.dispose(); for (final c in inputs.values) { c.dispose(); } clientId.dispose(); secret.dispose(); super.dispose(); }
+  @override void dispose() { service.dispose(); for (final c in inputs.values) { c.dispose(); } clientId.dispose(); secret.dispose(); search.dispose(); super.dispose(); }
   Future<void> _load() async {
     try {
       final profile = await (await service.settings).load(environment: environment);
       for (final key in inputs.keys) { inputs[key]!.text = '${profile[key] ?? (['sst','ttx'].contains(key) ? 'NA' : '')}'; }
       inputs['tax_rate']!.text = '${(profile['tax_rate_basis_points'] as num? ?? 0) / 100}';
       taxType = '${profile['tax_type'] ?? '06'}';
-      clientId.clear(); secret.clear(); rows = await service.history(environment);
+      clientId.clear(); secret.clear(); rows = await service.history(environment, receipt: search.text.trim());
     } catch (_) { message = '读取设置失败，请重试'; }
     if (mounted) setState(() => busy = false);
   }
   Future<void> _run(Future<void> Function() action) async {
     setState(() { busy = true; message = ''; });
-    try { await action(); rows = await service.history(environment); if (mounted) setState(() => message = '操作完成'); }
+    try { await action(); rows = await service.history(environment, receipt: search.text.trim()); if (mounted) setState(() => message = '操作完成'); }
     catch (e) { if (mounted) setState(() => message = e is FormatException || e is StateError || e is ArgumentError ? '$e' : '连接或操作失败，请检查网络和 MyInvois 配置'); }
     finally { if (mounted) setState(() => busy = false); }
   }
@@ -103,7 +103,8 @@ class _EInvoiceSetupScreenState extends State<EInvoiceSetupScreen> {
           ]),
         ]),
         ListView(padding: const EdgeInsets.all(16), children: [
-          const Text('最近 500 笔销售。Pending 尚未提交；Submitted 已接收；Validated 验证通过；Rejected 被拒收/验证失败。取消 e-Invoice 不会退款或改动库存。'),
+          const Text('显示最近 500 笔；可按单号搜索旧记录。Pending 尚未提交；Submitted 已接收；Validated 验证通过；Rejected 被拒收/验证失败。取消 e-Invoice 不会退款或改动库存。'),
+          TextField(controller: search, decoration: const InputDecoration(labelText: '搜索 Invoice / Receipt Number'), onSubmitted: (_) => _run(() async {})),
           TextButton(onPressed: busy ? null : () => _run(() async {}), child: const Text('刷新本地列表')),
           for (final row in rows) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${row['receipt_no']} · ${row['status']}', style: Theme.of(context).textTheme.titleMedium),

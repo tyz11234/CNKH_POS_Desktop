@@ -31,18 +31,36 @@ class EInvoiceService {
     _clients.remove(profile['environment'])?.close();
   }
   Future<void> testConnection(String environment) async { _admin(); await (await _client(environment)).authenticate(); }
-  Future<List<Map<String, Object?>>> history(String environment) async => (await repo.database.db).rawQuery('''
-    SELECT s.id AS sale_id, s.receipt_no, s.customer_name, s.customer_phone, s.total_cents, s.voided,
+  Future<List<Map<String, Object?>>> history(String environment, {String receipt = ''}) async {
+    final db = await repo.database.db;
+    final result = await db.rawQuery('''SELECT s.id AS sale_id, s.receipt_no, s.customer_name, s.customer_phone, s.total_cents, s.voided,
       d.id AS document_id, COALESCE(d.status,'pending') AS status,
       COALESCE(d.error_message,'') AS error_message, COALESCE(d.document_uuid,'') AS document_uuid,
-      COALESCE(d.submission_uid,'') AS submission_uid, COALESCE(d.buyer_json,'{}') AS buyer_json
+      COALESCE(d.submission_uid,'') AS submission_uid, COALESCE(d.buyer_json,'{}') AS buyer_json,
+      COALESCE(d.payload_json,'') AS payload_json, s.sold_at AS sort_time
     FROM sales s LEFT JOIN e_invoice_documents d ON d.sale_id=s.id AND d.environment=?
-    ORDER BY s.sold_at DESC LIMIT 500''', [environment]);
+    WHERE (?='' OR instr(s.receipt_no,?)>0)
+    UNION ALL
+    SELECT d.sale_id,d.invoice_no,'原销售已移除','',0,1,d.id,d.status,d.error_message,
+      d.document_uuid,d.submission_uid,d.buyer_json,d.payload_json,d.updated_at
+    FROM e_invoice_documents d WHERE d.environment=? AND NOT EXISTS(SELECT 1 FROM sales s WHERE s.id=d.sale_id)
+      AND (?='' OR instr(d.invoice_no,?)>0)
+    ORDER BY sort_time DESC LIMIT 500''', [environment,receipt,receipt,environment,receipt,receipt]);
+    return result.map((r) {
+      final row = Map<String,Object?>.from(r);
+      if (r['customer_name']=='原销售已移除' && (r['payload_json'] as String).isNotEmpty) {
+        try { final payload=jsonDecode(r['payload_json'] as String);row['total_cents']=((payload['Invoice'][0]['LegalMonetaryTotal'][0]['PayableAmount'][0]['_'] as num)*100).round(); } catch (_) {}
+      }
+      return row;
+    }).toList();
+  }
   Future<String> prepare(String saleId, String environment, Map<String, dynamic> buyer) => _lock.run(() async {
     _admin(); final db = await repo.database.db;
     final previous = await db.query('e_invoice_documents', where: 'sale_id=? AND environment=?', whereArgs: [saleId, environment]);
     if (previous.any((r) => !['pending','rejected'].contains(r['status']) || '${r['document_uuid']}'.isNotEmpty)) throw StateError('此销售已有提交记录，请查询或取消，不能重复生成');
     final sale = (await db.query('sales', where: 'id=?', whereArgs: [saleId])).single;
+    final reused = await db.query('e_invoice_documents', where: 'invoice_no=? AND environment=? AND sale_id<>?', whereArgs: [sale['receipt_no'], environment, saleId], limit: 1);
+    if (reused.isNotEmpty) throw StateError('此发票号码已有税务记录，不能重复使用');
     final profile = await (await settings).load(environment: environment);
     final payload = jsonEncode(InvoiceMapper().mapSale(sale, supplier: profile, buyer: buyer, issuedAt: DateTime.now()));
     final envelope = await MyInvoisClient.envelope(sale['receipt_no'] as String, payload);

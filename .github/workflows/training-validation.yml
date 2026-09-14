@@ -1,0 +1,24 @@
+name: Training screenshot validation
+on:
+  push:
+    branches: [feature/myinvois-modular]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test tool/training_capture_test.dart
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: training-screenshots-check
+          path: assets/training/
