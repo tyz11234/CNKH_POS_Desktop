@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../services/pos_repository.dart';
 import '../services/einvoice/einvoice_service.dart';
+import '../services/einvoice/myinvois_client.dart';
 
 class EInvoiceSetupScreen extends StatefulWidget {
   const EInvoiceSetupScreen({super.key, required this.repo});
@@ -41,7 +42,7 @@ class _EInvoiceSetupScreenState extends State<EInvoiceSetupScreen> {
   Future<void> _run(Future<void> Function() action) async {
     setState(() { busy = true; message = ''; });
     try { await action(); rows = await service.history(environment, receipt: search.text.trim()); if (mounted) setState(() => message = '操作完成'); }
-    catch (e) { if (mounted) setState(() => message = e is FormatException || e is StateError || e is ArgumentError ? '$e' : '连接或操作失败，请检查网络和 MyInvois 配置'); }
+    catch (e) { if (mounted) setState(() => message = e is FormatException || e is StateError || e is ArgumentError || e is MyInvoisException ? '$e' : '连接或操作失败，请检查网络和 MyInvois 配置'); }
     finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> _save() async {

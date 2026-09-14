@@ -60,8 +60,11 @@ void main() {
       debugPrint('Training capture: $name');
       await tester.pumpWidget(RepaintBoundary(key:key,child:MaterialApp(theme:buildCnkhTheme(),home:Scaffold(body:screen))));await settle();
       if(history){await tester.tap(find.text('Submission History'));await tester.pump(const Duration(milliseconds:500));await settle();}
+      if(scroll){
+        await tester.scrollUntilVisible(target.first, 500, scrollable: find.byType(Scrollable).first, maxScrolls: 30);
+        await settle();
+      }
       expect(target,findsWidgets);
-      if(scroll){await tester.ensureVisible(target.first);await settle();}
       final boundary=key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final point=tester.getCenter(target.first);
       final bounds=boundary.size;

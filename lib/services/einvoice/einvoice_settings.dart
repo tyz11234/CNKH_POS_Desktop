@@ -31,10 +31,10 @@ class EInvoiceSettingsStore {
   }
   Future<Map<String, dynamic>> load({String environment = 'sandbox', bool credentials = false}) => _lock.run(() async {
     _environment(environment);
-    final rows = await db.query('e_invoice_settings', where: 'id=?', whereArgs: [environment]);
+    final rows = await db.query('e_invoice_settings', where: 'environment=?', whereArgs: [environment], orderBy: 'updated_at DESC, id ASC', limit: 1);
     if (rows.isEmpty) return {'environment': environment};
     final row = rows.single;
-    final result = <String, dynamic>{...jsonDecode(row['profile_json'] as String) as Map<String, dynamic>, 'environment': environment};
+    final result = <String, dynamic>{'tin': row['tin'], 'brn': row['brn'], ...jsonDecode(row['profile_json'] as String) as Map<String, dynamic>, 'environment': environment};
     if (credentials && (row['credentials_cipher'] as String).isNotEmpty) {
       final box = jsonDecode(row['credentials_cipher'] as String) as Map<String, dynamic>;
       final plain = await _cipher.decrypt(SecretBox(base64Decode(box['data']), nonce: base64Decode(box['nonce']), mac: Mac(base64Decode(box['mac']))), secretKey: await _key(create: false), aad: utf8.encode(environment));

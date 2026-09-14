@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:cnkh_pos_desktop/db/app_database.dart' as pc;
 import 'package:cnkh_pos_desktop/services/pos_repository.dart' as pc;
 import 'package:cnkh_pos_desktop/models/product.dart' as pc;
+import 'package:cnkh_pos_desktop/models/cart_item.dart' as pc;
 import 'package:cnkh_pos_desktop/services/lan_pairing_host.dart';
 import 'package:cnkh_pos_mobile/db/app_database.dart' as phone;
 import 'package:cnkh_pos_mobile/services/pos_repository.dart' as phone;
@@ -64,6 +65,15 @@ void main() {
     await host.stop();
     await expectLater(client.synchronize(config), throwsA(anything));
     expect((await store.history(config.normalizedBase, 'production')).single['status'], 'rejected');
+  });
+  test('Desktop-origin invoice status follows synchronized receipt despite different local UUID', () async {
+    final product = (await desktop.getProduct('desktop-product'))!;
+    final sale = await desktop.createSale(cart: pc.CartState(items: [pc.CartItem(product: product)]), paymentMethod: 'CASH', paidCents: 100, cashier: 'admin');
+    await (await desktopDb.db).insert('e_invoice_documents', {'id':'desktop-status','sale_id':sale.id,'invoice_no':sale.receiptNo,'environment':'production','status':'validated'});
+    await client.synchronize(config);
+    final local = (await mobile.salesAll()).single;
+    expect(local.id, isNot(sale.id));
+    expect((await EInvoiceStatusStore(await mobileDb.db).history(config.normalizedBase, 'production')).single['status'], 'validated');
   });
   test('cancelled offline sale drains at zero host stock and unblocks later operations', () async {
     await desktop.setSetting('stock_policy', 'block');

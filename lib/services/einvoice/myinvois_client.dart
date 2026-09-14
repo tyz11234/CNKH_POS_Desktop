@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show HttpDate;
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
 import '../sync_store.dart';
@@ -22,18 +23,24 @@ class MyInvoisClient {
   final _authLock = AsyncMutex();
   String? _accessToken;
   DateTime? _expires;
+  DateTime? _retryNotBefore;
   String get baseUrl => environment == 'production' ? 'https://api.myinvois.hasil.gov.my' : 'https://preprod-api.myinvois.hasil.gov.my';
   void close() => _http.close();
   void clearToken() { _accessToken = null; _expires = null; }
   Future<void> authenticate() => _authLock.run(() async {
+    final retry = _retryNotBefore;
+    if (retry != null && retry.isAfter(_now())) throw StateError('MyInvois 暂时限流，请等待 ${retry.difference(_now()).inSeconds + 1} 秒后重试');
     if (_accessToken != null && _expires!.isAfter(_now().add(const Duration(seconds: 60)))) return;
     final cfg = await credentials();
     if ('${cfg['client_id'] ?? ''}'.isEmpty || '${cfg['client_secret'] ?? ''}'.isEmpty) throw StateError('请先保存 MyInvois 凭据');
-    final response = await _http.post(Uri.parse('$baseUrl/connect/token'), body: {
+    final request = http.Request('POST', Uri.parse('$baseUrl/connect/token'))
+      ..followRedirects = false
+      ..bodyFields = {
       'client_id': cfg['client_id'] as String, 'client_secret': cfg['client_secret'] as String,
       'grant_type': 'client_credentials', 'scope': 'InvoicingAPI',
-    }).timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) throw MyInvoisException(response.statusCode, 'authentication', retryAfter: response.headers['retry-after']);
+      };
+    final response = await http.Response.fromStream(await _http.send(request).timeout(const Duration(seconds: 30))).timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) { _rememberRetry(response); throw MyInvoisException(response.statusCode, 'authentication', retryAfter: response.headers['retry-after']); }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final token = data['access_token'];
     final expires = data['expires_in'];
@@ -49,10 +56,20 @@ class MyInvoisClient {
       if (body != null) request.body = jsonEncode(body);
       final response = await http.Response.fromStream(await _http.send(request).timeout(const Duration(seconds: 30))).timeout(const Duration(seconds: 30));
       if (response.statusCode == 401 && attempt == 0) { clearToken(); continue; }
-      if (response.statusCode != expected) throw MyInvoisException(response.statusCode, method, retryAfter: response.headers['retry-after']);
+      if (response.statusCode != expected) { _rememberRetry(response); throw MyInvoisException(response.statusCode, method, retryAfter: response.headers['retry-after']); }
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     throw const MyInvoisException(401, 'authentication');
+  }
+  void _rememberRetry(http.Response response) {
+    final value = response.headers['retry-after'];
+    if (value == null) {
+      if (response.statusCode == 429) _retryNotBefore = _now().add(const Duration(seconds: 60));
+      return;
+    }
+    final seconds = int.tryParse(value);
+    if (seconds != null) { _retryNotBefore = _now().add(Duration(seconds: seconds < 0 ? 0 : seconds)); return; }
+    try { _retryNotBefore = HttpDate.parse(value); } catch (_) { _retryNotBefore = _now().add(const Duration(seconds: 60)); }
   }
   static Future<Map<String, dynamic>> envelope(String invoiceNo, String json) async {
     final bytes = utf8.encode(json);
