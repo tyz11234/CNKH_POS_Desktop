@@ -16,3 +16,5 @@ Client ID / Secret 使用 OS 密钥加密；换电脑或 Windows 用户后重新
 CI 在上传前执行静态分析、Flutter 回归、真实 UI 截图和 Release 构建。API 测试为模拟响应；未持有店主 MyInvois 凭据，因此未进行真实 Sandbox/Production 提交，也未执行真机、打印机或真实门店网络验收。
 
 下载附件后核对 SHA256SUMS.txt。Windows ZIP 需完整解压并保留 DLL/data，再运行 cnkh_pos_desktop.exe；不含安装向导。
+
+完整修改文件、数据库迁移与验证记录见 [EINVOICE_REPORT.md](https://github.com/tyz11234/CNKH_POS_Desktop/blob/v0.4.0/EINVOICE_REPORT.md)。

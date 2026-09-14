@@ -10,7 +10,7 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
-  test('Desktop v7 database upgrades to v8 without losing business/outbox data', () async {
+  test('Desktop v7 database upgrades through OCR to v9 without losing business/outbox data', () async {
     final temp = await Directory.systemTemp.createTemp('cnkh-desktop-v7-v8-');
     final path = '${temp.path}/pos.db';
     try {

@@ -1,7 +1,7 @@
 name: Training screenshot validation
 on:
   push:
-    branches: [feature/myinvois-modular]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,12 +16,6 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Record resolved dependency lock
-        shell: bash
-        run: |
-          echo CNKH_LOCK_BEGIN
-          cat pubspec.lock
-          echo CNKH_LOCK_END
       - run: flutter test tool/training_capture_test.dart
       - run: flutter test tool/training_view_test.dart
       - uses: actions/upload-artifact@v4
