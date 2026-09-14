@@ -1,9 +1,11 @@
+import 'package:cnkh_pos_mobile/services/einvoice/einvoice_status_store.dart';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:cnkh_pos_desktop/db/app_database.dart' as pc;
 import 'package:cnkh_pos_desktop/services/pos_repository.dart' as pc;
 import 'package:cnkh_pos_desktop/models/product.dart' as pc;
+import 'package:cnkh_pos_desktop/models/cart_item.dart' as pc;
 import 'package:cnkh_pos_desktop/services/lan_pairing_host.dart';
 import 'package:cnkh_pos_mobile/db/app_database.dart' as phone;
 import 'package:cnkh_pos_mobile/services/pos_repository.dart' as phone;
@@ -45,6 +47,34 @@ void main() {
     cart:phone.CartState(items:[phone.CartItem(product:(await mobile.getProduct('phone-product'))!, qty:2)]),
     paymentMethod:credit ? 'CREDIT' : 'CASH', paidCents:credit ? 0 : 200, cashier:'staff',
     customer:credit ? const phone.Customer(id:'phone-customer',name:'Customer',phone:'0123456') : null);
+  test('offline sale keeps pending and authenticated LAN mirrors all e-Invoice states', () async {
+    final sale = await sell();
+    final store = EInvoiceStatusStore(await mobileDb.db);
+    expect((await store.history(config.normalizedBase, 'production')).single['status'], 'pending');
+    await client.synchronize(config);
+    final d = await desktopDb.db;
+    final imported = (await desktop.salesAll()).single;
+    await d.insert('e_invoice_documents', {'id':'status-test','sale_id':imported.id,'invoice_no':imported.receiptNo,'environment':'production','status':'submitted'});
+    for (final state in ['submitted','validated','rejected']) {
+      await d.update('e_invoice_documents', {'status':state}, where:'id=?',whereArgs:['status-test']);
+      await client.synchronize(config);
+      expect((await store.history(config.normalizedBase, 'production')).single['status'], state);
+      expect((await mobile.salesAll()).single.id, sale.id);
+    }
+    expect((await store.history(config.normalizedBase, 'sandbox')).single['status'], 'pending');
+    await host.stop();
+    await expectLater(client.synchronize(config), throwsA(anything));
+    expect((await store.history(config.normalizedBase, 'production')).single['status'], 'rejected');
+  });
+  test('Desktop-origin invoice status follows synchronized receipt despite different local UUID', () async {
+    final product = (await desktop.getProduct('desktop-product'))!;
+    final sale = await desktop.createSale(cart: pc.CartState(items: [pc.CartItem(product: product)]), paymentMethod: 'CASH', paidCents: 100, cashier: 'admin');
+    await (await desktopDb.db).insert('e_invoice_documents', {'id':'desktop-status','sale_id':sale.id,'invoice_no':sale.receiptNo,'environment':'production','status':'validated'});
+    await client.synchronize(config);
+    final local = (await mobile.salesAll()).single;
+    expect(local.id, isNot(sale.id));
+    expect((await EInvoiceStatusStore(await mobileDb.db).history(config.normalizedBase, 'production')).single['status'], 'validated');
+  });
   test('cancelled offline sale drains at zero host stock and unblocks later operations', () async {
     await desktop.setSetting('stock_policy', 'block');
     final sale = await sell();

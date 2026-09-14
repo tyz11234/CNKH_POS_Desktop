@@ -10,7 +10,7 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
-  test('Desktop v7 database upgrades to v8 without losing business/outbox data', () async {
+  test('Desktop v7 database upgrades through OCR to v9 without losing business/outbox data', () async {
     final temp = await Directory.systemTemp.createTemp('cnkh-desktop-v7-v8-');
     final path = '${temp.path}/pos.db';
     try {
@@ -97,7 +97,7 @@ CREATE TABLE sync_outbox (
       final database = AppDatabase.forTesting(path, seed: false);
       final db = await database.db;
       final version = Sqflite.firstIntValue(await db.rawQuery('PRAGMA user_version'));
-      expect(version, 8);
+      expect(version, 9);
 
       final product = await db.query(
         'products',

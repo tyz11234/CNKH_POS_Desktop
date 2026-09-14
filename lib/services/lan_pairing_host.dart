@@ -401,6 +401,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'product_images_v1',
           'purchases_v1',
           'barcode_queue_idempotency',
+          'einvoice_status_v1',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -442,6 +443,17 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     }
     if (request.method == 'GET' && path == '/api/v1/purchases') {
       await _getPurchases(request);
+      return;
+    }
+    if (request.method == 'GET' && path == '/api/v1/einvoices') {
+      final db = await _db.db;
+      final after = request.uri.queryParameters['after'] ?? '';
+      final rows = await db.rawQuery('''SELECT d.id AS document_id, d.sale_id,
+        COALESCE(m.client_sale_id,'') AS client_sale_id, d.invoice_no AS receipt_no,
+        d.environment, d.status, d.updated_at FROM e_invoice_documents d
+        LEFT JOIN lan_sync_mobile_sales m ON m.sale_id=d.sale_id
+        WHERE d.id>? ORDER BY d.id LIMIT 200''', [after]);
+      await _json(request.response, HttpStatus.ok, {'items': rows, 'has_more': rows.length == 200, 'next': rows.isEmpty ? after : rows.last['document_id']});
       return;
     }
     if (request.method == 'GET' && path == '/api/v1/sales') {

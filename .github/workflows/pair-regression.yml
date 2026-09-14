@@ -9,7 +9,7 @@ on:
       mobile_ref:
         description: Mobile branch/tag/SHA to pair with this Desktop ref
         required: false
-        default: main
+        default: '120b7642897622d27a1c9a65528537c569f75af5'
 
 permissions:
   contents: read
@@ -24,11 +24,11 @@ jobs:
         with:
           path: CNKH_POS_Desktop
 
-      - name: Checkout current Mobile companion
+      - name: Checkout release-paired Mobile companion
         uses: actions/checkout@v4
         with:
           repository: tyz11234/CNKH_POS_Mobile_APK
-          ref: ${{ github.event.inputs.mobile_ref || 'main' }}
+          ref: ${{ github.event.inputs.mobile_ref || '120b7642897622d27a1c9a65528537c569f75af5' }}
           path: CNKH_POS_Mobile_APK
 
       - name: Record exact paired source SHAs
@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           echo "Desktop ref: ${{ github.head_ref || github.ref_name }}"
           echo "Desktop SHA: $(git -C CNKH_POS_Desktop rev-parse HEAD)"
-          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || 'main' }}"
+          echo "Mobile ref: ${{ github.event.inputs.mobile_ref || '120b7642897622d27a1c9a65528537c569f75af5' }}"
           echo "Mobile SHA: $(git -C CNKH_POS_Mobile_APK rev-parse HEAD)"
 
       - name: Setup Flutter
@@ -56,4 +56,4 @@ jobs:
 
       - name: Test real HTTP synchronization and reconnect
         working-directory: CNKH_POS_Desktop/integration
-        run: flutter test
+        run: flutter test test regression

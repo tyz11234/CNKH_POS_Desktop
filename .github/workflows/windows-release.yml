@@ -38,8 +38,23 @@ jobs:
       - name: Test
         run: flutter test
 
+      - name: Capture actual employee training screens
+        run: flutter test tool/training_capture_test.dart
+
+      - name: Upload training screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-training-screenshots
+          path: assets/training/
+
+      - name: Verify bundled training image and arrow
+        run: flutter test tool/training_view_test.dart
+
       - name: Build Windows release
         run: flutter build windows --release
+
+      - name: Verify training assets in Windows bundle
+        run: python tool/verify_training_bundle.py build/windows/x64/runner/Release --kind desktop
 
       - name: Stage package
         shell: pwsh
@@ -56,6 +71,7 @@ jobs:
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  $name.zip" | Set-Content "dist/SHA256SUMS.txt" -Encoding ascii
           Get-ChildItem dist | Format-Table Name, Length
+          Get-Content "dist/SHA256SUMS.txt"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

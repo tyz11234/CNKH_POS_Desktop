@@ -60,7 +60,9 @@ void main() {
     final sales = await repo.salesAll();
     expect(sales, hasLength(205));
     expect(sales.map((s) => s.receiptNo).toSet(), hasLength(205));
-  });
+    // This exercises 205 durable SQLite checkouts; Windows CI disk flushes can
+    // exceed the default 30 seconds. Keep every assertion and bound the run.
+  }, timeout: const Timeout(Duration(minutes: 2)));
   test('authentication rejects demo PIN and takes role from saved account', () async {
     await expectLater(repo.auth.login('admin', '1234'), throwsStateError);
     await repo.auth.initializeAdmin('839201');

@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/product.dart';
 import 'document_numbers.dart';
+import 'einvoice_migration.dart';
 import 'ocr_purchase_schema.dart';
 import 'reliability_schema.dart';
 
@@ -69,7 +70,7 @@ class AppDatabase {
     final path = _testPath??p.join(dir!.path, 'cnkh_pos_desktop.db');
     _db = await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -233,10 +234,12 @@ CREATE TABLE audit_logs (
 )''');
     await ensureReliabilitySchema(db);
     await ensureOcrPurchaseSchema(db);
+    await ensureEInvoiceSchema(db);
     if(_seedData) await _seed(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 9) await ensureEInvoiceSchema(db);
     if(oldVersion<7) await ensureReliabilitySchema(db);
     if (oldVersion < 2) {
       final cols = await db.rawQuery('PRAGMA table_info(sales)');
