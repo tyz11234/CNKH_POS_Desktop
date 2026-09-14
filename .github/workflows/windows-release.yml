@@ -53,6 +53,9 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
+      - name: Verify training assets in Windows bundle
+        run: python tool/verify_training_bundle.py build/windows/x64/runner/Release --kind desktop
+
       - name: Stage package
         shell: pwsh
         run: |
@@ -68,6 +71,7 @@ jobs:
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  $name.zip" | Set-Content "dist/SHA256SUMS.txt" -Encoding ascii
           Get-ChildItem dist | Format-Table Name, Length
+          Get-Content "dist/SHA256SUMS.txt"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
