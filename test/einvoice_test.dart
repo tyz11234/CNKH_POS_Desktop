@@ -59,6 +59,19 @@ void main() {
     keys.value = null;
     await expectLater(settings.load(credentials:true),throwsStateError);
   });
+  test('legacy scaffold retains identity and logs but removes plaintext credentials', () async {
+    final db = await database.db;
+    await db.insert('e_invoice_settings', {'id':'legacy','tin':'C1234567890','brn':'202001234567','client_id':'legacy-id','client_secret':'legacy-password'});
+    await db.execute('DROP TABLE e_invoice_logs');
+    await db.execute("CREATE TABLE e_invoice_logs (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, action TEXT NOT NULL, request_body TEXT NOT NULL DEFAULT '', response_body TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)");
+    await db.insert('e_invoice_logs', {'id':'old-log','document_id':'old-doc','action':'test','request_body':'retained','created_at':'2026-09-13'});
+    await ensureEInvoiceSchema(db);
+    final profile = await EInvoiceSettingsStore(db,keys:MemoryKeys()).load();
+    expect(profile['tin'],'C1234567890');
+    expect(profile['brn'],'202001234567');
+    expect((await db.query('e_invoice_settings')).single['client_secret'],'');
+    expect((await db.query('e_invoice_logs')).single['request_body'],'retained');
+  });
   test('mapper uses sale snapshot, discounts, rounding and inclusive tax', () async {
     final s = await sale(); final db = await database.db;
     final row = (await db.query('sales',where:'id=?',whereArgs:[s.id])).single;
@@ -89,6 +102,18 @@ void main() {
     expect(body['documents'][0]['documentHash'],hasLength(64));
     final c=MyInvoisClient(environment:'production',credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async=>r.url.path=='/connect/token'?http.Response('{"access_token":"t","expires_in":3600}',200):http.Response('{}',503)));
     await expectLater(c.submitDocument(body),throwsA(isA<MyInvoisException>()));c.close();
+  });
+  test('Retry-After is respected and credentials are never sent through redirects', () async {
+    var now=DateTime.utc(2026,9,14),calls=0;
+    final c=MyInvoisClient(environment:'sandbox',now:()=>now,credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async{
+      expect(r.followRedirects,false);
+      if(r.url.path=='/connect/token')return http.Response('{"access_token":"t","expires_in":3600}',200);
+      calls++;
+      return calls==1 ? http.Response('{}',429,headers:{'retry-after':'30'}) : http.Response('{"documentSummary":[]}',200);
+    }));
+    await expectLater(c.queryStatus('uid'),throwsA(isA<MyInvoisException>()));
+    await expectLater(c.queryStatus('uid'),throwsStateError);expect(calls,1);
+    now=now.add(const Duration(seconds:31));await c.queryStatus('uid');expect(calls,2);c.close();
   });
   test('durable duplicate guard, status query and cancellation leave sale intact', () async {
     final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');

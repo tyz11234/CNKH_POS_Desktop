@@ -47,7 +47,13 @@ void main() {
     // Use the bundled production CJK font, never Flutter test's Ahem squares.
     final output=Directory('assets/training');
     await tester.runAsync(() async {
-      final font=FontLoader('Roboto')..addFont(rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf'));await font.load();
+      final fontData = await rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf');
+      // flutter_tester disables asset fonts and uses Ahem for unspecified styles.
+      // Register real glyphs for both explicit and inherited production styles.
+      for (final family in ['Roboto', 'Ahem', 'monospace']) {
+        await (FontLoader(family)..addFont(Future.value(fontData))).load();
+      }
+      await (FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
       await output.create(recursive:true);
     });
     expect(tester.takeException(), isNull);
@@ -58,7 +64,7 @@ void main() {
     }
     Future<void> capture(String name, Widget screen, Finder target, {bool history=false, bool scroll=false})async{
       debugPrint('Training capture: $name');
-      await tester.pumpWidget(RepaintBoundary(key:key,child:MaterialApp(theme:buildCnkhTheme(),home:Scaffold(body:screen))));await settle();
+      await tester.pumpWidget(RepaintBoundary(key:key,child:MaterialApp(debugShowCheckedModeBanner:false,theme:buildCnkhTheme(),home:Scaffold(body:screen))));await settle();
       if(history){await tester.tap(find.text('Submission History'));await tester.pump(const Duration(milliseconds:500));await settle();}
       if(scroll){
         await tester.scrollUntilVisible(target.first, 500, scrollable: find.byType(Scrollable).first, maxScrolls: 30);
