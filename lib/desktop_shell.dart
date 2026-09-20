@@ -271,9 +271,7 @@ class _DesktopShellState extends State<DesktopShell> {
     final restored = await widget.repo.resumeHeld(selected, currentCart: _cart);
     if (!mounted) return;
     setState(() {
-      _cart.items
-        ..clear()
-        ..addAll(restored.items);
+      _cart.items.addAll(restored.items);
       _cart.orderDiscountCents = restored.orderDiscountCents;
     });
     await _refreshOverdueHolds();
