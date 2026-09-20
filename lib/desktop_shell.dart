@@ -175,13 +175,14 @@ class _DesktopShellState extends State<DesktopShell> {
           qrStorage: widget.qrStorage,
           repo: widget.repo,
           onCancel: () => Navigator.of(context).pop(),
+          onCommitted: (_) {
+            _cart.items.clear();
+            _cart.orderDiscountCents = 0;
+            if (mounted) setState(() => _dataEpoch++);
+          },
           onPaid: (sale) async {
+            if (!mounted) return;
             Navigator.of(context).pop();
-            setState(() {
-              _cart.items.clear();
-              _cart.orderDiscountCents = 0;
-              _dataEpoch++;
-            });
             // LAN propagation is automatic through Desktop DB change tracking.
             // ignore: unawaited_futures
             () async {
@@ -223,7 +224,12 @@ class _DesktopShellState extends State<DesktopShell> {
     }
   }
 
+  bool _resuming = false;
   Future<void> _resume() async {
+    if (_resuming) return;
+    setState(() => _resuming = true);
+    try {
+    if (_cart.items.isNotEmpty) throw StateError('请先挂单或清空当前购物车，再取单');
     final list = await widget.repo.listHeld(cashier: widget.user.username);
     if (!mounted) return;
     if (list.isEmpty) {
@@ -261,20 +267,23 @@ class _DesktopShellState extends State<DesktopShell> {
       ),
     );
     if (selected == null) return;
-    final restored = await widget.repo.resumeHeld(selected);
+    if (!mounted) return;
+    final restored = await widget.repo.resumeHeld(selected, currentCart: _cart);
+    if (!mounted) return;
     setState(() {
-      _cart.items
-        ..clear()
-        ..addAll(restored.items);
+      _cart.items.addAll(restored.items);
       _cart.orderDiscountCents = restored.orderDiscountCents;
     });
     await _refreshOverdueHolds();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally { if (mounted) setState(() => _resuming = false); }
   }
 
   Widget _pageFor(String id) {
     switch (id) {
       case 'pos':
-        return CartScreen(
+        return AbsorbPointer(absorbing: _resuming, child: CartScreen(
           cart: _cart,
           user: widget.user,
           repo: widget.repo,
@@ -287,7 +296,7 @@ class _DesktopShellState extends State<DesktopShell> {
             Navigator.of(context).pop();
             _applyPairing(cfg);
           },
-        );
+        ));
       case 'today':
         return SalesListScreen(
           repo: widget.repo,

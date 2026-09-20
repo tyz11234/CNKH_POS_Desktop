@@ -1,20 +1,12 @@
-# CNKH POS Desktop 0.4.0+9
+# CNKH POS Desktop 0.4.1+10
 
-- 模块化 MyInvois 支持：Desktop 加密配置、Invoice 1.0 JSON、OAuth、提交/查询/取消和提交记录。
-- Mobile 保持离线销售，通过已有 LAN 配对同步 e-Invoice 状态；不直接连接 MyInvois。
-- schema v9 增量升级，保留原收银、商品、库存页面和业务数据。
-- 11 课员工培训，使用实际 Flutter 页面截图及控件箭头。
+- 保存结账时禁止关闭或重复点击；成功落库后立即处理购物车，即使页面被程序移除也不会依赖旧页面回调才能完成。
+- 找零使用已保存销售的应付和实收金额，避免购物车清空后金额变成零。
+- 取单前请先挂单或清空当前购物车；不再直接覆盖当前商品，连续取单也不会重复消费同一挂单。
 
-## 使用与范围
+保持数据库 schema v9、现有金额算法、离线销售及 LAN 协议不变。修复范围、测试和限制见 [BUGFIX_REPORT.md](https://github.com/tyz11234/CNKH_POS_Desktop/blob/v0.4.1/BUGFIX_REPORT.md)。
 
-管理员在 Desktop 设置 → e-Invoice Setup 先配置 Sandbox，补齐公司及买方资料后生成、核对并提交。正式环境凭据独立配置。Submitted 不等于 Validated。
 
-当前支持 MYR 国内普通 Invoice 1.0、整单统一税种/税率/分类；混合税率、汇总和调整票请使用 MyInvois Portal。1.1 数字签章不在本版本范围。结果未知时先核对 UUID，禁止盲目重提。
+Windows 包为完整便携 ZIP，不含安装向导；关闭程序后完整解压，保留 DLL 与 data 文件夹。更新前请备份业务数据。
 
-Client ID / Secret 使用 OS 密钥加密；换电脑或 Windows 用户后重新输入。旧 scaffold 的明文凭据升级后清空，需重新填写。
-
-CI 在上传前执行静态分析、Flutter 回归、真实 UI 截图和 Release 构建。API 测试为模拟响应；未持有店主 MyInvois 凭据，因此未进行真实 Sandbox/Production 提交，也未执行真机、打印机或真实门店网络验收。
-
-下载附件后核对 SHA256SUMS.txt。Windows ZIP 需完整解压并保留 DLL/data，再运行 cnkh_pos_desktop.exe；不含安装向导。
-
-完整修改文件、数据库迁移与验证记录见 [EINVOICE_REPORT.md](https://github.com/tyz11234/CNKH_POS_Desktop/blob/v0.4.0/EINVOICE_REPORT.md)。
+尚未在用户实际手机、打印机和门店网络验收；没有执行真实 MyInvois 税务提交。

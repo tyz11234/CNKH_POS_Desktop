@@ -4,24 +4,32 @@
 
 技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
 
-> README 最后更新：**2026-09-14**。默认源码与发布分支：`main`。
+> README 最后更新：**2026-09-20**。默认源码与发布分支：`main`。
 
 ## 当前正式版本
 
 | 项目 | 当前正式版本 |
 | --- | --- |
-| Desktop | **0.4.0+9 / `v0.4.0`** |
-| 配套 Mobile | **1.10.0+28 / `v1.10.0-mobile`** |
+| Desktop | **0.4.1+10 / `v0.4.1`** |
+| 配套 Mobile | **1.10.2+30 / `v1.10.2-mobile`** |
 | LAN 协议 | `cnkh-sync:v1` |
 | 本地数据库 | e-Invoice 升级为 **schema v9** |
 
 ## 下载与更新
 
-- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.4.0/CNKH_POS_Desktop-windows-x64-v0.4.0-9.zip)
-- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.4.0)
-- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.0-mobile)
+- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.4.1/CNKH_POS_Desktop-windows-x64-v0.4.1-10.zip)
+- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.4.1)
+- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.2-mobile)
 
 更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
+
+## 2026-09-20 结账与数据保护修复
+
+- 保存结账时禁止关闭或重复点击；成功落库后立即处理购物车，即使页面被程序移除也不会依赖旧页面回调才能完成。
+- 找零使用已保存销售的应付和实收金额，避免购物车清空后金额变成零。
+- 取单前请先挂单或清空当前购物车；不再直接覆盖当前商品，连续取单也不会重复消费同一挂单。
+
+保持数据库 schema v9、现有金额算法、离线销售及 LAN 协议不变。修复范围、测试和限制见 [BUGFIX_REPORT.md](BUGFIX_REPORT.md)。
 
 ## Malaysia e-Invoice / MyInvois
 
