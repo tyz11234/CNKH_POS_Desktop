@@ -598,7 +598,11 @@ class PosRepository {
     return rows.map(HeldOrder.fromMap).toList();
   }
 
-  Future<CartState> resumeHeld(HeldOrder held) async {
+  Future<CartState> resumeHeld(HeldOrder held, {CartState? currentCart}) async {
+    void requireEmptyCart() {
+      if (currentCart?.items.isNotEmpty == true) throw StateError('请先挂单或清空当前购物车，再取单');
+    }
+    requireEmptyCart();
     final payload = jsonDecode(held.payloadJson) as Map<String, dynamic>;
     final cart = CartState(
       orderDiscountCents: payload['orderDiscountCents'] as int? ?? 0,
@@ -616,7 +620,9 @@ class PosRepository {
       );
     }
     final d = await _db.db;
-    await d.delete('held_orders', where: 'id=?', whereArgs: [held.id]);
+    requireEmptyCart();
+    final removed = await d.delete('held_orders', where: 'id=?', whereArgs: [held.id]);
+    if (removed != 1) throw StateError('挂单已被取出，请刷新');
     return cart;
   }
 

@@ -19,6 +19,8 @@ class CheckoutScreen extends StatefulWidget {
   final QrStorage qrStorage;
   final PosRepository repo;
   final void Function(SaleRecord sale) onPaid;
+  /// Complete cart ownership immediately after commit, even if this route leaves.
+  final void Function(SaleRecord sale)? onCommitted;
   final VoidCallback onCancel;
 
   const CheckoutScreen({
@@ -28,6 +30,7 @@ class CheckoutScreen extends StatefulWidget {
     required this.qrStorage,
     required this.repo,
     required this.onPaid,
+    this.onCommitted,
     required this.onCancel,
   });
 
@@ -45,6 +48,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Customer> _customers = [];
   Customer? _customer;
   bool _busy = false;
+  SaleRecord? _savedSale;
   int _outstandingCents = 0;
 
   @override
@@ -79,11 +83,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  int get _raw => widget.cart.rawPayableCents;
+  int get _raw => _savedSale == null ? widget.cart.rawPayableCents : _savedSale!.totalCents - _savedSale!.roundingCents;
   int get _due =>
-      widget.cart.payableCents(isCredit: _method == PayMethod.credit);
+      _savedSale?.totalCents ?? widget.cart.payableCents(isCredit: _method == PayMethod.credit);
   int get _rounding =>
-      _method == PayMethod.credit ? 0 : checkoutRoundingAdjustment(_raw);
+      _savedSale?.roundingCents ?? (_method == PayMethod.credit ? 0 : checkoutRoundingAdjustment(_raw));
 
   int _parseRm(String text) {
     final raw = text.trim().replaceAll(',', '');
@@ -107,8 +111,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       };
 
   Future<void> _confirm() async {
-    if(_busy)return;
-    setState(()=>_busy=true);
+    if (_busy || _savedSale != null) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _busy = true);
     try{await _confirmOnce();}catch(e){if(mounted)_toast('$e',error:true);}
     finally{if(mounted)setState(()=>_busy=false);}
   }
@@ -174,19 +179,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         customer: _customer,
         customerPhone: phone.isNotEmpty ? phone : _customer?.phone,
       );
+      _savedSale = sale;
+      widget.onCommitted?.call(sale);
       if (!mounted) return;
-      if (_method == PayMethod.cash) {
+      if (sale.paymentMethod == 'CASH') {
         await showCashChangeDialog(
           context,
-          tenderedCents: paid,
-          dueCents: _due,
+          tenderedCents: sale.paidCents,
+          dueCents: sale.totalCents,
         );
       }
       if (!mounted) return;
-      widget.onPaid(sale);
-    } catch (e) {
-      _toast('$e', error: true);
       setState(() => _busy = false);
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) widget.onPaid(sale);
+    } catch (e) {
+      if (!mounted) return;
+      _toast(_savedSale == null ? '$e' : '销售已保存，请在销售记录查看；勿重复收款', error: true);
     }
   }
 
@@ -243,15 +252,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final tendered = _parseRm(_cashCtrl.text);
     final change = tendered - _due;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_busy,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('结账 / Checkout'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: widget.onCancel,
+          onPressed: _busy ? null : widget.onCancel,
         ),
       ),
-      body: Column(
+      body: AbsorbPointer(
+        absorbing: _busy,
+        child: Column(
         children: [
           Expanded(
             child: ListView(
@@ -561,6 +574,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
         ],
+      ),
+      ),
       ),
     );
   }
