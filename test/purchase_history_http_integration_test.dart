@@ -110,6 +110,7 @@ void main() {
       expect(response.statusCode, HttpStatus.ok);
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       expect(body['ok'], true);
+      final cursor = (body['cursor'] as num).toInt();
       final items = (body['items'] as List).cast<Map>();
       final purchase = items.singleWhere((m) => m['pc_id'] == 'purchase-http-1');
       expect(purchase['purchase_no'], 'PO-HTTP-1');
@@ -123,6 +124,31 @@ void main() {
       expect(lines, hasLength(1));
       expect(lines.single['productId'], 'p-purchase-http');
       expect((lines.single['qty'] as num).toDouble(), 2.0);
+
+      final unchanged = await http.get(
+        Uri.parse('$baseUrl/api/v1/purchases?since=$cursor'),
+        headers: headers,
+      );
+      final unchangedBody = jsonDecode(unchanged.body) as Map<String, dynamic>;
+      expect(unchangedBody['items'], isEmpty);
+      expect(unchangedBody['cursor'], cursor);
+
+      await db.update(
+        'purchases',
+        {'notes': 'updated after cursor'},
+        where: 'id=?',
+        whereArgs: ['purchase-http-1'],
+      );
+      final incremental = await http.get(
+        Uri.parse('$baseUrl/api/v1/purchases?since=$cursor'),
+        headers: headers,
+      );
+      final incrementalBody = jsonDecode(incremental.body) as Map<String, dynamic>;
+      final changedItems = (incrementalBody['items'] as List).cast<Map>();
+      expect(changedItems, hasLength(1));
+      expect(changedItems.single['pc_id'], 'purchase-http-1');
+      expect(changedItems.single['notes'], 'updated after cursor');
+      expect((incrementalBody['cursor'] as num).toInt(), greaterThan(cursor));
 
       final after = await repo.getProduct('p-purchase-http');
       expect(after!.stock, 12);
