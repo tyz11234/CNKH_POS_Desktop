@@ -310,6 +310,18 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
         VALUES('sale',OLD.id,OLD.receipt_no,1,$nowSql);
       END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_purchases_ai AFTER INSERT ON purchases BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('purchase',NEW.id,NEW.purchase_no,0,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_purchases_au AFTER UPDATE ON purchases BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('purchase',NEW.id,NEW.purchase_no,0,$nowSql);
+      END''',
+      '''CREATE TRIGGER IF NOT EXISTS lan_sync_purchases_ad AFTER DELETE ON purchases BEGIN
+        INSERT INTO lan_sync_changes(entity,entity_id,entity_name,deleted,changed_at)
+        VALUES('purchase',OLD.id,OLD.purchase_no,1,$nowSql);
+      END''',
     ];
     for (final sql in triggers) {
       await db.execute(sql);
@@ -322,6 +334,38 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         'entity_name': 'baseline',
         'deleted': 0,
         'changed_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    }
+
+    final purchaseMarker = await db.query(
+      'lan_sync_changes',
+      where: 'entity=? AND entity_id=?',
+      whereArgs: const ['meta', 'purchase_tracking_v1'],
+      limit: 1,
+    );
+    if (purchaseMarker.isEmpty) {
+      await db.transaction((txn) async {
+        final purchases = await txn.query(
+          'purchases',
+          columns: const ['id', 'purchase_no'],
+          orderBy: 'purchased_at ASC',
+        );
+        for (final purchase in purchases) {
+          await txn.insert('lan_sync_changes', <String, Object?>{
+            'entity': 'purchase',
+            'entity_id': purchase['id'],
+            'entity_name': purchase['purchase_no'] ?? '',
+            'deleted': 0,
+            'changed_at': DateTime.now().toUtc().toIso8601String(),
+          });
+        }
+        await txn.insert('lan_sync_changes', <String, Object?>{
+          'entity': 'meta',
+          'entity_id': 'purchase_tracking_v1',
+          'entity_name': 'purchase_tracking_v1',
+          'deleted': 0,
+          'changed_at': DateTime.now().toUtc().toIso8601String(),
+        });
       });
     }
   }
@@ -924,7 +968,19 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
 
   Future<void> _getPurchases(HttpRequest request) async {
     final db = await _db.db;
-    final rows = await db.query('purchases', orderBy: 'purchased_at ASC');
+    final since = _requestedCursor(request);
+    final cursor = await _latestChangeSeq(db);
+    final rows = since <= 0
+        ? await db.query('purchases', orderBy: 'purchased_at ASC')
+        : await db.rawQuery(
+            '''SELECT p.* FROM purchases p
+               WHERE p.id IN (
+                 SELECT entity_id FROM lan_sync_changes
+                 WHERE entity='purchase' AND seq>? AND deleted=0
+               )
+               ORDER BY p.purchased_at ASC''',
+            <Object?>[since],
+          );
     final items = <Map<String, Object?>>[];
     for (final row in rows) {
       items.add(_purchasePayload(row));
@@ -932,7 +988,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     await _json(request.response, HttpStatus.ok, <String, Object?>{
       'ok': true,
       'items': items,
-      'cursor': await _latestChangeSeq(db),
+      'cursor': cursor,
     });
   }
 
