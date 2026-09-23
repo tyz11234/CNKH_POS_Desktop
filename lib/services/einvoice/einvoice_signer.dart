@@ -288,7 +288,7 @@ class EInvoiceSigner {
     }
     final publicKey = RSAPublicKey(
       _positiveInteger(rsaKey.children[0].value),
-      _positiveInteger(rsaKey.children[1].value).toInt(),
+      _positiveInteger(rsaKey.children[1].value),
     );
     final attrs = _nameAttributes(subjectNode);
     final extensions = _certificateExtensions(tbs);
