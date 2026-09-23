@@ -15,13 +15,15 @@
 | LAN 协议 | `cnkh-sync:v1` |
 | 本地数据库 | e-Invoice 升级为 **schema v9** |
 
-下方下载链接仍指向目前已发布的 Desktop 0.4.1 和 Mobile 1.10.2 安装包。1.10.3+31 源码推送后须等 CI 验证；本次不会自动发布安装包。
+Desktop 与 Mobile **1.10.3+31** 已正式发布，Windows ZIP 与 Android APK 均已通过构建和双端联调。下方链接提供当前版本安装包及 SHA-256 校验文件。
 
 ## 下载与更新
 
-- [Windows x64 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v0.4.1/CNKH_POS_Desktop-windows-x64-v0.4.1-10.zip)
-- [Release 与 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v0.4.1)
-- [配套 Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.2-mobile)
+- [Windows x64 便携包（1.10.3+31）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.3/CNKH_POS_Desktop-windows-x64-v1.10.3-31.zip)
+- [Desktop SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.3/SHA256SUMS.txt)
+- [Desktop Release](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.3)
+- [配套 Android APK（1.10.3+31）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.3-mobile/CNKH_POS_Mobile.apk)
+- [Mobile Release 与校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.3-mobile)
 
 更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
 
