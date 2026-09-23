@@ -1,135 +1,4 @@
-import 'dart:convert';
-import 'package:sqflite/sqflite.dart';
-import '../../db/app_database.dart';
-import '../../models/app_user.dart';
-import '../pos_repository.dart';
-import '../sync_store.dart';
-import 'einvoice_settings.dart';
-import 'invoice_mapper.dart';
-import 'myinvois_client.dart';
-
-class EInvoiceService {
-  EInvoiceService(this.repo, {this.keyStore, this.clientFactory});
-  final PosRepository repo;
-  final EInvoiceKeyStore? keyStore;
-  final MyInvoisClient Function(String environment, EInvoiceSettingsStore settings)? clientFactory;
-  static final _lock = AsyncMutex();
-  final _clients = <String, MyInvoisClient>{};
-  final _lastQuery = <String, DateTime>{};
-  Future<EInvoiceSettingsStore> get settings async => EInvoiceSettingsStore(await repo.database.db, keys: keyStore);
-  void _admin() {
-    if (repo.auth.currentUser?.role != AppRole.admin) throw StateError('ä»…å·²ç™»å½•ç®¡ç†å‘˜å¯æ“ä½œ e-Invoice');
-  }
-  Future<void> initialize() async { await repo.database.db; }
-  Future<MyInvoisClient> _client(String environment) async {
-    final store = await settings;
-    return _clients.putIfAbsent(environment, () => clientFactory?.call(environment, store) ?? MyInvoisClient(environment: environment, credentials: () => store.load(environment: environment, credentials: true)));
-  }
-  Future<void> saveSettings(Map<String, dynamic> profile, String id, String secret) async {
-    _admin();
-    await (await settings).save(profile, clientId: id, clientSecret: secret);
-    _clients.remove(profile['environment'])?.close();
-  }
-  Future<void> testConnection(String environment) async {
-    _admin();
-    final client = await _client(environment);
-    client.clearToken(); // An explicit connection test must actually contact the server.
-    await client.authenticate();
-  }
-  Future<List<Map<String, Object?>>> history(String environment, {String receipt = ''}) async {
-    final db = await repo.database.db;
-    final result = await db.rawQuery('''SELECT s.id AS sale_id, s.receipt_no, s.customer_name, s.customer_phone, s.total_cents, s.voided,
-      d.id AS document_id, COALESCE(d.status,'pending') AS status,
-      COALESCE(d.error_message,'') AS error_message, COALESCE(d.document_uuid,'') AS document_uuid,
-      COALESCE(d.submission_uid,'') AS submission_uid, COALESCE(d.buyer_json,'{}') AS buyer_json,
-      COALESCE(d.payload_json,'') AS payload_json, s.sold_at AS sort_time
-    FROM sales s LEFT JOIN e_invoice_documents d ON d.sale_id=s.id AND d.environment=?
-    WHERE (?='' OR instr(s.receipt_no,?)>0)
-    UNION ALL
-    SELECT d.sale_id,d.invoice_no,'åŸé”€å”®å·²ç§»é™¤','',0,1,d.id,d.status,d.error_message,
-      d.document_uuid,d.submission_uid,d.buyer_json,d.payload_json,d.updated_at
-    FROM e_invoice_documents d WHERE d.environment=? AND NOT EXISTS(SELECT 1 FROM sales s WHERE s.id=d.sale_id)
-      AND (?='' OR instr(d.invoice_no,?)>0)
-    ORDER BY sort_time DESC LIMIT 500''', [environment,receipt,receipt,environment,receipt,receipt]);
-    return result.map((r) {
-      final row = Map<String,Object?>.from(r);
-      if (r['customer_name']=='åŸé”€å”®å·²ç§»é™¤' && (r['payload_json'] as String).isNotEmpty) {
-        try { final payload=jsonDecode(r['payload_json'] as String);row['total_cents']=((payload['Invoice'][0]['LegalMonetaryTotal'][0]['PayableAmount'][0]['_'] as num)*100).round(); } catch (_) {}
-      }
-      return row;
-    }).toList();
-  }
-  Future<String> prepare(String saleId, String environment, Map<String, dynamic> buyer) => _lock.run(() async {
-    _admin(); final db = await repo.database.db;
-    final previous = await db.query('e_invoice_documents', where: 'sale_id=? AND environment=?', whereArgs: [saleId, environment]);
-    if (previous.any((r) => !['pending','rejected'].contains(r['status']) || '${r['document_uuid']}'.isNotEmpty)) throw StateError('æ­¤é”€å”®å·²æœ‰æäº¤è®°å½•ï¼Œè¯·æŸ¥è¯¢æˆ–å–æ¶ˆï¼Œä¸èƒ½é‡å¤ç”Ÿæˆ');
-    final sale = (await db.query('sales', where: 'id=?', whereArgs: [saleId])).single;
-    final reused = await db.query('e_invoice_documents', where: 'invoice_no=? AND environment=? AND sale_id<>?', whereArgs: [sale['receipt_no'], environment, saleId], limit: 1);
-    if (reused.isNotEmpty) throw StateError('æ­¤å‘ç¥¨å·ç å·²æœ‰ç¨åŠ¡è®°å½•ï¼Œä¸èƒ½é‡å¤ä½¿ç”¨');
-    final profile = await (await settings).load(environment: environment);
-    final payload = jsonEncode(InvoiceMapper().mapSale(sale, supplier: profile, buyer: buyer, issuedAt: DateTime.now()));
-    final envelope = await MyInvoisClient.envelope(sale['receipt_no'] as String, payload);
-    final id = previous.isEmpty ? '$environment:$saleId' : previous.single['id'] as String;
-    await db.transaction((txn) async {
-      final latest = await txn.query('e_invoice_documents', where: 'sale_id=? AND environment=?', whereArgs: [saleId, environment]);
-      if (latest.any((r) => !['pending','rejected'].contains(r['status']) || '${r['document_uuid']}'.isNotEmpty)) throw StateError('æäº¤çŠ¶æ€å·²å˜æ›´ï¼Œè¯·åˆ·æ–°åˆ—è¡¨');
-      await txn.insert('e_invoice_documents', {
-      'id': id, 'sale_id': saleId, 'invoice_no': sale['receipt_no'], 'environment': environment,
-      'payload_json': payload, 'payload_hash': (envelope['documents'] as List).single['documentHash'],
-      'buyer_json': jsonEncode(buyer), 'status': 'pending', 'updated_at': _now(),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-    });
-    return payload;
-  });
-  Future<void> submitPendingInvoice(String saleId, {String environment = 'sandbox'}) => _lock.run(() async {
-    _admin(); final db = await repo.database.db;
-    final doc = (await db.query('e_invoice_documents', where: 'sale_id=? AND environment=?', whereArgs: [saleId, environment])).single;
-    if (doc['status'] != 'pending' || '${doc['payload_json']}'.isEmpty) throw StateError('åªèƒ½æäº¤å·²ç”Ÿæˆä¸”æœªæäº¤çš„å‘ç¥¨');
-    final sale = (await db.query('sales', where: 'id=?', whereArgs: [saleId])).single;
-    if (sale['voided'] == 1) throw StateError('é”€å”®å·²ä½œåºŸ');
-    final payload = jsonDecode(doc['payload_json'] as String) as Map<String, dynamic>;
-    final invoice = (payload['Invoice'] as List).single as Map;
-    final date = (invoice['IssueDate'] as List).single['_'];
-    if (date != _now().substring(0,10)) throw StateError('å‘ç¥¨æ—¥æœŸå·²è¿‡æœŸï¼Œè¯·é‡æ–°ç”Ÿæˆåæäº¤');
-    final cfg = await (await settings).load(environment: environment);
-    final issuer = invoice['AccountingSupplierParty'][0]['Party'][0]['PartyIdentification'][0]['ID'][0]['_'];
-    if (issuer != cfg['tin']) throw StateError('å…¬å¸ TIN å·²å˜æ›´ï¼Œè¯·é‡æ–°ç”Ÿæˆ');
-    final client = await _client(environment);
-    await client.authenticate(); // Auth failures cannot have submitted the document.
-    final id = doc['id'] as String;
-    final claimed = await db.update('e_invoice_documents', {'status': 'submitting', 'error_message': '', 'updated_at': _now()}, where: 'id=? AND status=? AND payload_hash=?', whereArgs: [id, 'pending', doc['payload_hash']]);
-    if (claimed != 1) throw StateError('æ­¤å‘ç¥¨å·²è¢«å¦ä¸€æ“ä½œå¤„ç†ï¼Œè¯·åˆ·æ–°');
-    try {
-      final result = await client.submitDocument(await MyInvoisClient.envelope(doc['invoice_no'] as String, doc['payload_json'] as String));
-      final accepted = result['acceptedDocuments'] as List? ?? [];
-      final matching = accepted.where((r) => r['invoiceCodeNumber'] == doc['invoice_no']).toList();
-      if (matching.length == 1 && '${matching.single['uuid'] ?? ''}'.isNotEmpty && '${result['submissionUID'] ?? ''}'.isNotEmpty) {
-        await _update(db, id, {'status': 'submitted', 'submission_uid': result['submissionUID'], 'document_uuid': matching.single['uuid'], 'submitted_at': _now()});
-      } else {
-        final rejected = result['rejectedDocuments'] as List? ?? [];
-        final knownRejected = rejected.any((r) => r['invoiceCodeNumber'] == doc['invoice_no']);
-        await _update(db, id, {'status': knownRejected ? 'rejected' : 'needs_review', 'error_message': knownRejected ? 'MyInvois æ‹’æ”¶ï¼šè¯·æ ¸å¯¹èµ„æ–™åé‡æ–°ç”Ÿæˆ' : 'æäº¤ç»“æœä¸å®Œæ•´ï¼›è¯·åœ¨ MyInvois æ ¸å¯¹ï¼Œå‹¿é‡å¤æäº¤'});
-      }
-      await _log(db, id, 'submit', 'response_received');
-    } catch (e) {
-      // A timeout / 5xx / duplicate response may follow successful receipt.
-      final definite = e is MyInvoisException && [400,401,403,429].contains(e.statusCode);
-      await _update(db, id, {'status': definite ? 'pending' : 'needs_review', 'error_message': e is MyInvoisException ? e.toString() : 'ç½‘ç»œæˆ–å“åº”å¼‚å¸¸ï¼Œæäº¤ç»“æœæœªçŸ¥ï¼›è¯·å…ˆæ ¸å¯¹ MyInvois'});
-      await _log(db, id, 'submit', definite ? 'not_accepted' : 'unknown_outcome');
-      rethrow;
-    }
-  });
-  Future<void> refresh(String id) => _lock.run(() async {
-    _admin(); final db = await repo.database.db;
-    final doc = (await db.query('e_invoice_documents', where: 'id=?', whereArgs: [id])).single;
-    final uid = doc['submission_uid'] as String;
-    if (uid.isEmpty) throw StateError('æ—  Submission UIDï¼›è¯·ç”¨ MyInvois ä¸­çš„ UUID æ ¸å¯¹');
-    final last = _lastQuery[id];
-    if (last != null && DateTime.now().difference(last) < const Duration(seconds: 5)) return;
-    _lastQuery[id] = DateTime.now();
-    final result = await (await _client(doc['environment'] as String)).queryStatus(uid);
-    final rows = result['documentSummary'] as List? ?? [];
-    final match = rows.where((r) => r['uuid'] == doc['document_uuid']).toList();
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíã=N‹Z–‹­¦ëeŠw¬Õ¥µÁ½ÉĞ€‘…ÉĞé½¹Ù•ÉĞœì)¥µÁ½ÉĞ€Á…­…”éÍÅ™±¥Ñ”½ÍÅ™±¥Ñ”¹‘…ÉĞœì)¥µÁ½ÉĞ€œ¸¸¼¸¸½‘ˆ½…ÁÁ}‘…Ñ…‰…Í”¹‘…ÉĞœì)¥µÁ½ÉĞ€œ¸¸¼¸¸½µ½‘•±Ì½…ÁÁ}ÕÍ•È¹‘…ÉĞœì)¥µÁ½ÉĞ€œ¸¸½Á½Í}É•Á½Í¥Ñ½Éä¹‘…ÉĞœì)¥µÁ½ÉĞ€œ¸¸½Íå¹}ÍÑ½É”¹‘…ÉĞœì)¥µÁ½ÉĞ€•¥¹Ù½¥•}Í•ÑÑ¥¹Ì¹‘…ÉĞœì)¥µÁ½ÉĞ€¥¹Ù½¥•}µ…ÁÁ•È¹‘…ÉĞœì)¥µÁ½ÉĞ€•¥¹Ù½¥•}Í¥¹•È¹‘…ÉĞœì)¥µÁ½ÉĞ€µå¥¹Ù½¥Í}±¥•¹Ğ¹‘…ÉĞœì()±…ÍÌ%¹Ù½¥•M•ÉÙ¥”ì(€%¹Ù½¥•M•ÉÙ¥”¡Ñ¡¥Ì¹É•Á¼°íÑ¡¥Ì¹­•åMÑ½É”°Ñ¡¥Ì¹±¥•¹Ñ…Ñ½Éä°%¹Ù½¥•M¥¹•ÈüÍ¥¹•È°Ñ¡¥Ì¹‘½Õµ•¹ÑM¥¹•Éô¤€èÍ¥¹•È€ôÍ¥¹•È€üü%¹Ù½¥•M¥¹•È ¤ì(€™¥¹…°A½ÍI•Á½Í¥Ñ½ÉäÉ•Á¼ì(€™¥¹…°%¹Ù½¥•-•åMÑ½É”ü­•åMÑ½É”ì(€™¥¹…°5å%¹Ù½¥Í±¥•¹ĞÕ¹Ñ¥½¸¡MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ°%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”Í•ÑÑ¥¹Ì¤ü±¥•¹Ñ…Ñ½Éäì(€™¥¹…°%¹Ù½¥•M¥¹•ÈÍ¥¹•Èì(€€¼¼¼Q•ÍĞÍ•…´™½È¥¹Ñ•É…Ñ¥½¸Ñ•ÍÑÌìÁÉ½‘ÕÑ¥½¸…±İ…åÌ±½…‘Ì…¹ÕÍ•ÌÑ¡”•¹ÉåÁÑ••ÉÑ¥™¥…Ñ”¸(€™¥¹…°ÕÑÕÉ”ñMÑÉ¥¹œøÕ¹Ñ¥½¸¡MÑÉ¥¹œ©Í½¸°MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ°%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”Í•ÑÑ¥¹Ì¤ü‘½Õµ•¹ÑM¥¹•Èì(€ÍÑ…Ñ¥Œ™¥¹…°}±½¬€ôÍå¹5ÕÑ•à ¤ì(€™¥¹…°}±¥•¹ÑÌ€ô€ñMÑÉ¥¹œ°5å%¹Ù½¥Í±¥•¹Ğùíôì(€™¥¹…°}±…ÍÑEÕ•Éä€ô€ñMÑÉ¥¹œ°…Ñ•Q¥µ”ùíôì(€ÕÑÕÉ”ñ%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”ø•ĞÍ•ÑÑ¥¹Ì…Íå¹Œ€ôø%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”¡…İ…¥ĞÉ•Á¼¹‘…Ñ…‰…Í”¹‘ˆ°­•åÌè­•åMÑ½É”¤ì(€Ù½¥}…‘µ¥¸ ¤ì(€€€¥˜€¡É•Á¼¹…ÕÑ ¹ÕÉÉ•¹ÑUÍ•Èü¹É½±”€„ôÁÁI½±”¹…‘µ¥¸¤Ñ¡É½ÜMÑ…Ñ•ÉÉ½È Ÿ’î–ŞËfï–öWº‡B–Fc–>¿šN7’öp”µ%¹Ù½¥”œ¤ì(€ô(€ÕÑÕÉ”ñÙ½¥ø¥¹¥Ñ¥…±¥é” ¤…Íå¹Œì…İ…¥ĞÉ•Á¼¹‘…Ñ…‰…Í”¹‘ˆìô(€ÕÑÕÉ”ñ5å%¹Ù½¥Í±¥•¹Ğø}±¥•¹Ğ¡MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ¤…Íå¹Œì(€€€™¥¹…°ÍÑ½É”€ô…İ…¥ĞÍ•ÑÑ¥¹Ìì(€€€É•ÑÕÉ¸}±¥•¹ÑÌ¹ÁÕÑ%™‰Í•¹Ğ¡•¹Ù¥É½¹µ•¹Ğ°€ ¤€ôø±¥•¹Ñ…Ñ½Éäü¹…±°¡•¹Ù¥É½¹µ•¹Ğ°ÍÑ½É”¤€üü5å%¹Ù½¥Í±¥•¹Ğ¡•¹Ù¥É½¹µ•¹Ğè•¹Ù¥É½¹µ•¹Ğ°É•‘•¹Ñ¥…±Ìè€ ¤€ôøÍÑ½É”¹±½…¡•¹Ù¥É½¹µ•¹Ğè•¹Ù¥É½¹µ•¹Ğ°É•‘•¹Ñ¥…±ÌèÑÉÕ”¤¤¤ì(€ô(€ÕÑÕÉ”ñÙ½¥øÍ…Ù•M•ÑÑ¥¹Ì¡5…ÀñMÑÉ¥¹œ°‘å¹…µ¥ŒøÁÉ½™¥±”°MÑÉ¥¹œ¥°MÑÉ¥¹œÍ•É•Ğ¤…Íå¹Œì(€€€}…‘µ¥¸ ¤ì(€€€…İ…¥Ğ€¡…İ…¥ĞÍ•ÑÑ¥¹Ì¤¹Í…Ù”¡ÁÉ½™¥±”°±¥•¹Ñ%è¥°±¥•¹ÑM•É•ĞèÍ•É•Ğ¤ì(€€€}±¥•¹ÑÌ¹É•µ½Ù”¡ÁÉ½™¥±•l•¹Ù¥É½¹µ•¹Ğt¤ü¹±½Í” ¤ì(€ô(€ÕÑÕÉ”ñÙ½¥øÍ…Ù•M¥¹¥¹•ÉÑ¥™¥…Ñ”¡MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ°1¥ÍĞñ¥¹ĞøÁ™à°MÑÉ¥¹œÁ…ÍÍİ½É°MÑÉ¥¹œ¹…µ”¤…Íå¹Œì(€€€}…‘µ¥¸ ¤ì(€€€…İ…¥ĞÍ¥¹•È¹Ù…±¥‘…Ñ••ÉÑ¥™¥…Ñ”¡Á™à°Á…ÍÍİ½É¤ì(€€€…İ…¥Ğ€¡…İ…¥ĞÍ•ÑÑ¥¹Ì¤¹Í…Ù•M¥¹¥¹•ÉÑ¥™¥…Ñ”¡•¹Ù¥É½¹µ•¹Ğ°Á™à°Á…ÍÍİ½É°¹…µ”¤ì(€ô(€ÕÑÕÉ”ñÙ½¥øÑ•ÍÑ½¹¹•Ñ¥½¸¡MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ¤…Íå¹Œì(€€€}…‘µ¥¸ ¤ì(€€€™¥¹…°±¥•¹Ğ€ô…İ…¥Ğ}±¥•¹Ğ¡•¹Ù¥É½¹µ•¹Ğ¤ì(€€€±¥•¹Ğ¹±•…ÉQ½­•¸ ¤ì€¼¼¸•áÁ±¥¥Ğ½¹¹•Ñ¥½¸Ñ•ÍĞµÕÍĞ…ÑÕ…±±ä½¹Ñ…ĞÑ¡”Í•ÉÙ•È¸(€€€…İ…¥Ğ±¥•¹Ğ¹…ÕÑ¡•¹Ñ¥…Ñ” ¤ì(€ô(€ÕÑÕÉ”ñ1¥ÍĞñ5…ÀñMÑÉ¥¹œ°=‰©•Ğüøøø¡¥ÍÑ½Éä¡MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ°íMÑÉ¥¹œÉ••¥ÁĞ€ô€œô¤…Íå¹Œì(€€€™¥¹…°‘ˆ€ô…İ…¥ĞÉ•Á¼¹‘…Ñ…‰…Í”¹‘ˆì(€€€™¥¹…°É•ÍÕ±Ğ€ô…İ…¥Ğ‘ˆ¹É…İEÕ•Éä œœM1PÌ¹¥LÍ…±•}¥°Ì¹É••¥ÁÑ}¹¼°Ì¹ÕÍÑ½µ•É}¹…µ”°Ì¹ÕÍÑ½µ•É}Á¡½¹”°Ì¹Ñ½Ñ…±}•¹ÑÌ°Ì¹Ù½¥‘•°(€€€€€¹¥L‘½Õµ•¹Ñ}¥°=1M¡¹ÍÑ…ÑÕÌ°Á•¹‘¥¹œœ¤LÍÑ…ÑÕÌ°(€€€€€=1M¡¹•ÉÉ½É}µ•ÍÍ…”°œœ¤L•ÉÉ½É}µ•ÍÍ…”°=1M¡¹‘½Õµ•¹Ñ}ÕÕ¥°œœ¤L‘½Õµ•¹Ñ}ÕÕ¥°(€€€€€=1M¡¹ÍÕ‰µ¥ÍÍ¥½¹}Õ¥°œœ¤LÍÕ‰µ¥ÍÍ¥½¹}Õ¥°=1M¡¹‰Õå•É}©Í½¸°íôœ¤L‰Õå•É}©Í½¸°(€€€€€=1M¡¹Á…å±½…‘}©Í½¸°œœ¤LÁ…å±½…‘nxöÚ$z{-®éÜj× doc['document_uuid']).toList();
     if (match.length != 1) throw StateError('MyInvois å°šæœªè¿”å›è¯¥å‘ç¥¨ï¼Œè¯·ç¨åæŸ¥è¯¢');
     await _applyStatus(db, doc, Map<String, dynamic>.from(match.single));
   });

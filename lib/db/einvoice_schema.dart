@@ -22,6 +22,8 @@ Future<void> ensureEInvoiceSchema(DatabaseExecutor db) async {
   await columns('e_invoice_settings', {
     'profile_json': "TEXT NOT NULL DEFAULT '{}'",
     'credentials_cipher': "TEXT NOT NULL DEFAULT ''",
+    'signing_certificate_cipher': "TEXT NOT NULL DEFAULT ''",
+    'signing_certificate_name': "TEXT NOT NULL DEFAULT ''",
   });
   await columns('e_invoice_documents', {
     'environment': "TEXT NOT NULL DEFAULT 'sandbox'",

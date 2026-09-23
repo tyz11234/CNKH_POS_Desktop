@@ -1,124 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-import 'package:cnkh_pos_desktop/db/app_database.dart';
-import 'package:cnkh_pos_desktop/db/einvoice_schema.dart';
-import 'package:cnkh_pos_desktop/models/cart_item.dart';
-import 'package:cnkh_pos_desktop/services/pos_repository.dart';
-import 'package:cnkh_pos_desktop/services/einvoice/einvoice_settings.dart';
-import 'package:cnkh_pos_desktop/services/einvoice/einvoice_service.dart';
-import 'package:cnkh_pos_desktop/services/einvoice/invoice_mapper.dart';
-import 'package:cnkh_pos_desktop/services/einvoice/myinvois_client.dart';
-
-class MemoryKeys implements EInvoiceKeyStore {
-  String? value;
-  @override Future<String?> read() async => value;
-  @override Future<void> write(String v) async { value = v; }
-}
-final supplier = <String,dynamic>{'environment':'sandbox','name':'CNKH Test','tin':'C1234567890','brn':'202001234567','msic':'47111','activity':'Retail','address':'1 Test Street','city':'Kuala Lumpur','state':'14','phone':'+60123456789','classification':'022','tax_type':'06','tax_rate_basis_points':0};
-final buyer = <String,dynamic>{'name':'Test Buyer','tin':'C9876543210','id_type':'BRN','id_number':'202009876543','address':'2 Test Street','city':'Kuala Lumpur','state':'14','phone':'+60198765432'};
-void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  late Directory dir;
-  late AppDatabase database;
-  late PosRepository repo;
-  setUp(() async {
-    dir = await Directory.systemTemp.createTemp('cnkh-einvoice-');
-    database = AppDatabase.forTesting('${dir.path}/pos.db', seed:true);
-    repo = PosRepository(database:database);
-  });
-  tearDown(() async { await database.close(); await dir.delete(recursive:true); });
-  Future<SaleRecord> sale() async {
-    const p = Product(id:'einvoice-test',sku:'EI-TEST',barcode:'955123000001',nameZh:'æµ‹è¯•å•†å“',nameEn:'Test Product',priceCents:1060,stock:20);
-    await repo.upsertProduct(p);
-    return repo.createSale(cart:CartState(items:[CartItem(product:p,qty:2,discountCents:20)],orderDiscountCents:100),paymentMethod:'CASH',paidCents:2000,cashier:'admin');
-  }
-  test('fresh install and v8 upgrade preserve all business rows', () async {
-    await sale(); final db = await database.db;
-    final before = {for(final table in ['sales','products','customers','suppliers']) table:await db.query(table)};
-    for(final table in ['e_invoice_logs','e_invoice_documents','e_invoice_settings']) { await db.execute('DROP TABLE $table'); }
-    await db.setVersion(8); await database.close();
-    final upgraded = await database.db;
-    expect(await upgraded.getVersion(),9);
-    for(final e in before.entries) { expect(await upgraded.query(e.key),e.value); }
-    for(final table in ['e_invoice_logs','e_invoice_documents','e_invoice_settings']) { expect(await upgraded.query(table),isEmpty); }
-    await ensureEInvoiceSchema(upgraded);
-  });
-  test('settings encrypt both credentials and isolate environments', () async {
-    final db = await database.db; final keys = MemoryKeys();
-    final settings = EInvoiceSettingsStore(db,keys:keys);
-    await settings.save(supplier,clientId:'secret-client-id',clientSecret:'secret-password');
-    expect(jsonEncode(await db.query('e_invoice_settings')),isNot(contains('secret-client-id')));
-    expect(jsonEncode(await db.query('e_invoice_settings')),isNot(contains('secret-password')));
-    expect((await settings.load(credentials:true))['client_secret'],'secret-password');
-    expect((await settings.load()).containsKey('client_secret'),false);
-    expect((await settings.load(environment:'production',credentials:true))['client_secret'],isNull);
-    keys.value = null;
-    await expectLater(settings.load(credentials:true),throwsStateError);
-  });
-  test('legacy scaffold retains identity and logs but removes plaintext credentials', () async {
-    final db = await database.db;
-    await db.insert('e_invoice_settings', {'id':'legacy','tin':'C1234567890','brn':'202001234567','client_id':'legacy-id','client_secret':'legacy-password'});
-    await db.execute('DROP TABLE e_invoice_logs');
-    await db.execute("CREATE TABLE e_invoice_logs (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, action TEXT NOT NULL, request_body TEXT NOT NULL DEFAULT '', response_body TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)");
-    await db.insert('e_invoice_logs', {'id':'old-log','document_id':'old-doc','action':'test','request_body':'retained','created_at':'2026-09-13'});
-    await ensureEInvoiceSchema(db);
-    final profile = await EInvoiceSettingsStore(db,keys:MemoryKeys()).load();
-    expect(profile['tin'],'C1234567890');
-    expect(profile['brn'],'202001234567');
-    expect((await db.query('e_invoice_settings')).single['client_secret'],'');
-    expect((await db.query('e_invoice_logs')).single['request_body'],'retained');
-  });
-  test('mapper uses sale snapshot, discounts, rounding and inclusive tax', () async {
-    final s = await sale(); final db = await database.db;
-    final row = (await db.query('sales',where:'id=?',whereArgs:[s.id])).single;
-    final before = jsonEncode(row);
-    final json = InvoiceMapper().mapSale(row,supplier:{...supplier,'tax_type':'02','tax_rate_basis_points':600},buyer:buyer,issuedAt:DateTime.utc(2026,9,13));
-    final inv = (json['Invoice'] as List).single;
-    expect(inv['LegalMonetaryTotal'][0]['PayableAmount'][0]['_'],20);
-    expect(inv['TaxTotal'][0]['TaxAmount'][0]['_'],1.13);
-    expect(inv['LegalMonetaryTotal'][0]['TaxExclusiveAmount'][0]['_'],18.87);
-    expect(jsonEncode(row),before);
-    expect(() => InvoiceMapper().mapSale({...row,'total_cents':999},supplier:supplier,buyer:buyer,issuedAt:DateTime.now()),throwsFormatException);
-    expect(() => InvoiceMapper().mapSale(row,supplier:supplier,buyer:{},issuedAt:DateTime.now()),throwsFormatException);
-  });
-  test('OAuth caches token, refreshes expiry and retries one 401', () async {
-    var clock=DateTime.utc(2026,9,13),auths=0,queries=0;
-    final client=MyInvoisClient(environment:'sandbox',now:()=>clock,credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async{
-      if(r.url.path=='/connect/token'){auths++;expect(r.body,contains('grant_type=client_credentials'));return http.Response(jsonEncode({'access_token':'token$auths','expires_in':3600}),200);}
-      queries++;if(queries==1)return http.Response('{}',401);
-      return http.Response('{"documentSummary":[]}',200);
-    }));
-    await client.queryStatus('uid');expect(auths,2);
-    await client.queryStatus('uid');expect(auths,2);
-    clock=clock.add(const Duration(hours:2));await client.queryStatus('uid');expect(auths,3);client.close();
-  });
-  test('submission envelope hashes exact UTF8 and API failures surface', () async {
-    final body=await MyInvoisClient.envelope('R1','{"test":"æµ‹è¯•"}');
-    expect(utf8.decode(base64Decode(body['documents'][0]['document'])),'{"test":"æµ‹è¯•"}');
-    expect(body['documents'][0]['documentHash'],hasLength(64));
-    final c=MyInvoisClient(environment:'production',credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async=>r.url.path=='/connect/token'?http.Response('{"access_token":"t","expires_in":3600}',200):http.Response('{}',503)));
-    await expectLater(c.submitDocument(body),throwsA(isA<MyInvoisException>()));c.close();
-  });
-  test('Retry-After is respected and credentials are never sent through redirects', () async {
-    var now=DateTime.utc(2026,9,14),calls=0;
-    final c=MyInvoisClient(environment:'sandbox',now:()=>now,credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async{
-      expect(r.followRedirects,false);
-      if(r.url.path=='/connect/token')return http.Response('{"access_token":"t","expires_in":3600}',200);
-      calls++;
-      return calls==1 ? http.Response('{}',429,headers:{'retry-after':'30'}) : http.Response('{"documentSummary":[]}',200);
-    }));
-    await expectLater(c.queryStatus('uid'),throwsA(isA<MyInvoisException>()));
-    await expectLater(c.queryStatus('uid'),throwsStateError);expect(calls,1);
-    now=now.add(const Duration(seconds:31));await c.queryStatus('uid');expect(calls,2);c.close();
-  });
-  test('durable duplicate guard, status query and cancellation leave sale intact', () async {
-    final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíçN6N‹Z–‹­¦ëeŠw¬Õ¥µÁ½ÉÐ€‘…ÉÐé½¹Ù•ÉÐœì)¥µÁ½ÉÐ€‘…ÉÐé¥¼œì)¥µÁ½ÉÐ€Á…­…”é™±ÕÑÑ•É}Ñ•ÍÐ½™±ÕÑÑ•É}Ñ•ÍÐ¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”éÍÅ™±¥Ñ”½ÍÅ™±¥Ñ”¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¡ÑÑÀ½¡ÑÑÀ¹‘…ÉÐœ…Ì¡ÑÑÀì)¥µÁ½ÉÐ€Á…­…”é¡ÑÑÀ½Ñ•ÍÑ¥¹œ¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½‘ˆ½…ÁÁ}‘…Ñ…‰…Í”¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½‘ˆ½•¥¹Ù½¥•}Í¡•µ„¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½µ½‘•±Ì½…ÉÑ}¥Ñ•´¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½Á½Í}É•Á½Í¥Ñ½Éä¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½•¥¹Ù½¥•}Í•ÑÑ¥¹Ì¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½•¥¹Ù½¥•}Í•ÉÙ¥”¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½¥¹Ù½¥•}µ…ÁÁ•È¹‘…ÉÐœì)¥µÁ½ÉÐ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½µå¥¹Ù½¥Í}±¥•¹Ð¹‘…ÉÐœì()±…ÍÌ5•µ½Éå-•åÌ¥µÁ±•µ•¹ÑÌ%¹Ù½¥•-•åMÑ½É”ì(€MÑÉ¥¹œüÙ…±Õ”ì(€½Ù•ÉÉ¥‘”ÕÑÕÉ”ñMÑÉ¥¹œüøÉ•… ¤…Íå¹Œ€ôøÙ…±Õ”ì(€½Ù•ÉÉ¥‘”ÕÑÕÉ”ñÙ½¥øÝÉ¥Ñ”¡MÑÉ¥¹œØ¤…Íå¹ŒìÙ…±Õ”€ôØìô)ô)ÕÑÕÉ”ñMÑÉ¥¹œøÑ•ÍÑM¥¸¡MÑÉ¥¹œ©Í½¸°MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ð°%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”Í•ÑÑ¥¹Ì¤…Íå¹Œì(€™¥¹…°‘…Ñ„€ô©Í½¹•½‘”¡©Í½¸¤…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œøì(€™¥¹…°¥¹Ù½¥”€ô€¡‘…Ñ…l%¹Ù½¥”t…Ì1¥ÍÐ¤¹Í¥¹±”…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œøì(€¥¹Ù½¥•l%¹Ù½¥•QåÁ•½‘”t€ô€¡¥¹Ù½¥•l%¹Ù½¥•QåÁ•½‘”t…Ì1¥ÍÐ¤¹µ…À ¡Ø¤€ôøì¸¸¹5…ÀñMÑÉ¥¹œ±‘å¹…µ¥Œø¹™É½´¡Ø…Ì5…À¤°€±¥ÍÑY•ÉÍ¥½¹%œèœÄ¸Äô¤¹Ñ½1¥ÍÐ ¤ì(€½¹ÍÐ‘¥•ÍÑ5•Ñ¡½€ômì|œ€è€œœ°€±½É¥Ñ¡´œè¡ÑÑÀè¼½ÝÝÜ¹ÜÌ¹½Éœ¼ÈÀÀÄ¼ÀÐ½áµ±•¹ŒÍ¡„ÈÔØõtì(€½¹ÍÐ‘¥•ÍÑY…±Õ”€ômì|œ€è€iµÉiDôôõtì(€¥¹Ù½¥•lM¥¹…ÑÕÉ”t€ômì%œémì|œèÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°éÍ¥¹…ÑÕÉ”é%¹Ù½¥”õt°€M¥¹…ÑÕÉ•5•Ñ¡½œémì|œèÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°é‘Í¥œé•¹Ù•±½Á•éá…‘•Ìõuõtì(€¥¹Ù½¥•lU	1áÑ•¹Í¥½¹Ìt€ômìU	1áÑ•¹Í¥½¸œémìáÑ•¹Í¥½¹UI$œémì|œèÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°é‘Í¥œé•¹Ù•±½Á•éá…‘•Ìõt°€áÑ•¹Í¥½¹½¹Ñ•¹ÐœémìU	1½Õµ•¹ÑM¥¹…ÑÕÉ•ÌœémìM¥¹…ÑÕÉ•%¹™½Éµ…Ñ¥½¸œémìM¥¹…ÑÕÉ”œémì(€€€€M¥¹…ÑÕÉ•Y…±Õ”œémì|œèiµÉiDôôõt°€M¥¹•‘%¹™¼œémìM¥¹…ÑÕÉ•5•Ñ¡½œémì±½É¥Ñ¡´œè¡ÑÑÀè¼½ÝÝÜ¹ÜÌ¹½Éœ¼ÈÀÀÄ¼ÀÐ½áµ±‘Í¥œµµ½É”ÉÍ„µÍ¡„ÈÔØõt°€I•™•É•¹”œél(€€€€€ìQåÁ”œè¡ÑÑÀè¼½ÕÉ¤¹•ÑÍ¤¹½Éœ¼ÀÄäÀÌ½ØÄ¸Ì¸ÈM¥¹•‘AÉ½Á•ÉÑ¥•Ìœ°UI$œèœ¥µá…‘•ÌµÍ¥¹•µÁÉ½ÁÌœ°¥•ÍÑ5•Ñ¡½œé‘¥•ÍÑ5•Ñ¡½°¥•ÍÑY…±Õ”œé‘¥•ÍÑY…±Õ•ô°(€€€€€ìQåÁ”œèœœ°UI$œèœœ°¥•ÍÑ5•Ñ¡½œé‘¥•ÍÑ5•Ñ¡½°¥•ÍÑY…±Õ”œé‘¥•ÍÑY…±Õ•ô°(€€€uõt°€-•å%¹™¼œémì`ÔÀå…Ñ„œémì`ÔÀå•ÉÑ¥™¥…Ñ”œémì|œèiµÉiDôôõuõuõt°(€õuõuõuõuõuõtì(€É•ÑÕÉ¸©Í½¹¹½‘”¡‘…Ñ„¤ì)ô)™¥¹…°ÍÕÁÁ±¥•È€ô€ñMÑÉ¥¹œ±‘å¹…µ¥Œùì•¹Ù¥É½¹µ•¹ÐœèÍ…¹‘‰½àœ°¹…µ”œè9- Q•ÍÐœ°Ñ¥¸œèÄÈÌÐÔØÜàäÀœ°‰É¸œèœÈÀÈÀÀÄÈÌÐÔØÜœ°µÍ¥ŒœèœÐÜÄÄÄœ°…Ñ¥Ù¥ÑäœèI•Ñ…¥°œ°…‘‘É•ÍÌœèœÄQ•ÍÐMÑÉ••Ðœ°¥Ñäœè-Õ…±„1ÕµÁÕÈœ°ÍÑ…Ñ”œèœÄÐœ°Á¡½¹”œèœ¬ØÀÄÈÌÐÔØÜàäœ°±…ÍÍ¥™¥…Ñ¥½¸œèœÀÈÈœ°Ñ…á}ÑåÁ”œèœÀØœ°Ñ…á}É…Ñ•}‰…Í¥Í}Á½¥¹ÑÌœèÁôì)™¥¹…°‰Õå•È€ô€ñMÑÉ¥¹œ±‘å¹…µ¥Œùì¹…µ”œèQ•ÍÐ	Õå•Èœ°Ñ¥¸œèäàÜØÔÐÌÈÄÀœ°¥‘}ÑåÁ”œè	I8œ°¥‘}¹Õµ‰•ÈœèœÈÀÈÀÀäàÜØÔÐÌœ°…‘‘É•ÍÌœèœÈQ•ÍÐMÑÉ••Ðœ°¥Ñäœè-Õ…±„1ÕµÁÕÈœ°ÍÑ…Ñ”œèœÄÐœ°Á¡½¹”œèœ¬ØÀÄäàÜØÔÐÌÈôì)Ù½¥µ…¥¸ ¤ì(€Q•ÍÑ]¥‘•ÑÍ±ÕÑÑ•É	¥¹‘¥¹œ¹•¹ÍÕÉ•%¹¥Ñ¥…±¥é• ¤ì(€±…Ñ”¥É•Ñ½Éä‘¥Èì(€±…Ñ”ÁÁ…Ñ…‰…Í”‘…Ñ…‰…Í”ì(€±…Ñ”A½ÍI•Á½Í¥Ñ½ÉäÉ•Á¼ì(€Í•ÑW}8ÚÚ$z{-®éÜj×po.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
     final db=await database.db;final original=await db.query('sales');var posts=0;
-    final service=EInvoiceService(repo,keyStore:MemoryKeys(),clientFactory:(env,settings)=>MyInvoisClient(environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,clientFactory:(env,settings)=>MyInvoisClient(environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
       if(r.url.path=='/connect/token')return http.Response('{"access_token":"t","expires_in":3600}',200);
       if(r.method=='POST'){posts++;return http.Response(jsonEncode({'submissionUID':'uid','acceptedDocuments':[{'uuid':'uuid','invoiceCodeNumber':s.receiptNo}]}),202);}
       if(r.method=='PUT')return http.Response('{"uuid":"uuid","status":"Cancelled"}',200);
@@ -140,7 +22,7 @@ void main() {
   });
   test('ambiguous timeout blocks retries across service restart', () async {
     final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
-    final service=EInvoiceService(repo,keyStore:MemoryKeys(),clientFactory:(env,settings)=>MyInvoisClient(environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,clientFactory:(env,settings)=>MyInvoisClient(environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
       if(r.url.path=='/connect/token')return http.Response('{"access_token":"t","expires_in":3600}',200);
       throw const SocketException('lost response');
     })));
