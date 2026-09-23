@@ -15,12 +15,33 @@ class EInvoiceSigner {
   static const _propsId = 'id-xades-signed-props';
   static final _hash = Sha256();
 
-  Future<void> validateCertificate(List<int> pfx, String password) async {
-    if (pfx.isEmpty || pfx.length > 5 * 1024 * 1024) throw ArgumentError('证书文件大小须小于 5 MB');
+  Future<void> validateCertificate(
+    List<int> pfx,
+    String password, {
+    String? expectedTin,
+    String? expectedBrn,
+  }) async {
+    if (pfx.isEmpty || pfx.length > 5 * 1024 * 1024) {
+      throw ArgumentError('证书文件大小须小于 5 MB');
+    }
     final bundle = Pkcs12.load(Uint8List.fromList(pfx), password);
-    final key = bundle.privateKey;
-    if (key is! RSAPrivateKey || key.modulus!.bitLength < 2048) throw StateError('MyInvois 需要至少 2048 位 RSA 数字证书');
-    _certificateInfo(bundle.certificatePem);
+    final privateKey = bundle.privateKey;
+    final publicKey = bundle.publicKey;
+    if (privateKey is! RSAPrivateKey ||
+        privateKey.modulus!.bitLength < 2048 ||
+        publicKey is! RSAPublicKey) {
+      throw StateError('MyInvois 需要至少 2048 位 RSA 数字证书');
+    }
+    final certificate = _certificateInfo(bundle.certificatePem);
+    _validateCertificateProfile(
+      certificate,
+      expectedTin: expectedTin,
+      expectedBrn: expectedBrn,
+    );
+    if (certificate.publicKey.modulus != publicKey.modulus ||
+        certificate.publicKey.publicExponent != publicKey.publicExponent) {
+      throw StateError('PFX 私钥与证书公钥不匹配');
+    }
   }
 
   static void requireSignedInvoice(Map<String, dynamic> payload) {
@@ -32,45 +53,137 @@ class EInvoiceSigner {
     final type = invoice['InvoiceTypeCode'];
     final signature = invoice['Signature'];
     final extensions = invoice['UBLExtensions'];
-    if (type is! List || type.isEmpty || (type.first as Map?)?['listVersionID'] != '1.1' ||
-        signature is! List || signature.isEmpty || extensions is! List || extensions.isEmpty) {
+    if (type is! List ||
+        type.isEmpty ||
+        (type.first as Map?)?['listVersionID'] != '1.1' ||
+        signature is! List ||
+        signature.length != 1 ||
+        extensions is! List ||
+        extensions.length != 1) {
       throw StateError('此待提交发票是旧版未签名单据，请重新生成后再提交');
     }
     try {
-      final rootSignature = signature.first as Map;
+      final rootSignature = signature.single as Map;
       final rootMethod = rootSignature['SignatureMethod'][0]['_'];
-      final extension = (extensions.first as Map)['UBLExtension'][0] as Map;
+      final extension = (extensions.single as Map)['UBLExtension'][0] as Map;
       final extensionUri = extension['ExtensionURI'][0]['_'];
-      final information = extension['ExtensionContent'][0]['UBLDocumentSignatures'][0]['SignatureInformation'][0] as Map;
+      final information =
+          extension['ExtensionContent'][0]['UBLDocumentSignatures'][0]
+              ['SignatureInformation'][0] as Map;
       final signed = information['Signature'][0] as Map;
       final value = signed['SignatureValue'][0]['_'];
       final signedInfo = signed['SignedInfo'][0] as Map;
       final signingMethod = signedInfo['SignatureMethod'][0]['Algorithm'];
       final references = signedInfo['Reference'] as List;
-      final props = references[0] as Map;
-      final document = references[1] as Map;
-      final certificate = signed['KeyInfo'][0]['X509Data'][0]['X509Certificate'][0]['_'];
-      final sha256Method = (props['DigestMethod'] as List).first['Algorithm'];
-      final documentSha256Method = (document['DigestMethod'] as List).first['Algorithm'];
-      final propsDigest = (props['DigestValue'] as List).first['_'];
-      final documentDigest = (document['DigestValue'] as List).first['_'];
-      if (rootMethod != _signatureUri || extensionUri != _signatureUri || signingMethod != _rsaSha256 ||
-          props['Type'] != _signedPropertiesType || props['URI'] != '#$_propsId' ||
-          document['Type'] != '' || document['URI'] != '' ||
-          sha256Method != _sha256 || documentSha256Method != _sha256 ||
-          value is! String || base64Decode(value).isEmpty || references.length != 2 ||
-          certificate is! String || base64Decode(certificate).isEmpty ||
-          propsDigest is! String || base64Decode(propsDigest).isEmpty ||
-          documentDigest is! String || base64Decode(documentDigest).isEmpty) {
+      if (references.length != 2) throw const FormatException();
+      final propertiesReference = references[0] as Map;
+      final documentReference = references[1] as Map;
+      final certificate =
+          signed['KeyInfo'][0]['X509Data'][0]['X509Certificate'][0]['_'];
+      final propertiesMethod =
+          (propertiesReference['DigestMethod'] as List).first['Algorithm'];
+      final documentMethod =
+          (documentReference['DigestMethod'] as List).first['Algorithm'];
+      final propertiesDigest =
+          (propertiesReference['DigestValue'] as List).first['_'];
+      final documentDigest =
+          (documentReference['DigestValue'] as List).first['_'];
+      if (rootMethod != _signatureUri ||
+          extensionUri != _signatureUri ||
+          signingMethod != _rsaSha256 ||
+          propertiesReference['Type'] != _signedPropertiesType ||
+          propertiesReference['URI'] != '#$_propsId' ||
+          documentReference['Type'] != '' ||
+          documentReference['URI'] != '' ||
+          propertiesMethod != _sha256 ||
+          documentMethod != _sha256 ||
+          value is! String ||
+          certificate is! String ||
+          propertiesDigest is! String ||
+          documentDigest is! String) {
+        throw const FormatException();
+      }
+
+      final signatureBytes = base64Decode(value);
+      final certificateDer = base64Decode(certificate);
+      if (signatureBytes.isEmpty || certificateDer.isEmpty) {
+        throw const FormatException();
+      }
+      final certPem = '-----BEGIN CERTIFICATE-----\n'
+          '${base64Encode(certificateDer)}\n'
+          '-----END CERTIFICATE-----';
+      final certificateInfo = _certificateInfo(certPem);
+      _ensureCertificateCurrent(certificateInfo);
+
+      final canonicalInvoice = Map<String, dynamic>.from(invoice)
+        ..remove('UBLExtensions')
+        ..remove('Signature');
+      canonicalInvoice['InvoiceTypeCode'] =
+          (canonicalInvoice['InvoiceTypeCode'] as List).map((raw) {
+        final code = Map<String, dynamic>.from(raw as Map);
+        code['listVersionID'] = '1.0';
+        return code;
+      }).toList();
+      final canonicalPayload = Map<String, dynamic>.from(payload)
+        ..['Invoice'] = <Object?>[canonicalInvoice];
+      final documentBytes = utf8.encode(jsonEncode(canonicalPayload));
+      if (_digestBase64(documentBytes) != documentDigest) {
+        throw const FormatException();
+      }
+
+      final object = signed['Object'] as List;
+      final qualifyingProperties =
+          (object.single as Map)['QualifyingProperties'][0] as Map;
+      final signedProperties =
+          qualifyingProperties['SignedProperties'] as List;
+      if (signedProperties.length != 1 ||
+          (signedProperties.single as Map)['Id'] != _propsId) {
+        throw const FormatException();
+      }
+      final signedPropertiesBytes = utf8.encode(jsonEncode(<String, Object?>{
+        'Target': _sigId,
+        'SignedProperties': signedProperties,
+      }));
+      if (_digestBase64(signedPropertiesBytes) != propertiesDigest) {
+        throw const FormatException();
+      }
+      final certDigest = (((signedProperties.single as Map)
+                  ['SignedSignatureProperties'][0]['SigningCertificate'][0]
+              ['Cert'][0]['CertDigest'][0]['DigestValue'][0]['_'])
+          as String);
+      if (_digestBase64(certificateDer) != certDigest) {
+        throw const FormatException();
+      }
+
+      final verifier = RSASigner(SHA256Digest(), '0609608648016503040201')
+        ..init(
+          false,
+          PublicKeyParameter<RSAPublicKey>(certificateInfo.publicKey),
+        );
+      if (!verifier.verifySignature(
+        Uint8List.fromList(documentBytes),
+        RSASignature(signatureBytes),
+      )) {
         throw const FormatException();
       }
     } catch (_) {
-      throw StateError('发票数字签名结构无效，请重新生成');
+      throw StateError('发票数字签名无效或已被修改，请重新生成');
     }
   }
 
-  Future<String> sign(String invoiceJson, {required List<int> pfx, required String password}) async {
-    if (pfx.isEmpty || pfx.length > 5 * 1024 * 1024) throw ArgumentError('证书文件大小须小于 5 MB');
+  Future<String> sign(
+    String invoiceJson, {
+    required List<int> pfx,
+    required String password,
+    String? expectedTin,
+    String? expectedBrn,
+  }) async {
+    await validateCertificate(
+      pfx,
+      password,
+      expectedTin: expectedTin,
+      expectedBrn: expectedBrn,
+    );
     final data = jsonDecode(invoiceJson);
     if (data is! Map<String, dynamic> || data['Invoice'] is! List || (data['Invoice'] as List).length != 1) {
       throw const FormatException('Invoice JSON 结构无效');
@@ -78,8 +191,7 @@ class EInvoiceSigner {
     final invoice = data['Invoice'][0] as Map<String, dynamic>;
     if (invoice['UBLExtensions'] != null || invoice['Signature'] != null) throw StateError('发票已有签名扩展，拒绝重复签名');
     final p12 = Pkcs12.load(Uint8List.fromList(pfx), password);
-    final privateKey = p12.privateKey;
-    if (privateKey is! RSAPrivateKey || privateKey.modulus!.bitLength < 2048) throw StateError('MyInvois 需要至少 2048 位 RSA 数字证书');
+    final privateKey = p12.privateKey as RSAPrivateKey;
     final certPem = p12.certificatePem;
     final cert = _certificateInfo(certPem);
     final timestamp = DateTime.now().toUtc().toIso8601String().replaceFirst(RegExp(r'\.\d+Z$'), 'Z');
@@ -138,17 +250,204 @@ class EInvoiceSigner {
 
   static Uint8List _pemBytes(String pem) => Uint8List.fromList(base64Decode(pem.replaceAll(RegExp(r'-----[^-]+-----|\s'), '')));
   static _CertInfo _certificateInfo(String pem) {
-    final root = _DerReader(_pemBytes(pem)).read();
-    final cert = root.children;
-    if (cert.length < 1) throw const FormatException('证书格式无效');
-    final tbs = cert.first.children;
+    final der = _pemBytes(pem);
+    final root = _DerReader(der).read();
+    if (root.tag != 0x30 || root.children.length < 3) {
+      throw const FormatException('证书格式无效');
+    }
+    final tbs = root.children.first.children;
     var index = tbs.first.tag == 0xa0 ? 1 : 0;
-    if (tbs.length < index + 6) throw const FormatException('证书缺少必需字段');
-    final serial = BigInt.parse(tbs[index].value.map((b) => b.toRadixString(16).padLeft(2, '0')).join(), radix: 16).toString();
-    final issuer = _name(tbs[index + 2]);
-    final subject = _name(tbs[index + 4]);
-    return _CertInfo(issuer, subject, serial);
+    if (tbs.length < index + 6) {
+      throw const FormatException('证书缺少必需字段');
+    }
+    final serial = BigInt.parse(
+      tbs[index].value.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      radix: 16,
+    ).toString();
+    final issuerNode = tbs[index + 2];
+    final validity = tbs[index + 3];
+    final subjectNode = tbs[index + 4];
+    final publicKeyInfo = tbs[index + 5];
+    if (validity.children.length != 2 || publicKeyInfo.children.length < 2) {
+      throw const FormatException('证书缺少有效期或 RSA 公钥');
+    }
+    final algorithm = publicKeyInfo.children.first.children;
+    if (algorithm.isEmpty ||
+        _oid(algorithm.first.value) != '1.2.840.113549.1.1.1') {
+      throw const FormatException('证书公钥不是 RSA');
+    }
+    final bitString = publicKeyInfo.children[1];
+    if (bitString.tag != 0x03 ||
+        bitString.value.length < 2 ||
+        bitString.value.first != 0) {
+      throw const FormatException('RSA 公钥编码无效');
+    }
+    final rsaKey = _DerReader(bitString.value.sublist(1)).read();
+    if (rsaKey.tag != 0x30 || rsaKey.children.length < 2) {
+      throw const FormatException('RSA 公钥结构无效');
+    }
+    final publicKey = RSAPublicKey(
+      _positiveInteger(rsaKey.children[0].value),
+      _positiveInteger(rsaKey.children[1].value),
+    );
+    final attrs = _nameAttributes(subjectNode);
+    final extensions = _certificateExtensions(tbs);
+    return _CertInfo(
+      issuer: _name(issuerNode),
+      subject: _name(subjectNode),
+      serial: serial,
+      subjectAttributes: attrs,
+      notBefore: _x509Time(validity.children[0]),
+      notAfter: _x509Time(validity.children[1]),
+      keyUsage: extensions.keyUsage,
+      extendedKeyUsage: extensions.extendedKeyUsage,
+      publicKey: publicKey,
+    );
   }
+
+  static BigInt _positiveInteger(List<int> value) {
+    if (value.isEmpty) throw const FormatException('证书整数无效');
+    final bytes = value.length > 1 && value.first == 0 ? value.sublist(1) : value;
+    return BigInt.parse(
+      bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      radix: 16,
+    );
+  }
+
+  static Map<String, String> _nameAttributes(_DerNode name) {
+    final result = <String, String>{};
+    for (final rdn in name.children) {
+      for (final attribute in rdn.children) {
+        if (attribute.children.length < 2) continue;
+        result[_oid(attribute.children.first.value)] =
+            attribute.children[1].text.trim();
+      }
+    }
+    return result;
+  }
+
+  static ({Set<int> keyUsage, Set<String> extendedKeyUsage})
+      _certificateExtensions(List<_DerNode> tbs) {
+    final keyUsage = <int>{};
+    final extendedKeyUsage = <String>{};
+    for (final wrapper in tbs.where((node) => node.tag == 0xa3)) {
+      if (wrapper.children.length != 1) {
+        throw const FormatException('证书扩展结构无效');
+      }
+      for (final extension in wrapper.children.single.children) {
+        if (extension.children.length < 2) {
+          throw const FormatException('证书扩展字段无效');
+        }
+        final oid = _oid(extension.children.first.value);
+        var valueIndex = 1;
+        if (extension.children[valueIndex].tag == 0x01) valueIndex++;
+        if (valueIndex >= extension.children.length ||
+            extension.children[valueIndex].tag != 0x04) {
+          throw const FormatException('证书扩展值无效');
+        }
+        final value = _DerReader(extension.children[valueIndex].value).read();
+        if (oid == '2.5.29.15') {
+          if (value.tag != 0x03 || value.value.isEmpty) {
+            throw const FormatException('Key Usage 扩展无效');
+          }
+          final unusedBits = value.value.first;
+          final bitBytes = value.value.skip(1).toList(growable: false);
+          final bitCount = bitBytes.length * 8 - unusedBits;
+          for (var bit = 0; bit < bitCount; bit++) {
+            if ((bitBytes[bit ~/ 8] & (0x80 >> (bit % 8))) != 0) {
+              keyUsage.add(bit);
+            }
+          }
+        } else if (oid == '2.5.29.37') {
+          if (value.tag != 0x30) {
+            throw const FormatException('Extended Key Usage 扩展无效');
+          }
+          for (final purpose in value.children) {
+            extendedKeyUsage.add(_oid(purpose.value));
+          }
+        }
+      }
+    }
+    return (keyUsage: keyUsage, extendedKeyUsage: extendedKeyUsage);
+  }
+
+  static DateTime _x509Time(_DerNode node) {
+    final raw = node.text.trim();
+    if (!raw.endsWith('Z')) {
+      throw const FormatException('证书时间须为 UTC');
+    }
+    final digits = raw.substring(0, raw.length - 1);
+    final match = node.tag == 0x17
+        ? RegExp(r'^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?$')
+            .firstMatch(digits)
+        : node.tag == 0x18
+            ? RegExp(r'^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.\d+)?$')
+                .firstMatch(digits)
+            : null;
+    if (match == null) throw const FormatException('证书有效期格式无效');
+    var offset = 1;
+    int part() => int.parse(match.group(offset++)!);
+    var year = part();
+    if (node.tag == 0x17) year += year >= 50 ? 1900 : 2000;
+    final month = part();
+    final day = part();
+    final hour = part();
+    final minute = part();
+    final second = match.group(offset) == null ? 0 : part();
+    return DateTime.utc(year, month, day, hour, minute, second);
+  }
+
+  static void _ensureCertificateCurrent(_CertInfo cert) {
+    final now = DateTime.now().toUtc();
+    if (now.isBefore(cert.notBefore) || !now.isBefore(cert.notAfter)) {
+      throw StateError('数字证书已过期或尚未生效');
+    }
+  }
+
+  static void _validateCertificateProfile(
+    _CertInfo cert, {
+    String? expectedTin,
+    String? expectedBrn,
+  }) {
+    _ensureCertificateCurrent(cert);
+    const requiredDn = <String, String>{
+      '2.5.4.3': 'CN',
+      '2.5.4.6': 'C',
+      '2.5.4.10': 'O',
+      '2.5.4.97': 'TIN',
+      '2.5.4.5': 'BRN',
+    };
+    for (final entry in requiredDn.entries) {
+      if ((cert.subjectAttributes[entry.key] ?? '').trim().isEmpty) {
+        throw StateError('数字证书缺少必需字段 ${entry.value}');
+      }
+    }
+    if (cert.subjectAttributes['2.5.4.6']?.toUpperCase() != 'MY') {
+      throw StateError('MyInvois 数字证书必须属于马来西亚组织');
+    }
+    final tin = cert.subjectAttributes['2.5.4.97']!.trim().toUpperCase();
+    final brn = cert.subjectAttributes['2.5.4.5']!.trim();
+    if (expectedTin != null &&
+        expectedTin.trim().isNotEmpty &&
+        tin != expectedTin.trim().toUpperCase()) {
+      throw StateError('证书 TIN 与当前 e-Invoice 公司资料不符');
+    }
+    if (expectedBrn != null &&
+        expectedBrn.trim().isNotEmpty &&
+        brn != expectedBrn.trim()) {
+      throw StateError('证书 BRN 与当前 e-Invoice 公司资料不符');
+    }
+    if (!cert.keyUsage.contains(1)) {
+      throw StateError('数字证书 Key Usage 必须包含 Non-Repudiation');
+    }
+    if (!cert.extendedKeyUsage.contains('1.3.6.1.4.1.311.10.3.12')) {
+      throw StateError('数字证书 Enhanced Key Usage 必须包含 Document Signing');
+    }
+  }
+
+  static String _digestBase64(List<int> bytes) =>
+      base64Encode(SHA256Digest().process(Uint8List.fromList(bytes)));
+
   static String _name(_DerNode name) {
     const keys = {
       '2.5.4.3':'CN', '2.5.4.4':'SN', '2.5.4.5':'SERIALNUMBER', '2.5.4.6':'C',
@@ -183,7 +482,28 @@ class EInvoiceSigner {
   }
 }
 
-class _CertInfo { const _CertInfo(this.issuer, this.subject, this.serial); final String issuer, subject, serial; }
+class _CertInfo {
+  const _CertInfo({
+    required this.issuer,
+    required this.subject,
+    required this.serial,
+    required this.subjectAttributes,
+    required this.notBefore,
+    required this.notAfter,
+    required this.keyUsage,
+    required this.extendedKeyUsage,
+    required this.publicKey,
+  });
+  final String issuer;
+  final String subject;
+  final String serial;
+  final Map<String, String> subjectAttributes;
+  final DateTime notBefore;
+  final DateTime notAfter;
+  final Set<int> keyUsage;
+  final Set<String> extendedKeyUsage;
+  final RSAPublicKey publicKey;
+}
 class _DerNode {
   const _DerNode(this.tag, this.value, this.children);
   final int tag; final List<int> value; final List<_DerNode> children;

@@ -1,7 +1,7 @@
 # CNKH LAN Sync v1
 
-> 当前推荐正式组合：**Desktop v0.3.2 + Mobile v1.8.2**  
-> 最后更新：**2026-09-05**
+> 当前推荐正式组合：**Desktop v1.10.3+31 + Mobile v1.10.3+31**  
+> 最后更新：**2026-09-23**
 
 CNKH POS 使用 **local-first / no-cloud** 架构。Desktop 是店内局域网权威主机，Mobile 通过同一个 Wi-Fi / LAN 与 Desktop 直接同步。
 
@@ -59,6 +59,7 @@ Mobile 不把 WebSocket 当成唯一数据来源；断线、重连或事件遗�
 | GET | `/api/v1/products?since=` | 商品 / 库存同步 |
 | GET | `/api/v1/customers?since=` | 客户同步 |
 | GET | `/api/v1/categories?since=` | 分类同步 |
+| GET | `/api/v1/purchases?since=` | 进货历史同步 |
 | GET | `/api/v1/sales?since=` | 销售同步 |
 | POST | `/api/v1/sales` | Mobile 上传本地 / 离线销售 |
 | POST | `/api/v1/notify` | 同步事件通知 |
