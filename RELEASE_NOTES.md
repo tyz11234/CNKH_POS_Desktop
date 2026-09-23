@@ -1,10 +1,10 @@
-# CNKH POS Desktop 1.10.3+31
+# CNKH POS Desktop 1.10.4+32
 
-- 增加 MyInvois PFX/P12 数字证书导入与加密保存。
-- 生成符合官方 JSON 签名流程的 Invoice 1.1 签名结构；没有证书时禁止准备发票，历史未签名待提交记录也会被拦截。
-- 新增证书加密保存、缺少签名证书时阻止准备发票、历史未签名发票拦截等回归测试。
-- Desktop 与 Mobile 的 Flutter 应用版本统一为 1.10.3+31；Mobile 仅同步版本号，没有移动端业务代码变更。
+- LAN 增量同步现在追踪进货记录的新增、修改、删除，并为旧记录建立同步基线；手机端可以按游标获取进货历史。
+- MyInvois PFX/P12 检查证书有效期、马来西亚主体字段、配置的 TIN/BRN、签名用途、RSA 密钥类型与证书公钥匹配。
+- 提交前校验发票签名的摘要和 RSA 数学签名；测试改用测试专用 PFX，并覆盖签名篡改。
+- 同步协议文档更新至配套 Desktop / Mobile 1.10.4+32。
 
-保持数据库 schema v9、现有金额算法、离线销售及 LAN 协议不变。Desktop Windows 构建、测试及培训截图校验均已通过；配套 Mobile APK 构建和双端联调也已通过。真实 MyInvois Sandbox/Production 提交尚未执行。
+## 验证
 
-Windows 包为完整便携 ZIP，不含安装向导；正式更新前关闭程序并备份业务数据。
+Desktop 静态分析、完整测试、Windows Release 构建及与配套 Mobile 的 LAN HTTP 回归均通过。MyInvois 实际 Sandbox / Production 提交尚未执行；正式使用须配置已授权 API 凭据和马来西亚认可 CA 签发证书。

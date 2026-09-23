@@ -1,6 +1,6 @@
 # CNKH LAN Sync v1
 
-> 当前推荐正式组合：**Desktop v1.10.3+31 + Mobile v1.10.3+31**  
+> 当前推荐正式组合：**Desktop v1.10.4+32 + Mobile v1.10.4+32**  
 > 最后更新：**2026-09-23**
 
 CNKH POS 使用 **local-first / no-cloud** 架构。Desktop 是店内局域网权威主机，Mobile 通过同一个 Wi-Fi / LAN 与 Desktop 直接同步。
