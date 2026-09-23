@@ -1,35 +1,98 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíÛmõN‹Z–‹­¦ëeŠw¬Õ¥µÁ½ÉĞ€‘…ÉĞé½¹Ù•ÉĞœì)¥µÁ½ÉĞ€Á…­…”éÉåÁÑ½É…Á¡ä½ÉåÁÑ½É…Á¡ä¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é™±ÕÑÑ•É}Í•ÕÉ•}ÍÑ½É…”½™±ÕÑÑ•É}Í•ÕÉ•}ÍÑ½É…”¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”éÍÅ™±¥Ñ”½ÍÅ™±¥Ñ”¹‘…ÉĞœì)¥µÁ½ÉĞ€œ¸¸½Íå¹}ÍÑ½É”¹‘…ÉĞœì((¼¼¼Q¡”‘…Ñ…‰…Í”¡½±‘Ì…ÕÑ¡•¹Ñ¥…Ñ•¥Á¡•ÉÑ•áĞ¸%ÑÌ­•äÍÑ…åÌ¥¸=LÍ•ÕÉ”ÍÑ½É…”¸)…‰ÍÑÉ…Ğ±…ÍÌ%¹Ù½¥•-•åMÑ½É”ì(€ÕÑÕÉ”ñMÑÉ¥¹œüøÉ•… ¤ì(€ÕÑÕÉ”ñÙ½¥øİÉ¥Ñ”¡MÑÉ¥¹œÙ…±Õ”¤ì)ô)±…ÍÌ=Í%¹Ù½¥•-•åMÑ½É”¥µÁ±•µ•¹ÑÌ%¹Ù½¥•-•åMÑ½É”ì(€ÍÑ…Ñ¥Œ½¹ÍĞ}ÍÑ½É…”€ô±ÕÑÑ•ÉM•ÕÉ•MÑ½É…” ¤ì(€ÍÑ…Ñ¥Œ½¹ÍĞ}¹…µ”€ô€¹­ ¹µå¥¹Ù½¥Ì¹…•ÌÈÔØ¹ØÄœì(€½Ù•ÉÉ¥‘”ÕÑÕÉ”ñMÑÉ¥¹œüøÉ•… ¤€ôø}ÍÑ½É…”¹É•…¡­•äè}¹…µ”¤ì(€½Ù•ÉÉ¥‘”ÕÑÕÉ”ñÙ½¥øİÉ¥Ñ”¡MÑÉ¥¹œÙ…±Õ”¤€ôø}ÍÑ½É…”¹İÉ¥Ñ”¡­•äè}¹…µ”°Ù…±Õ”èÙ…±Õ”¤ì)ô)±…ÍÌ%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”ì(€%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”¡Ñ¡¥Ì¹‘ˆ°í%¹Ù½¥•-•åMÑ½É”ü­•åÍô¤€è­•åÌ€ô­•åÌ€üü=Í%¹Ù½¥•-•åMÑ½É” ¤ì(€™¥¹…°…Ñ…‰…Í”‘ˆì(€™¥¹…°%¹Ù½¥•-•åMÑ½É”­•åÌì(€ÍÑ…Ñ¥Œ™¥¹…°}±½¬€ôÍå¹5ÕÑ•à ¤ì(€™¥¹…°}¥Á¡•È€ô•Í´¹İ¥Ñ ÈÔÙ‰¥ÑÌ ¤ì(€ÕÑÕÉ”ñM•É•Ñ-•äø}­•ä¡íÉ•ÅÕ¥É•‰½½°É•…Ñ•ô¤…Íå¹Œì(€€€™¥¹…°•á¥ÍÑ¥¹œ€ô…İ…¥Ğ­•åÌ¹É•… ¤ì(€€€¥˜€¡•á¥ÍÑ¥¹œ€„ô¹Õ±°¤É•ÑÕÉ¸M•É•Ñ-•ä¡‰…Í”ØÑ•½‘”¡•á¥ÍÑ¥¹œ¤¤ì(€€€¥˜€ …É•…Ñ”¤Ñ¡É½ÜMÑ…Ñ•ÉÉ½È Ÿšr³šrë–·š6»–¾¦J—’â7–>¿R£¾ò3¢¾ß¦7šZÃ¢úO–”±¥•¹Ğ%€¼M•É•Ğœ¤ì(€€€™¥¹…°­•ä€ô…İ…¥Ğ}¥Á¡•È¹¹•İM•É•Ñ-•ä ¤ì(€€€…İ…¥Ğ­•åÌ¹İÉ¥Ñ”¡‰…Í”ØÑ¹½‘”¡…İ…¥Ğ­•ä¹•áÑÉ…Ñ	åÑ•Ì ¤¤¤ì(€€€É•ÑÕÉ¸­•äì(€ô(€ÕÑÕÉ”ñ5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œøø±½…¡íMÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ€ô€Í…¹‘‰½àœ°‰½½°É•‘•¹Ñ¥…±Ì€ô™…±Í•ô¤€ôø}±½¬¹ÉÕ¸  ¤…Íå¹Œì(€€€}•¹Ù¥É½¹µ•¹Ğ¡•¹Ù¥É½¹µ•¹Ğ¤ì(€€€™¥¹…°É½İÌ€ô…İ…¥Ğ‘ˆ¹ÅÕ•Éä •}¥¹Ù½¥•}Í•ÑÑ¥¹Ìœ°İ¡•É”è€•¹Ù¥É½¹µ•¹Ğôüœ°İ¡•É•ÉÌèm•¹Ù¥É½¹µ•¹Ñt°½É‘•É	äè€ÕÁ‘…Ñ•‘}…ĞM°¥Mœ°±¥µ¥Ğè€Ä¤ì(€€€¥˜€¡É½İÌ¹¥ÍµÁÑä¤É•ÑÕÉ¸ì•¹Ù¥É½¹µ•¹Ğœè•¹Ù¥É½¹µ•¹Ñôì(€€€™¥¹…°É½Ü€ôÉ½İÌ¹Í¥¹±”ì(€€€™¥¹…°É•ÍÕ±Ğ€ô€ñMÑÉ¥¹œ°‘å¹…µ¥ŒùìÑ¥¸œèÉ½İlÑ¥¸t°€‰É¸œèÉ½İl‰É¸t°€¸¸¹©Í½¹•½‘”¡É½İlÁÉ½™¥±•}©Í½¸t…ÌMÑÉ¥¹œ¤…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œø°€•¹Ù¥É½¹µ•¹Ğœè•¹Ù¥É½¹µ•¹Ñôì(€€€¥˜€¡É•‘•¹Ñ¥…±Ì€˜˜€¡É½İlÉ•‘•¹Ñ¥…±Í}¥Á¡•Èt…ÌMÑÉ¥¹œ¤¹¥Í9½ÑµÁÑä¤ì(€€€€€™¥¹…°‰½à€ô©Í½¹•½‘”¡É½İlÉ•‘•¹Ñ¥…±Í}¥Á¡•Èt…ÌMÑÉ¥¹œ¤…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œøì(€€€€€™¥¹…°Á±…¥¸€ô…İ…¥Ğ}¥Á¡•È¹‘•ÉåÁĞ¡M•É•Ñ	½à¡‰…Í”ØÑ•½‘”¡‰½ál‘…Ñ„t¤°¹½¹”è‰…Í”ØÑ•½‘”¡‰½ál¹½¹”t¤°µ…Œè5…Œ¡‰…Í”ØÑ•½‘”¡‰½álµ…Œt¤¤¤°Í•É•Ñ-•äè…İ…¥Ğ}­•ä¡É•…Ñ”è™…±Í”¤°……èÕÑ˜à¹•¹½‘”¡•¹Ù¥É½¹µ•¹Ğ¤¤ì(€€€€€É•ÍÕ±Ğ¹…‘‘±°¡©Í½¹•½‘”¡ÕÑ˜à¹‘•½‘”¡Á±…¥¸¤¤…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œø¤ì(€€€ô(€€€É•ÑÕÉ¸É•ÍÕ±Ğì(€ô¤ì(€ÕÑÕÉ”ñÙ½¥øÍ…Ù”¡5…ÀñMÑÉ¥¹œ°‘å¹…µ¥ŒøÁÉ½™¥±”°íÉ•ÅÕ¥É•MÑÉ¥¹œ±¥•¹Ñ%°É•ÅÕ¥É•MÑÉ¥¹œ±¥•¹ÑM•É•Ñô¤€ôø}±½¬¹ÉÕ¸  ¤…Íå¹Œì(€€€™¥¹…°•¹Ù¥É½¹µ•¹Ğ€ôÁÉ½™¥±•l•¹Ù¥É½¹µ•¹Ğt…ÌMÑÉ¥¹œì(€€€}•¹Ù¥É½¹µ•¹Ğ¡•¹Ù¥É½¹µ•¹Ğ¤ì(€€€¥˜€¡±¥•¹Ñ%¹ÑÉ¥´ ¤¹¥ÍµÁÑäñğ±¥•¹ÑM•É•Ğ¹¥ÍµÁÑä¤Ñ¡É½ÜMÑ…Ñ•ÉÉ½È ±¥•¹Ğ%€¼M•É•Ğƒ–ş–†¬œ¤ì(€€€™¥¹…°‰½à€ô…İ…¥Ğ}¥Á¡•È¹•¹ÉåÁĞ¡ÕÑ˜à¹•¹½‘”¡©Í½¹¹½‘”¡ì±¥•¹Ñ}¥œè±¥•¹Ñ%¹ÑÉ¥´ ¤°€±¥•¹Ñ}Í•É•Ğœè±¥•¹ÑM•É•Ñô¤¤°Í•É•Ñ-•äè…İ…¥Ğ}­•ä¡É•…Ñ”èÑÉÕ”¤°……èÕÑ˜à¹•¹½‘”¡•¹Ù¥É½¹µ•¹Ğ¤¤ì(€€€™¥¹…°Í…™”€ô5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œø¹™É½´¡ÁÉ½™¥±”¤¸¹É•µ½Ù” ³mõ¶‰Ëkºwµç[™×ØÙ\YšXØ]WÛ˜[YIÎˆ™]š[İ\Ëš\Ñ[\HÈ	ÉÈˆ™]š[İ\ËœÚ[™ÛVÉÜÚYÛš[™×ØÙ\YšXØ]WÛ˜[YI×Kˆ	İ\]YØ]	Îˆ]U[YK››İÊ
-KÕ]Ê
-KÒ\ÛÎŒTİš[™Ê
-KˆNÂˆYˆ
-™]š[İ\Ëš\Ñ[\JHÂˆ]ØZ]‹š[œÙ\
-	ÙWÚ[›ÚXÙWÜÙ][™ÜÉË›İÊNÂˆH[ÙHÂˆ]ØZ]‹\]J	ÙWÚ[›ÚXÙWÜÙ][™ÜÉË›İË‹œ™[[İ™J	ÚY	ÊKÚ\™Nˆ	Ù[š\›Û›Y[OÉËÚ\™P\™ÜÎˆÙ[š\›Û›Y[JNÂˆBˆJNÂˆ]\™O›ÚYˆØ]™TÚYÛš[™ĞÙ\YšXØ]Jİš[™È[š\›Û›Y[\İ[ˆİš[™È\ÜİÛÜ™İš[™Èš[S˜[YJHOˆÛØÚËœ[Š
+import 'dart:convert';
+import 'package:cryptography/cryptography.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sqflite/sqflite.dart';
+import '../sync_store.dart';
 
-H\Ş[˜ÈÂˆÙ[š\›Û›Y[
-[š\›Û›Y[
-NÂˆYˆ
-š\Ñ[\Hš[S˜[YKš[J
-Kš\Ñ[\JH›İÈ\™İ[Y[\œ›ÜŠ	ú+íú`"y¢êy§"y¥b9æ¡–ÔLˆ9¥¡ù.í‰ÊNÂˆš[˜[›ŞH]ØZ]ØÚ\\‹™[˜Ü\
-]™[˜ÛÙJœÛÛ‘[˜ÛÙJÉÜ	Îˆ˜\ÙM[˜ÛÙJ
-K	Ü\ÜİÛÜ™	Îˆ\ÜİÛÜ™JJKÙXÜ™]Ù^Nˆ]ØZ]ÚÙ^JÜ™X]NˆYJKXYˆ]™[˜ÛÙJ	ÜÚYÛš[™Î‰[š\›Û›Y[	ÊJNÂˆš[˜[^\İ[™ÈH]ØZ]‹œ]Y\J	ÙWÚ[›ÚXÙWÜÙ][™ÜÉËÚ\™Nˆ	Ù[š\›Û›Y[OÉËÚ\™P\™ÜÎˆÙ[š\›Û›Y[K[Z]ˆJNÂˆš[˜[˜[Y\ÈHÂˆ	ÜÚYÛš[™×ØÙ\YšXØ]WØÚ\\‰ÎˆœÛÛ‘[˜ÛÙJÉÙ]IÎˆ˜\ÙM[˜ÛÙJ›Ş˜Ú\\•^
-K	Û›Û˜ÙIÎˆ˜\ÙM[˜ÛÙJ›Ş››Û˜ÙJK	ÛXXÉÎˆ˜\ÙM[˜ÛÙJ›Ş›XXË˜]\Ê_JKˆ	ÜÚYÛš[™×ØÙ\YšXØ]WÛ˜[YIÎˆš[S˜[YKš[J
-K	İ\]YØ]	Îˆ]U[YK››İÊ
-KÕ]Ê
-KÒ\ÛÎŒTİš[™Ê
-KˆNÂˆYˆ
-^\İ[™Ëš\Ñ[\JHÂˆ]ØZ]‹š[œÙ\
-	ÙWÚ[›ÚXÙWÜÙ][™ÜÉËÉÚY	Îˆ[š\›Û›Y[	Ù[š\›Û›Y[	Îˆ[š\›Û›Y[	İ[‰Îˆ	ÉË	Øœ›‰Îˆ	ÉË	Ü›Ùš[WÚœÛÛ‰Îˆ	ŞßIË	ØÛY[ÚY	Îˆ	ÉË	ØÛY[ÜÙXÜ™]	Îˆ	ÉË	ØÜ™Y[X[×ØÚ\\‰Îˆ	ÉË‹‹˜[Y\ßJNÂˆH[ÙHÂˆ]ØZ]‹\]J	ÙWÚ[›ÚXÙWÜÙ][™ÜÉË˜[Y\ËÚ\™Nˆ	Ù[š\›Û›Y[OÉËÚ\™P\™ÜÎˆÙ[š\›Û›Y[JNÂˆBˆJNÂˆ]\™OX\İš[™Ë[˜[ZXÏˆØYÚYÛš[™ĞÙ\YšXØ]Jİš[™È[š\›Û›Y[
-HOˆÛØÚËœ[Š
-
-H\Ş[˜ÈÂˆÙ[š\›Û›Y[
-[š\›Û›Y[
-NÂˆš[˜[›İÜÈH]ØZ]‹œ]Y\J	ÙWÚ[›ÚXÙWÜÙ][™ÜÉËÚ\™Nˆ	Ù[š\›Û›Y[OÉËÚ\™P\™ÜÎˆÙ[š\›Û›Y[K[Z]ˆJNÂˆYˆ
-›İÜËš\Ñ[\H	ÉÜ›İÜËœÚ[™ÛVÉÜÚYÛš[™×ØÙ\YšXØ]WØÚ\\‰×HÏÈ	ÉßIËš\Ñ[\JH›İÈİ]Q\œ›ÜŠ	ú+íùab9g*KR[›ÚXÙH:+¯¹ïk¹kï9aiH^R[›Ú\È9¥l9keú+ày.i‰ÊNÂˆš[˜[›ŞHœÛÛ‘XÛÙJ›İÜËœÚ[™ÛVÉÜÚYÛš[™×ØÙ\YšXØ]WØÚ\\‰×H\Èİš[™ÊH\ÈX\İš[™Ë[˜[ZXÏÂˆš[˜[Z[ˆH]ØZ]ØÚ\\‹™XÜ\
-ÙXÜ™]›Ş
-˜\ÙMXÛÙJ›ŞÉÙ]I×JK›Û˜ÙNˆ˜\ÙMXÛÙJ›ŞÉÛ›Û˜ÙI×JKXXÎˆXXÊ˜\ÙMXÛÙJ›ŞÉÛXXÉ×JJJKÙXÜ™]Ù^Nˆ]ØZ]ÚÙ^JÜ™X]Nˆ˜[ÙJKXYˆ]™[˜ÛÙJ	ÜÚYÛš[™Î‰[š\›Û›Y[	ÊJNÂˆ™]\›ˆœÛÛ‘XÛÙJ]™XÛÙJZ[ŠJH\ÈX\İš[™Ë[˜[ZXÏÂˆJNÂˆ]\™Oİš[™ÏÏˆÚYÛš[™ĞÙ\YšXØ]S˜[YJİš[™È[š\›Û›Y[
-H\Ş[˜ÈÂˆÙ[š\›Û›Y[
-[š\›Û›Y[
-NÂˆš[˜[›İÜÈH]ØZ]‹œ]Y\J	ÙWÚ[›ÚXÙWÜÙ][™ÜÉËÛÛ[[œÎˆÉÜÚYÛš[™×ØÙ\YšXØ]WÛ˜[YI×KÚ\™Nˆ	Ù[š\›Û›Y[OÉËÚ\™P\™ÜÎˆÙ[š\›Û›Y[K[Z]ˆJNÂˆYˆ
-›İÜËš\Ñ[\H	ÉÜ›İÜËœÚ[™ÛVÉÜÚYÛš[™×ØÙ\YšXØ]WØÚ\\‰×HÏÈ	ÉßIËš\Ñ[\JH™]\›ˆ[Âˆ™]\›ˆ›İÜËœÚ[™ÛVÉÜÚYÛš[™×ØÙ\YšXØ]WÛ˜[YI×H\Èİš[™ÏÎÂˆBˆİ]XÈ›ÚYÙ[š\›Û›Y[
-İš[™È˜[YJHÂˆYˆ
-˜[YHOH	ÜØ[™›Ş	È	‰ˆ˜[YHOH	Ü›ÙXİ[Û‰ÊH›İÈ\™İ[Y[\œ›ÜŠ	Ò[˜[Y[š\›Û›Y[	ÊNÂˆBŸB
+/// The database holds authenticated ciphertext. Its key stays in OS secure storage.
+abstract class EInvoiceKeyStore {
+  Future<String?> read();
+  Future<void> write(String value);
+}
+class OsEInvoiceKeyStore implements EInvoiceKeyStore {
+  static const _storage = FlutterSecureStorage();
+  static const _name = 'cnkh.myinvois.aes256.v1';
+  @override Future<String?> read() => _storage.read(key: _name);
+  @override Future<void> write(String value) => _storage.write(key: _name, value: value);
+}
+class EInvoiceSettingsStore {
+  EInvoiceSettingsStore(this.db, {EInvoiceKeyStore? keys}) : keys = keys ?? OsEInvoiceKeyStore();
+  final Database db;
+  final EInvoiceKeyStore keys;
+  static final _lock = AsyncMutex();
+  final _cipher = AesGcm.with256bits();
+  Future<SecretKey> _key({required bool create}) async {
+    final existing = await keys.read();
+    if (existing != null) return SecretKey(base64Decode(existing));
+    if (!create) throw StateError('æœ¬æœºå‡­æ®å¯†é’¥ä¸å¯ç”¨ï¼Œè¯·é‡æ–°è¾“å…¥ Client ID / Secret');
+    final key = await _cipher.newSecretKey();
+    await keys.write(base64Encode(await key.extractBytes()));
+    return key;
+  }
+  Future<Map<String, dynamic>> load({String environment = 'sandbox', bool credentials = false}) => _lock.run(() async {
+    _environment(environment);
+    final rows = await db.query('e_invoice_settings', where: 'environment=?', whereArgs: [environment], orderBy: 'updated_at DESC, id ASC', limit: 1);
+    if (rows.isEmpty) return {'environment': environment};
+    final row = rows.single;
+    final result = <String, dynamic>{'tin': row['tin'], 'brn': row['brn'], ...jsonDecode(row['profile_json'] as String) as Map<String, dynamic>, 'environment': environment};
+    if (credentials && (row['credentials_cipher'] as String).isNotEmpty) {
+      final box = jsonDecode(row['credentials_cipher'] as String) as Map<String, dynamic>;
+      final plain = await _cipher.decrypt(SecretBox(base64Decode(box['data']), nonce: base64Decode(box['nonce']), mac: Mac(base64Decode(box['mac']))), secretKey: await _key(create: false), aad: utf8.encode(environment));
+      result.addAll(jsonDecode(utf8.decode(plain)) as Map<String, dynamic>);
+    }
+    return result;
+  });
+  Future<void> save(Map<String, dynamic> profile, {required String clientId, required String clientSecret}) => _lock.run(() async {
+    final environment = profile['environment'] as String;
+    _environment(environment);
+    if (clientId.trim().isEmpty || clientSecret.isEmpty) throw StateError('Client ID / Secret å¿…å¡«');
+    final box = await _cipher.encrypt(utf8.encode(jsonEncode({'client_id': clientId.trim(), 'client_secret': clientSecret})), secretKey: await _key(create: true), aad: utf8.encode(environment));
+    final safe = Map<String, dynamic>.from(profile)..remove('client_id')..remove('client_secret');
+    final previous = await db.query('e_invoice_settings', columns: ['signing_certificate_cipher','signing_certificate_name'], where: 'environment=?', whereArgs: [environment], limit: 1);
+    final row = {
+      'id': environment, 'environment': environment, 'tin': safe['tin'] ?? '', 'brn': safe['brn'] ?? '',
+      'profile_json': jsonEncode(safe), 'client_id': '', 'client_secret': '',
+      'credentials_cipher': jsonEncode({'data': base64Encode(box.cipherText), 'nonce': base64Encode(box.nonce), 'mac': base64Encode(box.mac.bytes)}),
+      'signing_certificate_cipher': previous.isEmpty ? '' : previous.single['signing_certificate_cipher'],
+      'signing_certificate_name': previous.isEmpty ? '' : previous.single['signing_certificate_name'],
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (previous.isEmpty) {
+      await db.insert('e_invoice_settings', row);
+    } else {
+      await db.update('e_invoice_settings', row..remove('id'), where: 'environment=?', whereArgs: [environment]);
+    }
+  });
+  Future<void> saveSigningCertificate(String environment, List<int> pfx, String password, String fileName) => _lock.run(() async {
+    _environment(environment);
+    if (pfx.isEmpty || fileName.trim().isEmpty) throw ArgumentError('è¯·é€‰æ‹©æœ‰æ•ˆçš„ PFX/P12 æ–‡ä»¶');
+    final box = await _cipher.encrypt(utf8.encode(jsonEncode({'pfx': base64Encode(pfx), 'password': password})), secretKey: await _key(create: true), aad: utf8.encode('signing:$environment'));
+    final existing = await db.query('e_invoice_settings', where: 'environment=?', whereArgs: [environment], limit: 1);
+    final values = {
+      'signing_certificate_cipher': jsonEncode({'data': base64Encode(box.cipherText), 'nonce': base64Encode(box.nonce), 'mac': base64Encode(box.mac.bytes)}),
+      'signing_certificate_name': fileName.trim(), 'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (existing.isEmpty) {
+      await db.insert('e_invoice_settings', {'id': environment, 'environment': environment, 'tin': '', 'brn': '', 'profile_json': '{}', 'client_id': '', 'client_secret': '', 'credentials_cipher': '', ...values});
+    } else {
+      await db.update('e_invoice_settings', values, where: 'environment=?', whereArgs: [environment]);
+    }
+  });
+  Future<Map<String, dynamic>> loadSigningCertificate(String environment) => _lock.run(() async {
+    _environment(environment);
+    final rows = await db.query('e_invoice_settings', where: 'environment=?', whereArgs: [environment], limit: 1);
+    if (rows.isEmpty || '${rows.single['signing_certificate_cipher'] ?? ''}'.isEmpty) throw StateError('è¯·å…ˆåœ¨ e-Invoice è®¾ç½®å¯¼å…¥ MyInvois æ•°å­—è¯ä¹¦');
+    final box = jsonDecode(rows.single['signing_certificate_cipher'] as String) as Map<String, dynamic>;
+    final plain = await _cipher.decrypt(SecretBox(base64Decode(box['data']), nonce: base64Decode(box['nonce']), mac: Mac(base64Decode(box['mac']))), secretKey: await _key(create: false), aad: utf8.encode('signing:$environment'));
+    return jsonDecode(utf8.decode(plain)) as Map<String, dynamic>;
+  });
+  Future<String?> signingCertificateName(String environment) async {
+    _environment(environment);
+    final rows = await db.query('e_invoice_settings', columns: ['signing_certificate_name'], where: 'environment=?', whereArgs: [environment], limit: 1);
+    if (rows.isEmpty || '${rows.single['signing_certificate_cipher'] ?? ''}'.isEmpty) return null;
+    return rows.single['signing_certificate_name'] as String?;
+  }
+  static void _environment(String value) {
+    if (value != 'sandbox' && value != 'production') throw ArgumentError('Invalid environment');
+  }
+}

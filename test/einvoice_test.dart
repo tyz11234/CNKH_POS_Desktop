@@ -1,4 +1,170 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíçN6N‹Z–‹­¦ëeŠw¬Õ¥µÁ½ÉĞ€‘…ÉĞé½¹Ù•ÉĞœì)¥µÁ½ÉĞ€‘…ÉĞé¥¼œì)¥µÁ½ÉĞ€Á…­…”é™±ÕÑÑ•É}Ñ•ÍĞ½™±ÕÑÑ•É}Ñ•ÍĞ¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”éÍÅ™±¥Ñ”½ÍÅ™±¥Ñ”¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¡ÑÑÀ½¡ÑÑÀ¹‘…ÉĞœ…Ì¡ÑÑÀì)¥µÁ½ÉĞ€Á…­…”é¡ÑÑÀ½Ñ•ÍÑ¥¹œ¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½‘ˆ½…ÁÁ}‘…Ñ…‰…Í”¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½‘ˆ½•¥¹Ù½¥•}Í¡•µ„¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½µ½‘•±Ì½…ÉÑ}¥Ñ•´¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½Á½Í}É•Á½Í¥Ñ½Éä¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½•¥¹Ù½¥•}Í•ÑÑ¥¹Ì¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½•¥¹Ù½¥•}Í•ÉÙ¥”¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½¥¹Ù½¥•}µ…ÁÁ•È¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”é¹­¡}Á½Í}‘•Í­Ñ½À½Í•ÉÙ¥•Ì½•¥¹Ù½¥”½µå¥¹Ù½¥Í}±¥•¹Ğ¹‘…ÉĞœì()±…ÍÌ5•µ½Éå-•åÌ¥µÁ±•µ•¹ÑÌ%¹Ù½¥•-•åMÑ½É”ì(€MÑÉ¥¹œüÙ…±Õ”ì(€½Ù•ÉÉ¥‘”ÕÑÕÉ”ñMÑÉ¥¹œüøÉ•… ¤…Íå¹Œ€ôøÙ…±Õ”ì(€½Ù•ÉÉ¥‘”ÕÑÕÉ”ñÙ½¥øİÉ¥Ñ”¡MÑÉ¥¹œØ¤…Íå¹ŒìÙ…±Õ”€ôØìô)ô)ÕÑÕÉ”ñMÑÉ¥¹œøÑ•ÍÑM¥¸¡MÑÉ¥¹œ©Í½¸°MÑÉ¥¹œ•¹Ù¥É½¹µ•¹Ğ°%¹Ù½¥•M•ÑÑ¥¹ÍMÑ½É”Í•ÑÑ¥¹Ì¤…Íå¹Œì(€™¥¹…°‘…Ñ„€ô©Í½¹•½‘”¡©Í½¸¤…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œøì(€™¥¹…°¥¹Ù½¥”€ô€¡‘…Ñ…l%¹Ù½¥”t…Ì1¥ÍĞ¤¹Í¥¹±”…Ì5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œøì(€¥¹Ù½¥•l%¹Ù½¥•QåÁ•½‘”t€ô€¡¥¹Ù½¥•l%¹Ù½¥•QåÁ•½‘”t…Ì1¥ÍĞ¤¹µ…À ¡Ø¤€ôøì¸¸¹5…ÀñMÑÉ¥¹œ±‘å¹…µ¥Œø¹™É½´¡Ø…Ì5…À¤°€±¥ÍÑY•ÉÍ¥½¹%œèœÄ¸Äô¤¹Ñ½1¥ÍĞ ¤ì(€½¹ÍĞ‘¥•ÍÑ5•Ñ¡½€ômì|œ€è€œœ°€±½É¥Ñ¡´œè¡ÑÑÀè¼½İİÜ¹ÜÌ¹½Éœ¼ÈÀÀÄ¼ÀĞ½áµ±•¹ŒÍ¡„ÈÔØõtì(€½¹ÍĞ‘¥•ÍÑY…±Õ”€ômì|œ€è€iµÉiDôôõtì(€¥¹Ù½¥•lM¥¹…ÑÕÉ”t€ômì%œémì|œèÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°éÍ¥¹…ÑÕÉ”é%¹Ù½¥”õt°€M¥¹…ÑÕÉ•5•Ñ¡½œémì|œèÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°é‘Í¥œé•¹Ù•±½Á•éá…‘•Ìõuõtì(€¥¹Ù½¥•lU	1áÑ•¹Í¥½¹Ìt€ômìU	1áÑ•¹Í¥½¸œémìáÑ•¹Í¥½¹UI$œémì|œèÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°é‘Í¥œé•¹Ù•±½Á•éá…‘•Ìõt°€áÑ•¹Í¥½¹½¹Ñ•¹ĞœémìU	1½Õµ•¹ÑM¥¹…ÑÕÉ•ÌœémìM¥¹…ÑÕÉ•%¹™½Éµ…Ñ¥½¸œémìM¥¹…ÑÕÉ”œémì(€€€€M¥¹…ÑÕÉ•Y…±Õ”œémì|œèiµÉiDôôõt°€M¥¹•‘%¹™¼œémìM¥¹…ÑÕÉ•5•Ñ¡½œémì±½É¥Ñ¡´œè¡ÑÑÀè¼½İİÜ¹ÜÌ¹½Éœ¼ÈÀÀÄ¼ÀĞ½áµ±‘Í¥œµµ½É”ÉÍ„µÍ¡„ÈÔØõt°€I•™•É•¹”œél(€€€€€ìQåÁ”œè¡ÑÑÀè¼½ÕÉ¤¹•ÑÍ¤¹½Éœ¼ÀÄäÀÌ½ØÄ¸Ì¸ÈM¥¹•‘AÉ½Á•ÉÑ¥•Ìœ°UI$œèœ¥µá…‘•ÌµÍ¥¹•µÁÉ½ÁÌœ°¥•ÍÑ5•Ñ¡½œé‘¥•ÍÑ5•Ñ¡½°¥•ÍÑY…±Õ”œé‘¥•ÍÑY…±Õ•ô°(€€€€€ìQåÁ”œèœœ°UI$œèœœ°¥•ÍÑ5•Ñ¡½œé‘¥•ÍÑ5•Ñ¡½°¥•ÍÑY…±Õ”œé‘¥•ÍÑY…±Õ•ô°(€€€uõt°€-•å%¹™¼œémì`ÔÀå…Ñ„œémì`ÔÀå•ÉÑ¥™¥…Ñ”œémì|œèiµÉiDôôõuõuõt°(€õuõuõuõuõuõtì(€É•ÑÕÉ¸©Í½¹¹½‘”¡‘…Ñ„¤ì)ô)™¥¹…°ÍÕÁÁ±¥•È€ô€ñMÑÉ¥¹œ±‘å¹…µ¥Œùì•¹Ù¥É½¹µ•¹ĞœèÍ…¹‘‰½àœ°¹…µ”œè9- Q•ÍĞœ°Ñ¥¸œèÄÈÌĞÔØÜàäÀœ°‰É¸œèœÈÀÈÀÀÄÈÌĞÔØÜœ°µÍ¥ŒœèœĞÜÄÄÄœ°…Ñ¥Ù¥ÑäœèI•Ñ…¥°œ°…‘‘É•ÍÌœèœÄQ•ÍĞMÑÉ••Ğœ°¥Ñäœè-Õ…±„1ÕµÁÕÈœ°ÍÑ…Ñ”œèœÄĞœ°Á¡½¹”œèœ¬ØÀÄÈÌĞÔØÜàäœ°±…ÍÍ¥™¥…Ñ¥½¸œèœÀÈÈœ°Ñ…á}ÑåÁ”œèœÀØœ°Ñ…á}É…Ñ•}‰…Í¥Í}Á½¥¹ÑÌœèÁôì)™¥¹…°‰Õå•È€ô€ñMÑÉ¥¹œ±‘å¹…µ¥Œùì¹…µ”œèQ•ÍĞ	Õå•Èœ°Ñ¥¸œèäàÜØÔĞÌÈÄÀœ°¥‘}ÑåÁ”œè	I8œ°¥‘}¹Õµ‰•ÈœèœÈÀÈÀÀäàÜØÔĞÌœ°…‘‘É•ÍÌœèœÈQ•ÍĞMÑÉ••Ğœ°¥Ñäœè-Õ…±„1ÕµÁÕÈœ°ÍÑ…Ñ”œèœÄĞœ°Á¡½¹”œèœ¬ØÀÄäàÜØÔĞÌÈôì)Ù½¥µ…¥¸ ¤ì(€Q•ÍÑ]¥‘•ÑÍ±ÕÑÑ•É	¥¹‘¥¹œ¹•¹ÍÕÉ•%¹¥Ñ¥…±¥é• ¤ì(€±…Ñ”¥É•Ñ½Éä‘¥Èì(€±…Ñ”ÁÁ…Ñ…‰…Í”‘…Ñ…‰…Í”ì(€±…Ñ”A½ÍI•Á½Í¥Ñ½ÉäÉ•Á¼ì(€Í•ÑW}8ÚÚ$z{-®éÜj×po.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:cnkh_pos_desktop/db/app_database.dart';
+import 'package:cnkh_pos_desktop/db/einvoice_schema.dart';
+import 'package:cnkh_pos_desktop/models/cart_item.dart';
+import 'package:cnkh_pos_desktop/services/pos_repository.dart';
+import 'package:cnkh_pos_desktop/services/einvoice/einvoice_settings.dart';
+import 'package:cnkh_pos_desktop/services/einvoice/einvoice_service.dart';
+import 'package:cnkh_pos_desktop/services/einvoice/invoice_mapper.dart';
+import 'package:cnkh_pos_desktop/services/einvoice/myinvois_client.dart';
+
+class MemoryKeys implements EInvoiceKeyStore {
+  String? value;
+  @override Future<String?> read() async => value;
+  @override Future<void> write(String v) async { value = v; }
+}
+Future<String> testSign(String json, String environment, EInvoiceSettingsStore settings) async {
+  final data = jsonDecode(json) as Map<String, dynamic>;
+  final invoice = (data['Invoice'] as List).single as Map<String, dynamic>;
+  invoice['InvoiceTypeCode'] = (invoice['InvoiceTypeCode'] as List).map((v) => {...Map<String,dynamic>.from(v as Map), 'listVersionID':'1.1'}).toList();
+  const digestMethod = [{'_' : '', 'Algorithm':'http://www.w3.org/2001/04/xmlenc#sha256'}];
+  const digestValue = [{'_' : 'ZmFrZQ=='}];
+  invoice['Signature'] = [{'ID':[{'_':'urn:oasis:names:specification:ubl:signature:Invoice'}], 'SignatureMethod':[{'_':'urn:oasis:names:specification:ubl:dsig:enveloped:xades'}]}];
+  invoice['UBLExtensions'] = [{'UBLExtension':[{'ExtensionURI':[{'_':'urn:oasis:names:specification:ubl:dsig:enveloped:xades'}], 'ExtensionContent':[{'UBLDocumentSignatures':[{'SignatureInformation':[{'Signature':[{
+    'SignatureValue':[{'_':'ZmFrZQ=='}], 'SignedInfo':[{'SignatureMethod':[{'Algorithm':'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256'}], 'Reference':[
+      {'Type':'http://uri.etsi.org/01903/v1.3.2#SignedProperties','URI':'#id-xades-signed-props','DigestMethod':digestMethod,'DigestValue':digestValue},
+      {'Type':'','URI':'','DigestMethod':digestMethod,'DigestValue':digestValue},
+    ]}], 'KeyInfo':[{'X509Data':[{'X509Certificate':[{'_':'ZmFrZQ=='}]}]}],
+  }]}]}]}]}]}];
+  return jsonEncode(data);
+}
+final supplier = <String,dynamic>{'environment':'sandbox','name':'CNKH Test','tin':'C1234567890','brn':'202001234567','msic':'47111','activity':'Retail','address':'1 Test Street','city':'Kuala Lumpur','state':'14','phone':'+60123456789','classification':'022','tax_type':'06','tax_rate_basis_points':0};
+final buyer = <String,dynamic>{'name':'Test Buyer','tin':'C9876543210','id_type':'BRN','id_number':'202009876543','address':'2 Test Street','city':'Kuala Lumpur','state':'14','phone':'+60198765432'};
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory dir;
+  late AppDatabase database;
+  late PosRepository repo;
+  setUp(() async {
+    dir = await Directory.systemTemp.createTemp('cnkh-einvoice-');
+    database = AppDatabase.forTesting('${dir.path}/pos.db', seed:true);
+    repo = PosRepository(database:database);
+  });
+  tearDown(() async { await database.close(); await dir.delete(recursive:true); });
+  Future<SaleRecord> sale() async {
+    const p = Product(id:'einvoice-test',sku:'EI-TEST',barcode:'955123000001',nameZh:'æµ‹è¯•å•†å“',nameEn:'Test Product',priceCents:1060,stock:20);
+    await repo.upsertProduct(p);
+    return repo.createSale(cart:CartState(items:[CartItem(product:p,qty:2,discountCents:20)],orderDiscountCents:100),paymentMethod:'CASH',paidCents:2000,cashier:'admin');
+  }
+  test('fresh install and v8 upgrade preserve all business rows', () async {
+    await sale(); final db = await database.db;
+    final before = {for(final table in ['sales','products','customers','suppliers']) table:await db.query(table)};
+    for(final table in ['e_invoice_logs','e_invoice_documents','e_invoice_settings']) { await db.execute('DROP TABLE $table'); }
+    await db.setVersion(8); await database.close();
+    final upgraded = await database.db;
+    expect(await upgraded.getVersion(),9);
+    for(final e in before.entries) { expect(await upgraded.query(e.key),e.value); }
+    for(final table in ['e_invoice_logs','e_invoice_documents','e_invoice_settings']) { expect(await upgraded.query(table),isEmpty); }
+    await ensureEInvoiceSchema(upgraded);
+  });
+  test('settings encrypt both credentials and isolate environments', () async {
+    final db = await database.db; final keys = MemoryKeys();
+    final settings = EInvoiceSettingsStore(db,keys:keys);
+    await settings.save(supplier,clientId:'secret-client-id',clientSecret:'secret-password');
+    expect(jsonEncode(await db.query('e_invoice_settings')),isNot(contains('secret-client-id')));
+    expect(jsonEncode(await db.query('e_invoice_settings')),isNot(contains('secret-password')));
+    expect((await settings.load(credentials:true))['client_secret'],'secret-password');
+    expect((await settings.load()).containsKey('client_secret'),false);
+    expect((await settings.load(environment:'production',credentials:true))['client_secret'],isNull);
+    keys.value = null;
+    await expectLater(settings.load(credentials:true),throwsStateError);
+  });
+  test('certificate storage is encrypted and survives ordinary profile saves', () async {
+    final db = await database.db; final store = EInvoiceSettingsStore(db,keys:MemoryKeys());
+    await store.save(supplier,clientId:'client',clientSecret:'secret');
+    await store.saveSigningCertificate('sandbox',[1,2,3,4],'pfx-password','signing.p12');
+    final cipher = (await db.query('e_invoice_settings')).single['signing_certificate_cipher'];
+    await store.save({...supplier,'name':'Updated'},clientId:'client',clientSecret:'secret');
+    final row = (await db.query('e_invoice_settings')).single;
+    expect(row['signing_certificate_cipher'],cipher);
+    expect(jsonEncode(row),isNot(contains('pfx-password')));
+    expect(row['signing_certificate_name'],'signing.p12');
+  });
+  test('unsigned invoice cannot be prepared for submission without a certificate', () async {
+    final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
+    final service=EInvoiceService(repo,keyStore:MemoryKeys());
+    await service.saveSettings(supplier,'id','secret');
+    await expectLater(service.prepare(s.id,'sandbox',buyer),throwsStateError);
+    expect(await (await database.db).query('e_invoice_documents'),isEmpty);
+    service.dispose();
+  });
+  test('legacy unsigned pending invoices are blocked at submit time', () async {
+    final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign);
+    await service.saveSettings(supplier,'id','secret');
+    await service.prepare(s.id,'sandbox',buyer);
+    final db=await database.db;final doc=(await db.query('e_invoice_documents')).single;
+    final payload=jsonDecode(doc['payload_json'] as String) as Map<String,dynamic>;
+    final invoice=(payload['Invoice'] as List).single as Map<String,dynamic>;
+    invoice.remove('Signature');invoice.remove('UBLExtensions');
+    invoice['InvoiceTypeCode'][0]['listVersionID']='1.0';
+    await db.update('e_invoice_documents',{'payload_json':jsonEncode(payload)},where:'id=?',whereArgs:[doc['id']]);
+    await expectLater(service.submitPendingInvoice(s.id),throwsStateError);
+    service.dispose();
+  });
+  test('legacy scaffold retains identity and logs but removes plaintext credentials', () async {
+    final db = await database.db;
+    await db.insert('e_invoice_settings', {'id':'legacy','tin':'C1234567890','brn':'202001234567','client_id':'legacy-id','client_secret':'legacy-password'});
+    await db.execute('DROP TABLE e_invoice_logs');
+    await db.execute("CREATE TABLE e_invoice_logs (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, action TEXT NOT NULL, request_body TEXT NOT NULL DEFAULT '', response_body TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)");
+    await db.insert('e_invoice_logs', {'id':'old-log','document_id':'old-doc','action':'test','request_body':'retained','created_at':'2026-09-13'});
+    await ensureEInvoiceSchema(db);
+    final profile = await EInvoiceSettingsStore(db,keys:MemoryKeys()).load();
+    expect(profile['tin'],'C1234567890');
+    expect(profile['brn'],'202001234567');
+    expect((await db.query('e_invoice_settings')).single['client_secret'],'');
+    expect((await db.query('e_invoice_logs')).single['request_body'],'retained');
+  });
+  test('mapper uses sale snapshot, discounts, rounding and inclusive tax', () async {
+    final s = await sale(); final db = await database.db;
+    final row = (await db.query('sales',where:'id=?',whereArgs:[s.id])).single;
+    final before = jsonEncode(row);
+    final json = InvoiceMapper().mapSale(row,supplier:{...supplier,'tax_type':'02','tax_rate_basis_points':600},buyer:buyer,issuedAt:DateTime.utc(2026,9,13));
+    final inv = (json['Invoice'] as List).single;
+    expect(inv['LegalMonetaryTotal'][0]['PayableAmount'][0]['_'],20);
+    expect(inv['TaxTotal'][0]['TaxAmount'][0]['_'],1.13);
+    expect(inv['LegalMonetaryTotal'][0]['TaxExclusiveAmount'][0]['_'],18.87);
+    expect(jsonEncode(row),before);
+    expect(() => InvoiceMapper().mapSale({...row,'total_cents':999},supplier:supplier,buyer:buyer,issuedAt:DateTime.now()),throwsFormatException);
+    expect(() => InvoiceMapper().mapSale(row,supplier:supplier,buyer:{},issuedAt:DateTime.now()),throwsFormatException);
+  });
+  test('OAuth caches token, refreshes expiry and retries one 401', () async {
+    var clock=DateTime.utc(2026,9,13),auths=0,queries=0;
+    final client=MyInvoisClient(environment:'sandbox',now:()=>clock,credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async{
+      if(r.url.path=='/connect/token'){auths++;expect(r.body,contains('grant_type=client_credentials'));return http.Response(jsonEncode({'access_token':'token$auths','expires_in':3600}),200);}
+      queries++;if(queries==1)return http.Response('{}',401);
+      return http.Response('{"documentSummary":[]}',200);
+    }));
+    await client.queryStatus('uid');expect(auths,2);
+    await client.queryStatus('uid');expect(auths,2);
+    clock=clock.add(const Duration(hours:2));await client.queryStatus('uid');expect(auths,3);client.close();
+  });
+  test('submission envelope hashes exact UTF8 and API failures surface', () async {
+    final body=await MyInvoisClient.envelope('R1','{"test":"æµ‹è¯•"}');
+    expect(utf8.decode(base64Decode(body['documents'][0]['document'])),'{"test":"æµ‹è¯•"}');
+    expect(body['documents'][0]['documentHash'],hasLength(64));
+    final c=MyInvoisClient(environment:'production',credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async=>r.url.path=='/connect/token'?http.Response('{"access_token":"t","expires_in":3600}',200):http.Response('{}',503)));
+    await expectLater(c.submitDocument(body),throwsA(isA<MyInvoisException>()));c.close();
+  });
+  test('Retry-After is respected and credentials are never sent through redirects', () async {
+    var now=DateTime.utc(2026,9,14),calls=0;
+    final c=MyInvoisClient(environment:'sandbox',now:()=>now,credentials:()async=>{'client_id':'id','client_secret':'secret'},transport:MockClient((r)async{
+      expect(r.followRedirects,false);
+      if(r.url.path=='/connect/token')return http.Response('{"access_token":"t","expires_in":3600}',200);
+      calls++;
+      return calls==1 ? http.Response('{}',429,headers:{'retry-after':'30'}) : http.Response('{"documentSummary":[]}',200);
+    }));
+    await expectLater(c.queryStatus('uid'),throwsA(isA<MyInvoisException>()));
+    await expectLater(c.queryStatus('uid'),throwsStateError);expect(calls,1);
+    now=now.add(const Duration(seconds:31));await c.queryStatus('uid');expect(calls,2);c.close();
+  });
+  test('durable duplicate guard, status query and cancellation leave sale intact', () async {
+    final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
     final db=await database.db;final original=await db.query('sales');var posts=0;
     final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,clientFactory:(env,settings)=>MyInvoisClient(environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
       if(r.url.path=='/connect/token')return http.Response('{"access_token":"t","expires_in":3600}',200);

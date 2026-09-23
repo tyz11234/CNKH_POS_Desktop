@@ -1,4 +1,158 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíßßuN‹Z–‹­¦ëeŠw¬Õ¥µÁ½ÉĞ€‘…ÉĞé½¹Ù•ÉĞœì)¥µÁ½ÉĞ€‘…ÉĞéÑåÁ•‘}‘…Ñ„œì)¥µÁ½ÉĞ€Á…­…”éÉåÁÑ½É…Á¡ä½ÉåÁÑ½É…Á¡ä¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”éÁ­ÌÄÉ}Á…ÉÍ•È½Á­ÌÄÉ}Á…ÉÍ•È¹‘…ÉĞœì)¥µÁ½ÉĞ€Á…­…”éÁ½¥¹Ñå…ÍÑ±”½•áÁ½ÉĞ¹‘…ÉĞœì((¼¼¼	Õ¥±‘ÌÑ¡”U	0€È¸Ä)M=8a‘LÍ¥¹…ÑÕÉ”É•ÅÕ¥É•‰ä5å%¹Ù½¥Ì%¹Ù½¥”€Ä¸Ä¸)±…ÍÌ%¹Ù½¥•M¥¹•Èì(€ÍÑ…Ñ¥Œ½¹ÍĞ}Í¡„ÈÔØ€ô€¡ÑÑÀè¼½İİÜ¹ÜÌ¹½Éœ¼ÈÀÀÄ¼ÀĞ½áµ±•¹ŒÍ¡„ÈÔØœì(€ÍÑ…Ñ¥Œ½¹ÍĞ}ÉÍ…M¡„ÈÔØ€ô€¡ÑÑÀè¼½İİÜ¹ÜÌ¹½Éœ¼ÈÀÀÄ¼ÀĞ½áµ±‘Í¥œµµ½É”ÉÍ„µÍ¡„ÈÔØœì(€ÍÑ…Ñ¥Œ½¹ÍĞ}Í¥¹•‘AÉ½Á•ÉÑ¥•ÍQåÁ”€ô€¡ÑÑÀè¼½ÕÉ¤¹•ÑÍ¤¹½Éœ¼ÀÄäÀÌ½ØÄ¸Ì¸ÈM¥¹•‘AÉ½Á•ÉÑ¥•Ìœì(€ÍÑ…Ñ¥Œ½¹ÍĞ}Í¥¹…ÑÕÉ•UÉ¤€ô€ÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°é‘Í¥œé•¹Ù•±½Á•éá…‘•Ìœì(€ÍÑ…Ñ¥Œ½¹ÍĞ}¥¹Ù½¥•M¥¹…ÑÕÉ•%€ô€ÕÉ¸é½…Í¥Ìé¹…µ•ÌéÍÁ•¥™¥…Ñ¥½¸éÕ‰°éÍ¥¹…ÑÕÉ”é%¹Ù½¥”œì(€ÍÑ…Ñ¥Œ½¹ÍĞ}Í¥%€ô€Í¥¹…ÑÕÉ”œì(€ÍÑ…Ñ¥Œ½¹ÍĞ}ÁÉ½ÁÍ%€ô€¥µá…‘•ÌµÍ¥¹•µÁÉ½ÁÌœì(€ÍÑ…Ñ¥Œ™¥¹…°}¡…Í €ôM¡„ÈÔØ ¤ì((€ÕÑÕÉ”ñÙ½¥øÙ…±¥‘…Ñ••ÉÑ¥™¥…Ñ”¡1¥ÍĞñ¥¹ĞøÁ™à°MÑÉ¥¹œÁ…ÍÍİ½É¤…Íå¹Œì(€€€¥˜€¡Á™à¹¥ÍµÁÑäñğÁ™à¹±•¹Ñ €ø€Ô€¨€ÄÀÈĞ€¨€ÄÀÈĞ¤Ñ¡É½ÜÉÕµ•¹ÑÉÉ½È Ÿ¢¾’æ›šZ’îÛ–’Ÿ–Â?¦†ï–Â?’ê8€Ô5œ¤ì(€€€™¥¹…°‰Õ¹‘±”€ôA­ÌÄÈ¹±½…¡U¥¹Ğá1¥ÍĞ¹™É½µ1¥ÍĞ¡Á™à¤°Á…ÍÍİ½É¤ì(€€€™¥¹…°­•ä€ô‰Õ¹‘±”¹ÁÉ¥Ù…Ñ•-•äì(€€€¥˜€¡­•ä¥Ì„IMAÉ¥Ù…Ñ•-•äñğ­•ä¹µ½‘Õ±ÕÌ„¹‰¥Ñ1•¹Ñ €ğ€ÈÀĞà¤Ñ¡É½ÜMÑ…Ñ•ÉÉ½È 5å%¹Ù½¥Ìƒ¦r¢š¢Ï–ÂD€ÈÀĞàƒ’ö4IMƒšVÃ–¶_¢¾’æ˜œ¤ì(€€€}•ÉÑ¥™¥…Ñ•%¹™¼¡‰Õ¹‘±”¹•ÉÑ¥™¥…Ñ•A•´¤ì(€ô((€ÍÑ…Ñ¥ŒÙ½¥É•ÅÕ¥É•M¥¹•‘%¹Ù½¥”¡5…ÀñMÑÉ¥¹œ°‘å¹…µ¥ŒøÁ…å±½…¤ì(€€€™¥¹…°¥¹Ù½¥•Ì€ôÁ…å±½…‘l%¹Ù½¥”tì(€€€¥˜€¡¥¹Ù½¥•Ì¥Ì„1¥ÍĞñğ¥¹Ù½¥•Ì¹±•¹Ñ €„ô€Äñğ¥¹Ù½¥•Ì¹Í¥¹±”¥Ì„5…À¤ì(€€€€€Ñ¡É½ÜMÑ…Ñ•ÉÉ½È %¹Ù½¥”)M=8ƒîOšzš^ƒšV œ¤ì(€€€ô(€€€™¥¹…°¥¹Ù½¥”€ô5…ÀñMÑÉ¥¹œ°‘å¹…µ¥Œø¹™É½´¡¥¹Ù½¥•Ì¹Í¥¹±”…Ì5…À¤ì(€€€™¥¹…°ÑåÁ”€ô¥¹Ù½¥•l%¹Ù½¥•QåÁ•½‘”tì(€€€™¥¹…°Í¥¹…ÑÕÉ”€ô¥¹Ù½¥•lM¥¹…ÑÕÉ”tì(€€€™¥¹…°•áÑ•¹Í¥½¹Ì€ô¥¹Ù½¥•lU	1áÑ•¹Í¥½¹Ìtì(€€€¥˜€¡ÑåÁ”¥Ì„1¥ÍĞñğÑåÁ”¹¥ÍµÁÑäñğ€¡ÑåÁ”¹™¥ÉÍĞ…Ì5…Àü¤ıl±¥ÍÑY•ÉÍ¥½¹%t€„ô€œÄ¸Äœñğ(€€€€€€€Í¥¹…ÑÕÉ”¥Ì„1¥ÍĞñğÍ¥¹…ÑÕÉ”¹¥ÍµÁÑäñğ•áÑ•¹Í¥½¹Ì¥Ì„1¥ÍĞñğ•áÑ•¹Í¥½¹Ì¹¥ÍµÁÑä¤ì(€€€€€Ñ¡É½ÜMÑ…Ñ•ÉÉ½È Ÿš¶“–úš>C’ê“–>G–£šb¿š^Ÿ&#šr«¶û–B7–6Wš6»¾ò3¢¾ß¦7šZÃRš"C–B;–7š>C’êœ¤ì(€€€ô(€€€ÑÉäì(€€€€€™¥¹…°É½½ÑM¥¹…ÑÕÉ”€ôÍ¥¹…ÑÕÉ”¹™¥ÉÍĞ…Ì5…Àì(€€€€€™¥¹…°É½½Ñ5•Ñ¡½€ôÉ½½ÑM¥¹…ÑÕÉ•lM¥¹…ÑÕÉ•5•Ñ¡½ulÁul|tì(€€€€€™¥¹…°•áÑ•¹Í¥½¸€ô€¡•áÑ•¹Í¥½¹Ì¹™¥ÉÍĞ…Ì5…À¥lU	1áÑ•¹Í¥½¸ulÁt…Ì5…Àì(€€€€€™¥¹…°•áÑ•¹Í¥½¹UÉ¤€ô•áÑ•¹Í¥½¹láÑ•¹Í¥½¹UI$ulÁul|tì(€€€€€™¥¹…°¥¹™½Éµ…Ñ¥½¸€ô•áÑ•¹Í¥½¹láÑ•¹Í¥½¹½¹Ñ•¹ĞulÁulU	1½Õµ•¹ÑM¥¹…ÑÕÉ•ÌulÁulM¥¹…ÑÕÉ•%¹™½Éµ…Ñ¥½¸ulÁt…Ì5…Àì(€€€€€™¥¹…°Í¥¹•€ô¥¹™½Éµ…Ñ¥½¹lM¥¹…ÑÕÉ”ulÁt…Ì5…Àì(€€€€€™¥¹…°Ù…±Õ”€ôÍ¥¹•‘lM¥¹…ÑÕÉ•Y…±Õ”ulÁul|tì(€€€€€™¥¹…°Í¥¹•‘%¹™¼€ôÍ¥¹•‘lM¥¹•‘%¹™¼ulÁt…Ì5…Àì(€€€€€™¥¹…°Í¥¹¥¹5•Ñ¡½€ôÍ¥¹•‘%¹™½lM¥¹…ÑÕÉ•5•Ñ¡½ulÁul±½É¥Ñ¡´tì(€€€€€™¥¹…°É•™•É•¹•Ì€ôÍ¥¹•‘%¹™½lI•™•É•¹”t…Ì1¥ÍĞì(€€€€€™¥¹…°ÁÉ½ÁÌ€ôÉ•™•É•¹•ÍlÁt…Ì5…Àì(€€€€€™¥¹…°‘½Õµ•¹Ğ€ôÉ•™•É•¹•ÍlÅt…Ì5…Àì(€€€€€™¥¹…°•ÉÑ¥™¥…Ñ”€ôÍ¥¹•‘l-•å%¹™¼ulÁul`ÔÀå…Ñ„ulÁul`ÔÀå•ÉÑ¥™¥…Ñ”ulÁul|tì(€€€€€™¥¹…°Í¡„ÈÔÙ5•Ñ¡½€ô€¡ÁÉ½ÁÍl¥•ÍÑ5•Ñ¡½t…Ì1¥ÍĞ¤¹™¥ÉÍÑl±½É¥Ñ£_}ÖÚ$z{-®éÜj×5.4.7':'L', '2.5.4.8':'ST', '2.5.4.9':'STREET', '2.5.4.10':'O',
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:cryptography/cryptography.dart';
+import 'package:pkcs12_parser/pkcs12_parser.dart';
+import 'package:pointycastle/export.dart';
+
+/// Builds the UBL 2.1 JSON XAdES signature required by MyInvois Invoice 1.1.
+class EInvoiceSigner {
+  static const _sha256 = 'http://www.w3.org/2001/04/xmlenc#sha256';
+  static const _rsaSha256 = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+  static const _signedPropertiesType = 'http://uri.etsi.org/01903/v1.3.2#SignedProperties';
+  static const _signatureUri = 'urn:oasis:names:specification:ubl:dsig:enveloped:xades';
+  static const _invoiceSignatureId = 'urn:oasis:names:specification:ubl:signature:Invoice';
+  static const _sigId = 'signature';
+  static const _propsId = 'id-xades-signed-props';
+  static final _hash = Sha256();
+
+  Future<void> validateCertificate(List<int> pfx, String password) async {
+    if (pfx.isEmpty || pfx.length > 5 * 1024 * 1024) throw ArgumentError('è¯ä¹¦æ–‡ä»¶å¤§å°é¡»å°äº 5 MB');
+    final bundle = Pkcs12.load(Uint8List.fromList(pfx), password);
+    final key = bundle.privateKey;
+    if (key is! RSAPrivateKey || key.modulus!.bitLength < 2048) throw StateError('MyInvois éœ€è¦è‡³å°‘ 2048 ä½ RSA æ•°å­—è¯ä¹¦');
+    _certificateInfo(bundle.certificatePem);
+  }
+
+  static void requireSignedInvoice(Map<String, dynamic> payload) {
+    final invoices = payload['Invoice'];
+    if (invoices is! List || invoices.length != 1 || invoices.single is! Map) {
+      throw StateError('Invoice JSON ç»“æ„æ— æ•ˆ');
+    }
+    final invoice = Map<String, dynamic>.from(invoices.single as Map);
+    final type = invoice['InvoiceTypeCode'];
+    final signature = invoice['Signature'];
+    final extensions = invoice['UBLExtensions'];
+    if (type is! List || type.isEmpty || (type.first as Map?)?['listVersionID'] != '1.1' ||
+        signature is! List || signature.isEmpty || extensions is! List || extensions.isEmpty) {
+      throw StateError('æ­¤å¾…æäº¤å‘ç¥¨æ˜¯æ—§ç‰ˆæœªç­¾åå•æ®ï¼Œè¯·é‡æ–°ç”Ÿæˆåå†æäº¤');
+    }
+    try {
+      final rootSignature = signature.first as Map;
+      final rootMethod = rootSignature['SignatureMethod'][0]['_'];
+      final extension = (extensions.first as Map)['UBLExtension'][0] as Map;
+      final extensionUri = extension['ExtensionURI'][0]['_'];
+      final information = extension['ExtensionContent'][0]['UBLDocumentSignatures'][0]['SignatureInformation'][0] as Map;
+      final signed = information['Signature'][0] as Map;
+      final value = signed['SignatureValue'][0]['_'];
+      final signedInfo = signed['SignedInfo'][0] as Map;
+      final signingMethod = signedInfo['SignatureMethod'][0]['Algorithm'];
+      final references = signedInfo['Reference'] as List;
+      final props = references[0] as Map;
+      final document = references[1] as Map;
+      final certificate = signed['KeyInfo'][0]['X509Data'][0]['X509Certificate'][0]['_'];
+      final sha256Method = (props['DigestMethod'] as List).first['Algorithm'];
+      final documentSha256Method = (document['DigestMethod'] as List).first['Algorithm'];
+      final propsDigest = (props['DigestValue'] as List).first['_'];
+      final documentDigest = (document['DigestValue'] as List).first['_'];
+      if (rootMethod != _signatureUri || extensionUri != _signatureUri || signingMethod != _rsaSha256 ||
+          props['Type'] != _signedPropertiesType || props['URI'] != '#$_propsId' ||
+          document['Type'] != '' || document['URI'] != '' ||
+          sha256Method != _sha256 || documentSha256Method != _sha256 ||
+          value is! String || base64Decode(value).isEmpty || references.length != 2 ||
+          certificate is! String || base64Decode(certificate).isEmpty ||
+          propsDigest is! String || base64Decode(propsDigest).isEmpty ||
+          documentDigest is! String || base64Decode(documentDigest).isEmpty) {
+        throw const FormatException();
+      }
+    } catch (_) {
+      throw StateError('å‘ç¥¨æ•°å­—ç­¾åç»“æ„æ— æ•ˆï¼Œè¯·é‡æ–°ç”Ÿæˆ');
+    }
+  }
+
+  Future<String> sign(String invoiceJson, {required List<int> pfx, required String password}) async {
+    if (pfx.isEmpty || pfx.length > 5 * 1024 * 1024) throw ArgumentError('è¯ä¹¦æ–‡ä»¶å¤§å°é¡»å°äº 5 MB');
+    final data = jsonDecode(invoiceJson);
+    if (data is! Map<String, dynamic> || data['Invoice'] is! List || (data['Invoice'] as List).length != 1) {
+      throw const FormatException('Invoice JSON ç»“æ„æ— æ•ˆ');
+    }
+    final invoice = data['Invoice'][0] as Map<String, dynamic>;
+    if (invoice['UBLExtensions'] != null || invoice['Signature'] != null) throw StateError('å‘ç¥¨å·²æœ‰ç­¾åæ‰©å±•ï¼Œæ‹’ç»é‡å¤ç­¾å');
+    final p12 = Pkcs12.load(Uint8List.fromList(pfx), password);
+    final privateKey = p12.privateKey;
+    if (privateKey is! RSAPrivateKey || privateKey.modulus!.bitLength < 2048) throw StateError('MyInvois éœ€è¦è‡³å°‘ 2048 ä½ RSA æ•°å­—è¯ä¹¦');
+    final certPem = p12.certificatePem;
+    final cert = _certificateInfo(certPem);
+    final timestamp = DateTime.now().toUtc().toIso8601String().replaceFirst(RegExp(r'\.\d+Z$'), 'Z');
+
+    final canonicalInvoice = Map<String, dynamic>.from(invoice)
+      ..remove('UBLExtensions')
+      ..remove('Signature');
+    final canonical = Map<String, dynamic>.from(data)..['Invoice'] = [canonicalInvoice];
+    final documentBytes = utf8.encode(jsonEncode(canonical));
+    final documentDigest = base64Encode((await _hash.hash(documentBytes)).bytes);
+    final certDer = _pemBytes(certPem);
+    final certDigest = base64Encode((await _hash.hash(certDer)).bytes);
+    final signedProperties = <String, dynamic>{
+      'Id': _propsId,
+      'SignedSignatureProperties': [{
+        'SigningTime': [{'_' : timestamp}],
+        'SigningCertificate': [{ 'Cert': [{
+          'CertDigest': [{'DigestMethod': [{'_' : '', 'Algorithm': _sha256}], 'DigestValue': [{'_' : certDigest}]}],
+          'IssuerSerial': [{'X509IssuerName': [{'_' : cert.issuer}], 'X509SerialNumber': [{'_' : cert.serial}]}],
+        }]}],
+      }],
+    };
+    final propsDigest = base64Encode((await _hash.hash(utf8.encode(jsonEncode({'Target': _sigId, 'SignedProperties': [signedProperties]})))).bytes);
+    final signer = RSASigner(SHA256Digest(), '0609608648016503040201')
+      ..init(true, PrivateKeyParameter<RSAPrivateKey>(privateKey));
+    final signature = base64Encode((signer.generateSignature(Uint8List.fromList(documentBytes)) as RSASignature).bytes);
+    final x509 = base64Encode(certDer);
+
+    invoice['InvoiceTypeCode'] = (invoice['InvoiceTypeCode'] as List).map((e) => {...Map<String, dynamic>.from(e as Map), 'listVersionID': '1.1'}).toList();
+    invoice['UBLExtensions'] = [{ 'UBLExtension': [{
+      'ExtensionURI': [{'_' : _signatureUri}],
+      'ExtensionContent': [{'UBLDocumentSignatures': [{'SignatureInformation': [{
+        'ID': [{'_' : 'urn:oasis:names:specification:ubl:signature:1'}],
+        'ReferencedSignatureID': [{'_' : _invoiceSignatureId}],
+        'Signature': [{
+          'Id': _sigId,
+          'Object': [{'QualifyingProperties': [{'Target': _sigId, 'SignedProperties': [signedProperties]}]}],
+          'KeyInfo': [{'X509Data': [{
+            'X509Certificate': [{'_' : x509}], 'X509SubjectName': [{'_' : cert.subject}],
+            'X509IssuerSerial': [{'X509IssuerName': [{'_' : cert.issuer}], 'X509SerialNumber': [{'_' : cert.serial}]}],
+          }]}],
+          'SignatureValue': [{'_' : signature}],
+          'SignedInfo': [{
+            'SignatureMethod': [{'_' : '', 'Algorithm': _rsaSha256}],
+            'Reference': [
+              {'Type': _signedPropertiesType, 'URI': '#$_propsId', 'DigestMethod': [{'_' : '', 'Algorithm': _sha256}], 'DigestValue': [{'_' : propsDigest}]},
+              {'Type': '', 'URI': '', 'DigestMethod': [{'_' : '', 'Algorithm': _sha256}], 'DigestValue': [{'_' : documentDigest}]},
+            ],
+          }],
+        }],
+      }]}]}],
+    }]}];
+    invoice['Signature'] = [{'ID': [{'_' : _invoiceSignatureId}], 'SignatureMethod': [{'_' : _signatureUri}]}];
+    return jsonEncode(data);
+  }
+
+  static Uint8List _pemBytes(String pem) => Uint8List.fromList(base64Decode(pem.replaceAll(RegExp(r'-----[^-]+-----|\s'), '')));
+  static _CertInfo _certificateInfo(String pem) {
+    final root = _DerReader(_pemBytes(pem)).read();
+    final cert = root.children;
+    if (cert.length < 1) throw const FormatException('è¯ä¹¦æ ¼å¼æ— æ•ˆ');
+    final tbs = cert.first.children;
+    var index = tbs.first.tag == 0xa0 ? 1 : 0;
+    if (tbs.length < index + 6) throw const FormatException('è¯ä¹¦ç¼ºå°‘å¿…éœ€å­—æ®µ');
+    final serial = BigInt.parse(tbs[index].value.map((b) => b.toRadixString(16).padLeft(2, '0')).join(), radix: 16).toString();
+    final issuer = _name(tbs[index + 2]);
+    final subject = _name(tbs[index + 4]);
+    return _CertInfo(issuer, subject, serial);
+  }
+  static String _name(_DerNode name) {
+    const keys = {
+      '2.5.4.3':'CN', '2.5.4.4':'SN', '2.5.4.5':'SERIALNUMBER', '2.5.4.6':'C',
+      '2.5.4.7':'L', '2.5.4.8':'ST', '2.5.4.9':'STREET', '2.5.4.10':'O',
       '2.5.4.11':'OU', '2.5.4.12':'T', '2.5.4.97':'organizationIdentifier',
       '2.5.4.15':'businessCategory', '2.5.4.17':'postalCode', '2.5.4.18':'postOfficeBox',
       '2.5.4.19':'physicalDeliveryOfficeName', '2.5.4.20':'telephoneNumber',
