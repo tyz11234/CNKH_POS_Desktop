@@ -36,8 +36,15 @@ class EInvoiceService {
   }
   Future<void> saveSigningCertificate(String environment, List<int> pfx, String password, String name) async {
     _admin();
-    await signer.validateCertificate(pfx, password);
-    await (await settings).saveSigningCertificate(environment, pfx, password, name);
+    final store = await settings;
+    final profile = await store.load(environment: environment);
+    await signer.validateCertificate(
+      pfx,
+      password,
+      expectedTin: profile['tin']?.toString(),
+      expectedBrn: profile['brn']?.toString(),
+    );
+    await store.saveSigningCertificate(environment, pfx, password, name);
   }
   Future<void> testConnection(String environment) async {
     _admin();
@@ -78,7 +85,7 @@ class EInvoiceService {
     final profile = await (await settings).load(environment: environment);
     final unsigned = jsonEncode(InvoiceMapper().mapSale(sale, supplier: profile, buyer: buyer, issuedAt: DateTime.now()));
     final store = await settings;
-    final payload = await _sign(unsigned, environment, store);
+    final payload = await _sign(unsigned, environment, store, profile);
     EInvoiceSigner.requireSignedInvoice(jsonDecode(payload) as Map<String, dynamic>);
     final envelope = await MyInvoisClient.envelope(sale['receipt_no'] as String, payload);
     final id = previous.isEmpty ? '$environment:$saleId' : previous.single['id'] as String;
@@ -132,11 +139,22 @@ class EInvoiceService {
       rethrow;
     }
   });
-  Future<String> _sign(String json, String environment, EInvoiceSettingsStore store) async {
+  Future<String> _sign(
+    String json,
+    String environment,
+    EInvoiceSettingsStore store,
+    Map<String, dynamic> profile,
+  ) async {
     final testSigner = documentSigner;
     if (testSigner != null) return testSigner(json, environment, store);
     final credential = await store.loadSigningCertificate(environment);
-    return signer.sign(json, pfx: base64Decode(credential['pfx'] as String), password: credential['password'] as String);
+    return signer.sign(
+      json,
+      pfx: base64Decode(credential['pfx'] as String),
+      password: credential['password'] as String,
+      expectedTin: profile['tin']?.toString(),
+      expectedBrn: profile['brn']?.toString(),
+    );
   }
   Future<void> refresh(String id) => _lock.run(() async {
     _admin(); final db = await repo.database.db;
