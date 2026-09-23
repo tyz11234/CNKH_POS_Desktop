@@ -10,6 +10,7 @@ import 'package:cnkh_pos_desktop/models/cart_item.dart';
 import 'package:cnkh_pos_desktop/services/pos_repository.dart';
 import 'package:cnkh_pos_desktop/services/einvoice/einvoice_settings.dart';
 import 'package:cnkh_pos_desktop/services/einvoice/einvoice_service.dart';
+import 'package:cnkh_pos_desktop/services/einvoice/einvoice_signer.dart';
 import 'package:cnkh_pos_desktop/services/einvoice/invoice_mapper.dart';
 import 'package:cnkh_pos_desktop/services/einvoice/myinvois_client.dart';
 
@@ -18,21 +19,20 @@ class MemoryKeys implements EInvoiceKeyStore {
   @override Future<String?> read() async => value;
   @override Future<void> write(String v) async { value = v; }
 }
-Future<String> testSign(String json, String environment, EInvoiceSettingsStore settings) async {
-  final data = jsonDecode(json) as Map<String, dynamic>;
-  final invoice = (data['Invoice'] as List).single as Map<String, dynamic>;
-  invoice['InvoiceTypeCode'] = (invoice['InvoiceTypeCode'] as List).map((v) => {...Map<String,dynamic>.from(v as Map), 'listVersionID':'1.1'}).toList();
-  const digestMethod = [{'_' : '', 'Algorithm':'http://www.w3.org/2001/04/xmlenc#sha256'}];
-  const digestValue = [{'_' : 'ZmFrZQ=='}];
-  invoice['Signature'] = [{'ID':[{'_':'urn:oasis:names:specification:ubl:signature:Invoice'}], 'SignatureMethod':[{'_':'urn:oasis:names:specification:ubl:dsig:enveloped:xades'}]}];
-  invoice['UBLExtensions'] = [{'UBLExtension':[{'ExtensionURI':[{'_':'urn:oasis:names:specification:ubl:dsig:enveloped:xades'}], 'ExtensionContent':[{'UBLDocumentSignatures':[{'SignatureInformation':[{'Signature':[{
-    'SignatureValue':[{'_':'ZmFrZQ=='}], 'SignedInfo':[{'SignatureMethod':[{'Algorithm':'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256'}], 'Reference':[
-      {'Type':'http://uri.etsi.org/01903/v1.3.2#SignedProperties','URI':'#id-xades-signed-props','DigestMethod':digestMethod,'DigestValue':digestValue},
-      {'Type':'','URI':'','DigestMethod':digestMethod,'DigestValue':digestValue},
-    ]}], 'KeyInfo':[{'X509Data':[{'X509Certificate':[{'_':'ZmFrZQ=='}]}]}],
-  }]}]}]}]}]}];
-  return jsonEncode(data);
-}
+const _testPfxB64 = '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';
+const _testPfxPassword = 'cnkh-test-only';
+Future<String> testSign(
+  String json,
+  String environment,
+  EInvoiceSettingsStore settings,
+) =>
+    EInvoiceSigner().sign(
+      json,
+      pfx: base64Decode(_testPfxB64),
+      password: _testPfxPassword,
+      expectedTin: 'C1234567890',
+      expectedBrn: '202001234567',
+    );
 final supplier = <String,dynamic>{'environment':'sandbox','name':'CNKH Test','tin':'C1234567890','brn':'202001234567','msic':'47111','activity':'Retail','address':'1 Test Street','city':'Kuala Lumpur','state':'14','phone':'+60123456789','classification':'022','tax_type':'06','tax_rate_basis_points':0};
 final buyer = <String,dynamic>{'name':'Test Buyer','tin':'C9876543210','id_type':'BRN','id_number':'202009876543','address':'2 Test Street','city':'Kuala Lumpur','state':'14','phone':'+60198765432'};
 void main() {
@@ -51,6 +51,41 @@ void main() {
     await repo.upsertProduct(p);
     return repo.createSale(cart:CartState(items:[CartItem(product:p,qty:2,discountCents:20)],orderDiscountCents:100),paymentMethod:'CASH',paidCents:2000,cashier:'admin');
   }
+  test('PFX profile is checked and generated signature is mathematically valid', () async {
+    final signer = EInvoiceSigner();
+    final pfx = base64Decode(_testPfxB64);
+    await signer.validateCertificate(
+      pfx,
+      _testPfxPassword,
+      expectedTin: 'C1234567890',
+      expectedBrn: '202001234567',
+    );
+    await expectLater(
+      signer.validateCertificate(
+        pfx,
+        _testPfxPassword,
+        expectedTin: 'C0000000000',
+        expectedBrn: '202001234567',
+      ),
+      throwsStateError,
+    );
+
+    final signed = await signer.sign(
+      '{"Invoice":[{"InvoiceTypeCode":[{"_":"01","listVersionID":"1.0"}],"ID":[{"_":"TEST-1"}]}]}',
+      pfx: pfx,
+      password: _testPfxPassword,
+      expectedTin: 'C1234567890',
+      expectedBrn: '202001234567',
+    );
+    final payload = jsonDecode(signed) as Map<String, dynamic>;
+    expect(() => EInvoiceSigner.requireSignedInvoice(payload), returnsNormally);
+    ((payload['Invoice'] as List).single as Map)['ID'][0]['_'] = 'TAMPERED';
+    expect(
+      () => EInvoiceSigner.requireSignedInvoice(payload),
+      throwsStateError,
+    );
+  });
+
   test('fresh install and v8 upgrade preserve all business rows', () async {
     await sale(); final db = await database.db;
     final before = {for(final table in ['sales','products','customers','suppliers']) table:await db.query(table)};
