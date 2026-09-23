@@ -2,7 +2,7 @@
 
 日期：2026-09-14。版本：Desktop **0.4.0+9**；Mobile **1.10.0+28**。
 
-> **2026-09-23 源码补充：**本报告记录的上一轮 e-Invoice 版本尚未实现数字签名。当前 `main` 源码版本两端统一为 **1.10.3+31**；Desktop 已增加 PFX/P12 导入、加密保存及 Invoice 1.1 签名，Mobile 业务代码未改动。真实 MyInvois Sandbox/Production 提交尚未执行；本次推送后由 CI 检查编译、测试和构建。
+> **2026-09-23 源码补充：**本报告记录的上一轮 e-Invoice 版本尚未实现数字签名。当前 `main` 源码版本两端统一为 **1.10.3+31**；Desktop 已增加 PFX/P12 导入、加密保存及 Invoice 1.1 签名，Mobile 业务代码未改动。Desktop 和 Mobile CI、Windows/APK 构建及双端联调均已通过；真实 MyInvois Sandbox/Production 提交尚未执行。
 
 ## 实现结果
 

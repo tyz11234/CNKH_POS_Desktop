@@ -1,6 +1,6 @@
 # 结账、取单及手机同步修复报告
 
-日期：2026-09-20。本文记录上一轮已发布版本：Desktop 0.4.1+10、Mobile 1.10.2+30。当前 main 源码版本已统一为 Desktop 与 Mobile 1.10.3+31；本次 Desktop 增加 MyInvois 签名支持，Mobile 仅更新版本号，CI 验证中。
+日期：2026-09-20。本文记录上一轮已发布版本：Desktop 0.4.1+10、Mobile 1.10.2+30。当前 main 源码版本已统一为 Desktop 与 Mobile 1.10.3+31；本次 Desktop 增加 MyInvois 签名支持，Mobile 仅更新版本号。Desktop 和 Mobile CI、Windows/APK 构建及双端联调均已通过。
 
 ## 修复
 
