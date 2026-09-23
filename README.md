@@ -6,26 +6,38 @@
 
 > README 最后更新：**2026-09-23**。默认源码与发布分支：`main`。
 
-## 当前源码版本
+## 当前源码与发布版本
 
-| 项目 | `main` 源码版本 |
+| 项目 | 版本 |
 | --- | --- |
-| Desktop | **1.10.3+31** |
-| 配套 Mobile | **1.10.3+31** |
+| Desktop `main` 与 Windows Release | **1.10.4+32**（`v1.10.4`） |
+| 配套 Mobile `main` 源码 | **1.10.4+32** |
+| 最新已发布 Mobile APK | **1.10.3+31**（`v1.10.3-mobile`） |
 | LAN 协议 | `cnkh-sync:v1` |
-| 本地数据库 | e-Invoice 升级为 **schema v9** |
+| 本地数据库 | e-Invoice 使用 **schema v9** |
 
-Desktop 与 Mobile **1.10.3+31** 已正式发布，Windows ZIP 与 Android APK 均已通过构建和双端联调。下方链接提供当前版本安装包及 SHA-256 校验文件。
+Desktop **1.10.4+32** 已正式发布。Mobile 的配套源码也已更新到 **1.10.4+32**，但该版本 Android APK 尚未发布；当前可下载的 APK 仍是 **1.10.3+31**。本轮版本和发布状态以各自 Release 附件为准。
 
 ## 下载与更新
 
-- [Windows x64 便携包（1.10.3+31）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.3/CNKH_POS_Desktop-windows-x64-v1.10.3-31.zip)
-- [Desktop SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.3/SHA256SUMS.txt)
-- [Desktop Release](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.3)
-- [配套 Android APK（1.10.3+31）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.3-mobile/CNKH_POS_Mobile.apk)
-- [Mobile Release 与校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.3-mobile)
+- [Windows x64 便携包（1.10.4+32）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.4/CNKH_POS_Desktop-windows-x64-v1.10.4-32.zip)
+- [Windows ZIP 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.4/SHA256SUMS.txt)
+- Windows ZIP SHA-256：`eefd3e0ef6741352765fed6c71229ea032e6ea55567d0e06c9773016ca66f1e0`
+- [Desktop Release `v1.10.4`](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.4)
+- [最新已发布 Android APK（1.10.3+31）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.3-mobile/CNKH_POS_Mobile.apk)
+- [Mobile APK 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.3-mobile/SHA256SUMS.txt)
+- [Mobile Release `v1.10.3-mobile`](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.3-mobile)
 
 更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
+
+## 2026-09-23 · 1.10.4+32
+
+- LAN 增量同步追踪进货记录的新增、修改和删除；旧进货记录会建立同步基线，手机可按游标读取进货历史。
+- 手机完整拉取进货历史时保留本地采购附件及同步状态；单个附件上传失败会延迟重试，不再阻塞后续 Outbox 操作。
+- MyInvois PFX/P12 校验增加证书有效期、马来西亚主体资料、TIN/BRN、签名用途、RSA 密钥类型及证书公钥匹配检查。
+- 提交前核对发票签名摘要和 RSA 数学签名，回归测试覆盖签名篡改。
+
+Desktop 静态分析、完整测试、Windows Release 构建、培训资源校验及与配套 Mobile 的 LAN HTTP 回归均通过。MyInvois 实际 Sandbox / Production 提交尚未执行。详见 [Release Notes](RELEASE_NOTES.md)。
 
 ## 2026-09-20 结账与数据保护修复
 
