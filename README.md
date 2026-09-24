@@ -11,12 +11,11 @@
 | 项目 | 版本 |
 | --- | --- |
 | Desktop `main` 与 Windows Release | **1.10.4+32**（`v1.10.4`） |
-| 配套 Mobile `main` 源码 | **1.10.4+32** |
-| 最新已发布 Mobile APK | **1.10.3+31**（`v1.10.3-mobile`） |
+| Mobile `main` 与 Android Release | **1.10.4+32**（`v1.10.4-mobile`） |
 | LAN 协议 | `cnkh-sync:v1` |
 | 本地数据库 | e-Invoice 使用 **schema v9** |
 
-Desktop **1.10.4+32** 已正式发布。Mobile 的配套源码也已更新到 **1.10.4+32**，但该版本 Android APK 尚未发布；当前可下载的 APK 仍是 **1.10.3+31**。本轮版本和发布状态以各自 Release 附件为准。
+Desktop 与 Mobile **1.10.4+32** 均已发布，Windows ZIP、Android APK 和 SHA-256 校验文件均可在 Releases 下载。
 
 ## 下载与更新
 
@@ -24,12 +23,19 @@ Desktop **1.10.4+32** 已正式发布。Mobile 的配套源码也已更新到 **
 - [Windows ZIP 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.4/SHA256SUMS.txt)
 - Windows ZIP SHA-256：`eefd3e0ef6741352765fed6c71229ea032e6ea55567d0e06c9773016ca66f1e0`
 - [Desktop Release `v1.10.4`](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.4)
-- [最新已发布 Android APK（1.10.3+31）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.3-mobile/CNKH_POS_Mobile.apk)
-- [Mobile APK 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.3-mobile/SHA256SUMS.txt)
-- [Mobile Release `v1.10.3-mobile`](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.3-mobile)
+- [Android APK（1.10.4+32）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.4-mobile/CNKH_POS_Mobile.apk)
+- [版本化 APK（内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.4-mobile/CNKH_POS_Mobile_v1.10.4.apk)
+- [Mobile APK 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.4-mobile/SHA256SUMS.txt)
+- Android APK SHA-256：`f09974f80ad1ab3638ecc40529d7e7325ae433e21806f3dfb8f1b4485ab13ef6`
+- [Mobile Release `v1.10.4-mobile`](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.4-mobile)
 
-更新前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
+更新 Desktop 前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
 
+Mobile APK 使用 Android Debug 签名，可能无法覆盖安装在设备上的旧版。若 Android 提示签名不一致，请先完成业务同步和备份，再卸载旧版并安装；卸载可能清除本地数据。后续 APK 更新建议配置稳定签名密钥。
+
+## 2026-09-24 · Mobile 1.10.4+32 APK 发布
+
+Mobile APK 已经发布并通过 CI 的 APK 签名、权限和培训资源检查。按用户要求，本次使用 GitHub Actions runner 的 Android Debug 密钥签名；该密钥不保证与旧版或后续构建相同。
 ## 2026-09-23 · 1.10.4+32
 
 - LAN 增量同步追踪进货记录的新增、修改和删除；旧进货记录会建立同步基线，手机可按游标读取进货历史。
