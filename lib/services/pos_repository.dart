@@ -651,16 +651,29 @@ class PosRepository {
     final now = DateTime.now().toIso8601String();
     await d.transaction((txn) async {
       final remoteLines = <Map<String, Object?>>[];
+      final storedLines = <Map<String, Object?>>[];
+      final desktopBeforeCosts = <String, int>{};
       for (final line in lines) {
         final pid = line['productId'] as String;
-        if ((await txn.query(
+        final productRows = await txn.query(
           'products',
+          columns: const ['cost_cents'],
           where: 'id=? AND is_deleted=0',
           whereArgs: [pid],
-        )).isEmpty)
-          throw StateError('进货商品不存在');
-        remoteLines.add({
+          limit: 1,
+        );
+        if (productRows.isEmpty) throw StateError('进货商品不存在');
+        final beforeCost = desktopBeforeCosts.putIfAbsent(
+          pid,
+          () => (productRows.single['cost_cents'] as num?)?.toInt() ?? 0,
+        );
+        final storedLine = <String, Object?>{
           ...line,
+          'desktopBeforeCostCents': beforeCost,
+        };
+        storedLines.add(storedLine);
+        remoteLines.add({
+          ...storedLine,
           'productId': await remoteEntityId(txn, 'product', pid),
         });
       }
@@ -682,7 +695,7 @@ class PosRepository {
         'supplier_name': supplierName,
         'purchased_at': now,
         'total_cents': totalCents,
-        'lines_json': jsonEncode(lines),
+        'lines_json': jsonEncode(storedLines),
         'notes': notes,
       });
       for (final line in lines) {

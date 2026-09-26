@@ -135,6 +135,42 @@ void main() {
     );
   });
 
+  test('purchase reversal restores the Desktop execution cost snapshot', () async {
+    final db = await database.db;
+    await db.update('products', {'cost_cents': 350}, where: 'id=?', whereArgs: ['p1']);
+    final purchase = purchaseOp(); // Mobile's cached beforeCostCents is 300.
+
+    await applyLanMutation(db, purchase);
+    await applyLanMutation(db, purchase); // Lost-ACK retry is idempotent.
+    final stored = (await db.query('purchases', where: 'id=?', whereArgs: ['mobile-purchase-1'])).single;
+    final storedLines = jsonDecode(stored['lines_json'] as String) as List;
+    expect((storedLines.single as Map)['desktopBeforeCostCents'], 350);
+
+    await applyLanMutation(db, reverseOp());
+    await applyLanMutation(db, reverseOp());
+    final product = (await db.query('products', where: 'id=?', whereArgs: ['p1'])).single;
+    expect(product['stock'], 10);
+    expect(product['cost_cents'], 350);
+    expect((await db.query('purchases', where: 'id=?', whereArgs: ['mobile-purchase-1'])).single['reversed'], 1);
+    expect(await db.query('purchase_reversals', where: 'purchase_id=?', whereArgs: ['mobile-purchase-1']), hasLength(1));
+  });
+
+  test('legacy Mobile before-cost data cannot overwrite Desktop cost', () async {
+    final db = await database.db;
+    await db.update('products', {'cost_cents': 350}, where: 'id=?', whereArgs: ['p1']);
+    await applyLanMutation(db, purchaseOp());
+    final purchase = (await db.query('purchases', where: 'id=?', whereArgs: ['mobile-purchase-1'])).single;
+    final lines = jsonDecode(purchase['lines_json'] as String) as List;
+    final legacyLine = Map<String, dynamic>.from(lines.single as Map)
+      ..remove('desktopBeforeCostCents');
+    await db.update('purchases', {'lines_json': jsonEncode([legacyLine])}, where: 'id=?', whereArgs: ['mobile-purchase-1']);
+
+    await applyLanMutation(db, reverseOp());
+    final product = (await db.query('products', where: 'id=?', whereArgs: ['p1'])).single;
+    expect(product['stock'], 10);
+    expect(product['cost_cents'], 320);
+  });
+
   test('purchase reversal is blocked after a later stock movement', () async {
     final db = await database.db;
     await applyLanMutation(db, purchaseOp());

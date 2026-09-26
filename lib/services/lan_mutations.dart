@@ -185,6 +185,30 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         }
       }
       final no = 'PO-M-${pid.replaceAll('-', '')}';
+      final desktopBeforeCosts = <String, int>{};
+      final storedLines = <Map<String, dynamic>>[];
+      for (final line in lines) {
+        final productId = line['productId']?.toString().trim() ?? '';
+        if (productId.isEmpty) throw const FormatException('purchase product required');
+        if (!desktopBeforeCosts.containsKey(productId)) {
+          final productRows = await txn.query(
+            'products',
+            columns: const ['cost_cents'],
+            where: 'id=? AND is_deleted=0',
+            whereArgs: [productId],
+            limit: 1,
+          );
+          if (productRows.isEmpty) throw StateError('进货商品未同步');
+          desktopBeforeCosts[productId] =
+              (productRows.single['cost_cents'] as num?)?.toInt() ?? 0;
+        }
+        // Store the Desktop execution-time cost in this transaction. The
+        // Mobile beforeCostCents remains for legacy/audit compatibility only.
+        storedLines.add({
+          ...line,
+          'desktopBeforeCostCents': desktopBeforeCosts[productId],
+        });
+      }
       await txn.insert('purchases', {
         'id': pid,
         'purchase_no': no,
@@ -192,7 +216,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         'supplier_name': p['supplier_name'],
         'purchased_at': p['purchased_at'],
         'total_cents': p['total_cents'],
-        'lines_json': jsonEncode(lines),
+        'lines_json': jsonEncode(storedLines),
         'notes': p['notes'] ?? '',
         'invoice_no': p['invoice_no'] ?? '',
         'invoice_date': p['invoice_date'] ?? '',

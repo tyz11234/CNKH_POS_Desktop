@@ -1,7 +1,7 @@
 name: cnkh_pos_desktop
 description: "黄金发宝号 POS Desktop — Flutter desktop POS with full mobile APK feature parity."
 publish_to: 'none'
-version: 1.10.4+32
+version: 1.10.5+33
 
 environment:
   sdk: ^3.9.0

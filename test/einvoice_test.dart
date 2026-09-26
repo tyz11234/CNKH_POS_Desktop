@@ -120,6 +120,20 @@ void main() {
     expect(jsonEncode(row),isNot(contains('pfx-password')));
     expect(row['signing_certificate_name'],'signing.p12');
   });
+  test('certificate name survives a new settings store and matches saved environment state', () async {
+    final db = await database.db;
+    final keys = MemoryKeys();
+    final first = EInvoiceSettingsStore(db, keys: keys);
+    await first.saveSigningCertificate('sandbox', [1, 2, 3, 4], 'pfx-password', 'signing.p12');
+
+    final reopened = EInvoiceSettingsStore(db, keys: keys);
+    expect(await reopened.signingCertificateName('sandbox'), 'signing.p12');
+    expect(await reopened.signingCertificateName('production'), isNull);
+    expect(await reopened.loadSigningCertificate('sandbox'), {
+      'pfx': base64Encode([1, 2, 3, 4]),
+      'password': 'pfx-password',
+    });
+  });
   test('unsigned invoice cannot be prepared for submission without a certificate', () async {
     final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
     final service=EInvoiceService(repo,keyStore:MemoryKeys());

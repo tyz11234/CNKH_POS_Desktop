@@ -88,7 +88,7 @@ class EInvoiceSettingsStore {
   });
   Future<String?> signingCertificateName(String environment) async {
     _environment(environment);
-    final rows = await db.query('e_invoice_settings', columns: ['signing_certificate_name'], where: 'environment=?', whereArgs: [environment], limit: 1);
+    final rows = await db.query('e_invoice_settings', columns: ['signing_certificate_name', 'signing_certificate_cipher'], where: 'environment=?', whereArgs: [environment], limit: 1);
     if (rows.isEmpty || '${rows.single['signing_certificate_cipher'] ?? ''}'.isEmpty) return null;
     return rows.single['signing_certificate_name'] as String?;
   }

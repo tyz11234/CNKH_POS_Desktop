@@ -80,7 +80,9 @@ Future<List<PurchaseReversePlan>> planPurchaseReverse(
     }
 
     final currentCost = (rows.single['cost_cents'] as num?)?.toInt() ?? 0;
-    final beforeCost = (lines.first['beforeCostCents'] as num?)?.toInt();
+    // Older records contain only Mobile's cached beforeCostCents. Do not use
+    // that value to overwrite Desktop's actual execution-time cost.
+    final beforeCost = (lines.first['desktopBeforeCostCents'] as num?)?.toInt();
     int? purchaseCost;
     for (final line in lines) {
       purchaseCost = (line['unitCostCents'] as num?)?.toInt() ?? purchaseCost;
