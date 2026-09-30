@@ -3,6 +3,7 @@ publish_to: none
 environment:
   sdk: '>=3.5.0 <4.0.0'
 dependencies:
+  http: ^1.2.2
   flutter:
     sdk: flutter
   cnkh_pos_desktop:

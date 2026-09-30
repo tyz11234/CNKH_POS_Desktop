@@ -8,6 +8,160 @@ import '../db/ocr_purchase_schema.dart';
 import 'purchase_reverse_safety.dart';
 import 'sale_reversal.dart';
 
+Future<String> _resolvePurchaseProductId(
+  DatabaseExecutor txn,
+  Map<String, dynamic> line,
+  String requestedId,
+) async {
+  final sku = (line['productSku'] ?? line['sku'])?.toString().trim() ?? '';
+  final barcode =
+      (line['productBarcode'] ?? line['barcode'])?.toString().trim() ?? '';
+  final direct = await txn.query(
+    'products',
+    columns: const ['id', 'sku', 'barcode'],
+    where: 'id=? AND is_deleted=0',
+    whereArgs: [requestedId],
+    limit: 1,
+  );
+  Future<String?> uniqueMatch(String column, String value) async {
+    if (value.isEmpty) return null;
+    final rows = await txn.query(
+      'products',
+      columns: const ['id'],
+      where: '$column=? AND is_deleted=0',
+      whereArgs: [value],
+      limit: 2,
+    );
+    if (rows.length > 1) throw StateError('进货商品 $column 不唯一，请核对商品资料');
+    return rows.isEmpty ? null : rows.single['id'] as String;
+  }
+
+  final skuId = await uniqueMatch('sku', sku);
+  final barcodeId = await uniqueMatch('barcode', barcode);
+  if (skuId != null && barcodeId != null && skuId != barcodeId) {
+    throw StateError('进货商品 SKU 与条码指向不同商品，操作仍保留在手机队列');
+  }
+  final identityId = barcodeId ?? skuId;
+  if (direct.isNotEmpty && identityId != null && identityId != requestedId) {
+    throw StateError('进货商品 ID 与 SKU/条码指向不同商品，操作仍保留在手机队列');
+  }
+  if (identityId != null) return identityId;
+  if (direct.isEmpty) throw StateError('进货商品未同步，操作仍保留在手机队列');
+  if ((sku.isNotEmpty && direct.single['sku'] != sku) ||
+      (barcode.isNotEmpty && direct.single['barcode'] != barcode)) {
+    throw StateError('进货商品资料与电脑不一致，请核对 SKU/条码');
+  }
+  return direct.single['id'] as String;
+}
+
+Future<bool> _matchesAppliedPurchase(
+  DatabaseExecutor txn,
+  Map<String, Object?> existing,
+  Map<String, dynamic> payload,
+) async {
+  bool sameValue(String column, Object? fallback) =>
+      '${existing[column] ?? fallback ?? ''}' == '${fallback ?? ''}';
+  if (existing['purchase_no'] != 'PO-M-${(payload['id']?.toString() ?? '').replaceAll('-', '')}') return false;
+  for (final key in [
+    'total_cents', 'purchased_at', 'supplier_name', 'invoice_no', 'invoice_date',
+    'notes', 'discount_cents', 'tax_cents', 'delivery_fee_cents', 'other_fee_cents',
+    'source', 'draft_id', 'ocr_raw_text',
+  ]) {
+    final fallback = switch (key) {
+      'source' => payload[key] ?? 'mobile',
+      'invoice_no' || 'invoice_date' || 'notes' || 'ocr_raw_text' => payload[key] ?? '',
+      'discount_cents' || 'tax_cents' || 'delivery_fee_cents' || 'other_fee_cents' => payload[key] ?? 0,
+      _ => payload[key],
+    };
+    if (!sameValue(key, fallback)) return false;
+  }
+
+  var expectedSupplierId = payload['supplier_id']?.toString().trim() ?? '';
+  if (expectedSupplierId.isNotEmpty) {
+    final direct = await txn.query('suppliers', columns: const ['id'],
+      where: 'id=? AND is_deleted=0', whereArgs: [expectedSupplierId], limit: 1);
+    if (direct.isEmpty) {
+      final name = payload['supplier_name']?.toString().trim() ?? '';
+      final phone = payload['supplier_phone']?.toString().trim() ?? '';
+      if (name.isNotEmpty) {
+        final matches = await txn.query('suppliers', columns: const ['id'],
+          where: phone.isEmpty ? 'name=? AND is_deleted=0' : 'name=? AND phone=? AND is_deleted=0',
+          whereArgs: phone.isEmpty ? [name] : [name, phone], limit: 2);
+        if (matches.length > 1) return false;
+        if (matches.length == 1) expectedSupplierId = matches.single['id'] as String;
+      }
+    }
+  }
+  if ('${existing['supplier_id'] ?? ''}' != expectedSupplierId) return false;
+
+  final incoming = payload['lines'];
+  if (incoming is! List || incoming.isEmpty) return false;
+  final storedRaw = jsonDecode(existing['lines_json']?.toString() ?? '[]');
+  if (storedRaw is! List || storedRaw.length != incoming.length) return false;
+  for (var i = 0; i < incoming.length; i++) {
+    if (incoming[i] is! Map || storedRaw[i] is! Map) return false;
+    final line = Map<String, dynamic>.from(incoming[i] as Map);
+    final saved = Map<String, dynamic>.from(storedRaw[i] as Map);
+    final requestedId = (line['productId'] ?? line['product_id'])?.toString().trim() ?? '';
+    final productId = await _resolvePurchaseProductId(txn, line, requestedId);
+    final incomingQty = line['qty'] ?? line['quantity'];
+    final savedQty = saved['qty'] ?? saved['quantity'];
+    final incomingCost = line['unitCostCents'];
+    final savedCost = saved['unitCostCents'];
+    if (productId != '${saved['productId'] ?? saved['product_id'] ?? ''}' ||
+        incomingQty is! num || savedQty is! num ||
+        (incomingQty.toDouble() - savedQty.toDouble()).abs() > 0.0000001 ||
+        (incomingCost is num ? incomingCost.toInt() : null) !=
+            (savedCost is num ? savedCost.toInt() : null)) return false;
+  }
+  return true;
+}
+
+Future<Map<String, Object?>?> _existingCatalogIdentity(
+  DatabaseExecutor txn,
+  String entity,
+  Map<String, Object?> row,
+) async {
+  Future<Map<String, Object?>?> unique(String table, String where, List<Object?> args) async {
+    final rows = await txn.query(table, where: where,
+      whereArgs: args, limit: 2);
+    if (rows.length > 1) throw StateError('本地新建的 $entity 与电脑资料匹配不唯一，操作仍保留在手机队列');
+    return rows.isEmpty ? null : rows.single;
+  }
+
+  if (entity == 'product') {
+    final sku = row['sku']?.toString().trim() ?? '';
+    final barcode = row['barcode']?.toString().trim() ?? '';
+    final skuId = sku.isEmpty ? null : await unique('products', 'sku=? AND is_deleted=0', [sku]);
+    final barcodeId = barcode.isEmpty ? null : await unique('products', 'barcode=? AND is_deleted=0', [barcode]);
+    if (skuId != null && barcodeId != null && skuId['id'] != barcodeId['id']) {
+      throw StateError('新商品 SKU 与条码分别匹配不同电脑商品，操作仍保留在手机队列');
+    }
+    return barcodeId ?? skuId;
+  }
+  if (entity == 'customer') {
+    final name = row['name']?.toString().trim() ?? '';
+    final phone = row['phone']?.toString().trim() ?? '';
+    return name.isEmpty ? null : await unique('customers', 'name=? AND phone=? AND is_deleted=0', [name, phone]);
+  }
+  if (entity == 'supplier') {
+    final name = row['name']?.toString().trim() ?? '';
+    final phone = row['phone']?.toString().trim() ?? '';
+    final email = row['email']?.toString().trim() ?? '';
+    final emailId = email.isEmpty ? null : await unique('suppliers', 'email=? COLLATE NOCASE AND is_deleted=0', [email]);
+    final contactId = name.isEmpty ? null : await unique('suppliers', 'name=? AND phone=? AND is_deleted=0', [name, phone]);
+    if (emailId != null && contactId != null && emailId['id'] != contactId['id']) {
+      throw StateError('新供应商邮箱与名称/电话分别匹配不同电脑记录，操作仍保留在手机队列');
+    }
+    return emailId ?? contactId;
+  }
+  if (entity == 'category') {
+    final name = row['name']?.toString().trim() ?? '';
+    return name.isEmpty ? null : await unique('categories', 'name=? COLLATE NOCASE AND is_deleted=0', [name]);
+  }
+  return null;
+}
+
 Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
   final id = op['id']?.toString() ?? '';
   if (id.isEmpty) throw const FormatException('operation id required');
@@ -51,16 +205,42 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         _ => ['name', 'phone', 'notes', 'is_deleted'],
       };
       final row = Map<String, Object?>.from(p['row'] as Map);
-      final entityId = row['id']?.toString() ?? '';
+      var entityId = row['id']?.toString() ?? '';
       if (entityId.isEmpty) throw const FormatException('entity id required');
       final before = p['before'] is Map
           ? Map<String, Object?>.from(p['before'] as Map)
           : null;
-      final existing = await txn.query(
+      var existing = await txn.query(
         table,
         where: 'id=?',
         whereArgs: [entityId],
       );
+      final identity = existing.isEmpty
+          ? await _existingCatalogIdentity(txn, entity, before ?? row)
+          : null;
+      if (identity != null && before == null && row['is_deleted'] != 1) {
+        // Before first pairing Mobile IDs can differ from the Desktop's IDs.
+        // Stock/cost in a new matching catalog row are a local baseline, not
+        // an inventory delta. Pending purchases/stocktakes apply separately.
+        // Other differences require resolution; never silently ACK an edit.
+        for (final key in allowed) {
+          if (['stock', 'cost_cents', 'updated_at'].contains(key)) continue;
+          if (row.containsKey(key) && row[key] != identity[key]) {
+            throw StateError('首次配对冲突：$entityId 的 $key 与电脑不同，操作仍保留在手机队列');
+          }
+        }
+        await txn.insert('sync_applied_operations', {
+          'id': id,
+          'applied_at': now,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        return;
+      }
+      if (identity != null && before != null) {
+        // A later pre-pair edit still carries the original Mobile ID. Resolve
+        // it using its before snapshot, then retain normal conflict checks.
+        entityId = identity['id'] as String;
+        existing = [identity];
+      }
       final changes = <String, Object?>{};
       for (final key in allowed) {
         if (row.containsKey(key) &&
@@ -123,7 +303,8 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         }
       }
     } else if (kind == 'stocktake') {
-      final pid = p['product_id'] as String;
+      final requestedId = p['product_id']?.toString().trim() ?? '';
+      final pid = await _resolvePurchaseProductId(txn, p, requestedId);
       final rows = await txn.query(
         'products',
         where: 'id=? AND is_deleted=0',
@@ -162,13 +343,59 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       }
       final pid = p['id']?.toString() ?? '';
       if (pid.isEmpty) throw const FormatException('purchase id required');
-      final supplierId = p['supplier_id']?.toString().trim() ?? '';
+      final alreadyApplied = await txn.query(
+        'purchases',
+        where: 'id=?',
+        whereArgs: [pid],
+        limit: 1,
+      );
+      if (alreadyApplied.isNotEmpty) {
+        final existing = alreadyApplied.single;
+        final same = await _matchesAppliedPurchase(txn, existing, p);
+        if (!same) throw StateError('进货操作 ID 已存在但内容不一致，已保留待处理操作');
+        // Supports safe repair of pre-v10 unpaired Outbox rows and Lost-ACK
+        // replay with a replacement operation ID: never apply stock twice.
+        await txn.insert('sync_applied_operations', {
+          'id': id,
+          'applied_at': now,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        return;
+      }
+      var supplierId = p['supplier_id']?.toString().trim() ?? '';
       final invoiceNo = p['invoice_no']?.toString().trim() ?? '';
       final overrideDuplicate = p['duplicate_override'] == true;
       final overrideReason =
           p['duplicate_override_reason']?.toString().trim() ?? '';
       if (overrideDuplicate && overrideReason.isEmpty) {
         throw const FormatException('duplicate override reason required');
+      }
+      if (supplierId.isNotEmpty) {
+        final direct = await txn.query(
+          'suppliers',
+          columns: const ['id', 'name', 'phone'],
+          where: 'id=? AND is_deleted=0',
+          whereArgs: [supplierId],
+          limit: 1,
+        );
+        if (direct.isEmpty) {
+          final supplierName = p['supplier_name']?.toString().trim() ?? '';
+          final supplierPhone = p['supplier_phone']?.toString().trim() ?? '';
+          if (supplierName.isNotEmpty) {
+            final matches = await txn.query(
+              'suppliers',
+              columns: const ['id'],
+              where: supplierPhone.isEmpty
+                  ? 'name=? AND is_deleted=0'
+                  : 'name=? AND phone=? AND is_deleted=0',
+              whereArgs: supplierPhone.isEmpty
+                  ? [supplierName]
+                  : [supplierName, supplierPhone],
+              limit: 2,
+            );
+            if (matches.length > 1) throw StateError('供应商资料不唯一，进货仍保留在手机队列');
+            if (matches.length == 1) supplierId = matches.single['id'] as String;
+          }
+        }
       }
       if (supplierId.isNotEmpty && invoiceNo.isNotEmpty) {
         final duplicate = await txn.rawQuery(
@@ -188,8 +415,10 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       final desktopBeforeCosts = <String, int>{};
       final storedLines = <Map<String, dynamic>>[];
       for (final line in lines) {
-        final productId = line['productId']?.toString().trim() ?? '';
+        var productId = line['productId']?.toString().trim() ?? '';
         if (productId.isEmpty) throw const FormatException('purchase product required');
+        productId = await _resolvePurchaseProductId(txn, line, productId);
+        line['productId'] = productId;
         if (!desktopBeforeCosts.containsKey(productId)) {
           final productRows = await txn.query(
             'products',
@@ -212,7 +441,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       await txn.insert('purchases', {
         'id': pid,
         'purchase_no': no,
-        'supplier_id': p['supplier_id'],
+        'supplier_id': supplierId.isEmpty ? null : supplierId,
         'supplier_name': p['supplier_name'],
         'purchased_at': p['purchased_at'],
         'total_cents': p['total_cents'],
