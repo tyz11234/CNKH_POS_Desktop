@@ -4,7 +4,7 @@
 
 技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
 
-> README 最后更新：**2026-09-30**。默认源码与发布分支：`main`。
+> README 最后更新：**2026-10-01**。默认源码与发布分支：`main`。
 
 ## 当前源码与发布版本
 
@@ -13,19 +13,19 @@
 | Desktop `main` 与 Windows Release | **1.10.5+33**（`v1.10.5`） |
 | Mobile `main` 与 Android Release | **1.10.5+33**（`v1.10.5-mobile`） |
 | LAN 协议 | `cnkh-sync:v1` |
-| 修复分支源码（未发布） | **1.10.6+34 / schema v10**，验收限制见下方 |
+| 本次发布源码 | **1.10.6+34 / schema v10**，PR 回归及构建已通过，正式发布流程待完成 |
 | 已发布本地数据库 | e-Invoice 使用 **schema v9** |
 
 Desktop 与 Mobile **1.10.5+33** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
 
-## 2026-09-30 · 1.10.6+34 修复源码（未发布）
+## 2026-10-01 · 1.10.6+34
 
 - 增加可选库存流水同步，检测销售后作废的净零库存活动；明确拒绝的撤销保留请求和审计，未知结果等待原请求确认。
 - Mobile 配对前业务持久化，首次同步先上传再对账；完整快照停用消失记录并保护待确认业务，手动进货保存原子成本快照。
 - MyInvois 最终 Invalid 使用独立纠错尝试，保留原 UUID、payload 与审计；未知提交通过 Get Submission 核对，不重复提交。
 - 两端仅增量升级至 schema v10，保持 `cnkh-sync:v1`。新回归覆盖旧数据库、双端 HTTP、实际备份恢复和可控税务 HTTP 响应。
 
-本次环境没有 Flutter/Dart，分析、完整测试、HTTP 回归及构建命令均返回 127，未完成验收，也未发布安装包。逐项证据、代码入口、用例与实际结果见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+GitHub Actions 已实际执行：Mobile 完整测试 **124 项**、Desktop **116 项**、双端真实 HTTP 回归 **19 项**全部通过；Android Release APK 与 Windows Release 构建通过。分析采用现有 CI 参数 `--no-fatal-infos --no-fatal-warnings`：Mobile **0 error / 5 warnings / 37 infos**，Desktop **0 error / 6 warnings / 38 infos**。正式发布流程完成后更新下方下载链接与校验值。逐项证据、命令、日志与范围见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
 
 ## 下载与更新
 
@@ -103,9 +103,9 @@ Desktop 静态分析、完整测试、Windows Release 构建、培训资源校�
 
 ### 数据库与凭据
 
-- Desktop schema **v9**：新增 `e_invoice_settings`、`e_invoice_documents`、`e_invoice_logs`；v8 及更早版本自动执行增量迁移，原业务表数据不变。
-- Mobile schema **v9**：新增独立 `e_invoice_status` 镜像表；按电脑地址和环境隔离，不修改 sales。
-- 修复源码 schema **v10**：Desktop 新增提交尝试序号与父记录，保留旧 UUID/日志；Mobile 扩展 Outbox 并恢复可核实的从未配对业务。迁移回归本次已编写但未执行。
+- Desktop schema **v9** 时引入 `e_invoice_settings`、`e_invoice_documents`、`e_invoice_logs`；v8 及更早版本自动执行增量迁移，原业务表数据不变。
+- Mobile schema **v9** 时引入独立 `e_invoice_status` 镜像表；按电脑地址和环境隔离，不修改 sales。
+- 当前 schema **v10**：Desktop 新增提交尝试序号与父记录，保留旧 UUID/日志；Mobile 扩展 Outbox 并恢复可核实的从未配对业务。旧数据库升级、重复迁移及业务数据保留回归已通过。
 - Client ID、Secret、PFX/P12 证书及证书密码以 AES-256-GCM 密文保存在 e_invoice_settings，密钥使用操作系统安全存储；OAuth Token 仅驻留内存。日志不记录凭据或完整发票资料。
 - 旧 scaffold 中若曾人工保存明文凭据，升级后会清空该明文，需重新输入。公司和提交资料保留。旧备份可能仍含其原始内容，请按敏感资料保管。
 - 更换电脑/Windows 用户或丢失 OS 密钥后，需要重新输入凭据。数据库备份保留加密内容，不导出解密密钥。
@@ -118,9 +118,9 @@ Desktop 静态分析、完整测试、Windows Release 构建、培训资源校�
 
 ### 开发与验证
 
-完整变更、测试结果、构建记录及已知范围见 [EINVOICE_REPORT.md](EINVOICE_REPORT.md)。手机打包使用 Desktop `v0.4.0`；Desktop 联调默认固定已测试 Mobile 源码，手动运行可通过 `mobile_ref` 指定其他版本。
+完整变更、测试结果、构建记录及已知范围见 [EINVOICE_REPORT.md](EINVOICE_REPORT.md)。手机培训截图沿用 Desktop `v0.4.0`；双端 HTTP 联调读取 `.github/paired-*-ref` 固定已验证源码，手动运行可指定 companion ref。
 
-发布 CI 执行 `flutter analyze`、完整 `flutter test`、真实页面截图捕获，再执行 Windows/APK Release 构建。截图先生成到 `assets/training/` 再打包。源码首次运行前也需要生成截图；Mobile 截图流程须准备 `.training_desktop` 源码及其字体，参照 `mobile-ci.yml`。双端真实 HTTP 回归位于 Desktop `integration/`，运行 `flutter test test regression`。
+发布 CI 执行 `flutter analyze --no-fatal-infos --no-fatal-warnings`、完整 `flutter test`、真实页面截图捕获，再执行 Windows/APK Release 构建。截图先生成到 `assets/training/` 再打包。源码首次运行前也需要生成截图；Mobile 截图流程须准备 `.training_desktop` 源码及其字体，参照 `mobile-ci.yml`。双端真实 HTTP 回归位于 Desktop `integration/`，运行 `flutter test test regression`。
 
 目前 API 自动测试使用 HTTP 模拟响应，覆盖 OAuth 缓存/过期/401、提交成功/失败、重复提交和结果未知。本版在 Desktop 导入 PFX/P12 并生成 MyInvois 数字签名；签名构造按官方 JSON 签名指南实现。真实 MyInvois Sandbox / Production 验收需要店主提供的已授权凭据，本次未执行真实税务提交。构建成功不等于真实设备、打印机或门店网络已验收。
 
@@ -413,7 +413,6 @@ CI 必须同时通过 Desktop tests、Desktop-Mobile integration 与 Windows Rel
 
 - Windows 摄像头 OCR
 - 云 OCR / AI / LLM OCR
-- MyInvois / Malaysia e-Invoice
 - 无人工确认自动入库
 - 云端多门店同步
 

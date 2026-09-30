@@ -1,4 +1,4 @@
-# CNKH POS Desktop 1.10.6+34（修复源码，未发布）
+# CNKH POS Desktop 1.10.6+34
 
 - 为 v1 协议增加可选库存流水与确定性撤销拒绝能力；Mobile 可发现销售后作废的净零库存活动，并保留失败请求及审计。
 - 首次配对按 SKU/条码安全关联已有资料，保留 Desktop 库存与成本基线；业务进货 ID 重放校验内容，避免重复加库存。
@@ -7,7 +7,15 @@
 
 ## 本次实际验证
 
-本地缺少 Flutter/Dart。`flutter analyze`、`flutter test`、`integration/` 下的 `flutter test test regression` 和 Windows Release 构建命令均返回 127，未执行分析、测试或构建。未验证真机、门店网络及真实 MyInvois。本版尚未完成验收或发布；详细证据及后续执行命令见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+- Mobile 完整 `flutter test` **124 项通过**；Desktop 完整测试 **116 项通过**。
+- Desktop `integration/` 的 `flutter test test regression` **19 项通过**；实际双端 HTTP 覆盖净零库存、首次配对、重复/丢失 ACK、队列拒绝和备份恢复。
+- `flutter analyze --no-fatal-infos --no-fatal-warnings`：Mobile **0 error / 5 warnings / 37 infos**；Desktop **0 error / 6 warnings / 38 infos**。这不是零告警分析。
+- PR CI 的 `flutter build apk --release`、`flutter build windows --release` 及培训资源检查通过；正式发布会在 main 重跑并生成下载资产。
+- 旧数据库升级用例已执行。本机缺少 Flutter 的退出 127 记录与远端实际结果分别记载，详见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+
+APK 优先使用仓库稳定签名密钥；未配置时沿用此前已授权的 Android Debug 签名发布方式，实际签名以发布 CI 检查为准。签名不匹配时不能覆盖安装；先完成业务同步与备份，保留旧版未确认操作，避免卸载丢失数据。Windows 包沿用完整 ZIP 便携包，解压后运行 `cnkh_pos_desktop.exe`，保留 DLL 和 data 文件夹。
+
+未执行 Android / Windows 真机升级、门店 Wi-Fi / 防火墙 / 打印机验收，未向真实 MyInvois Sandbox / Production 提交税务发票。MyInvois 回归使用可控 HTTP 响应，保留原 UUID、提交尝试和审计信息。
 
 ---
 

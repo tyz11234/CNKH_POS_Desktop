@@ -2,9 +2,9 @@
 
 > 当前已发布组合：**Desktop v1.10.5+33 + Mobile v1.10.5+33**
 >
-> 修复源码：**1.10.6+34 / schema v10**，尚未完成 Flutter 回归或发布，见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+> 本次发布源码：**1.10.6+34 / schema v10**，两端完整测试及 19 项 HTTP 回归已通过；正式 Release 流程待完成，见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
 >
-> 最后更新：**2026-09-30**
+> 最后更新：**2026-10-01**
 
 CNKH POS 使用 **local-first / no-cloud** 架构。Desktop 是店内局域网权威主机，Mobile 通过同一个 Wi-Fi / LAN 与 Desktop 直接同步。
 

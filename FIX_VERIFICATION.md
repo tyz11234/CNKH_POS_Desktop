@@ -1,11 +1,11 @@
-# CNKH POS 修复与验证记录（2026-09-30）
+# CNKH POS 修复与验证记录（2026-10-01）
 
 ## 基线与工作区
 
 - 已阅读两端 README.md、LAN_SYNC.md、相关可靠性/进货/e-Invoice/发布说明；仓库内未发现 AGENTS.md。
 - 开始时两端工作区干净，没有覆盖、丢弃或重置用户改动。
 - 获取并再次核对 origin/main：Mobile `481faeb89ccf2de8d97e395aa00d74f6960a82a3`；Desktop `82566126415fb69ae55b0542f66ee697a654b1e3`，仍为 1.10.5+33。
-- 修复分支：Mobile `fix/offline-sync-stock-history`；Desktop `fix/einvoice-correction-stock-sync`。修复源码版本为 1.10.6+34，尚未发布。
+- 修复分支：Mobile `fix/offline-sync-stock-history`；Desktop `fix/einvoice-correction-stock-sync`。本次发布源码版本为 1.10.6+34 / schema v10；实际 PR CI 已通过，正式 Release 流程待完成。
 
 ## 逐项复核与改动
 
@@ -27,7 +27,7 @@
 - 老 Desktop 仍按 v1 同步普通业务；没有完整库存流水能力时，Mobile 明确提示升级 Desktop 后才能撤销。没有首次关联能力的旧实现若拒绝未配对请求，队列及本地数据保留。
 - Mobile 状态镜像支持 Invalid；Desktop 对旧状态客户端继续返回其认识的 Rejected 表示，并只镜像最新尝试，完整提交历史仍保存在 Desktop。
 
-## 回归用例（已写入，未执行）
+## 已执行的回归用例
 
 Mobile：
 - `stock_move_sync_test.dart`：销售后作废净零库存、旧主机能力边界、库存游标回退、非确定结果的队列顺序。
@@ -44,36 +44,46 @@ Desktop：
 - `integration/test/pos_pair_test.dart`：实际双端 HTTP 的净零库存、入队后拒绝、丢失撤销 ACK、首次配对、v9 未配对升级、新/已有目录、重复 ACK、进货 ID 内容冲突、过期 SKU 不得重定向已映射商品、Desktop 执行成本、实际 .cnkhbackup 恢复后全量目录及待同步保护。
 - `integration/regression/offline_cancel_test.dart`：新增 Invalid 状态镜像兼容断言。
 
-完整双端 HTTP 命令必须同时覆盖 `integration/test` 与 `integration/regression`。本地 harness 使用相邻的两份修复源码；两端 pair-regression.yml 改为读取 .github/paired-*-ref，允许手动覆盖并记录实际配对 SHA，避免继续测试旧发布源码。配对文件引用本次修复的本地提交；推送授权后应先推送两端分支，再创建草稿 PR，避免 companion SHA 尚未上传时触发工作流。两端后续仅文档/配对文件提交未改变被引用的业务代码。
+完整双端 HTTP 命令同时覆盖 `integration/test` 与 `integration/regression`。两端 `pair-regression.yml` 读取 `.github/paired-*-ref`，允许手动指定 companion ref 并记录实际 SHA。最终业务代码组合：Mobile `30259b449bad3810a8babbc82c920dafd83cd053` + Desktop `69454048ead4e0a033aaff798200bcc0b811d4c4`，Desktop HTTP 工作流已实际验证此组合。后续发布文档及 companion ref 提交不改变业务代码。
 
 ## 实际执行结果
 
-| 工作目录 | 命令 | 实际结果 |
+### GitHub Actions PR 回归与构建
+
+| 工作目录 | 实际命令 | 结果与日志 |
 | --- | --- | --- |
-| Mobile | `flutter analyze` | 退出 127，flutter: command not found；未启动分析 |
-| Mobile | `flutter test` | 退出 127，flutter: command not found；未执行测试 |
-| Mobile | `flutter build apk --release` | 退出 127，flutter: command not found；未构建 APK |
-| Desktop | `flutter analyze` | 退出 127，flutter: command not found；未启动分析 |
-| Desktop | `flutter test` | 退出 127，flutter: command not found；未执行测试 |
-| Desktop/integration | `flutter test test regression` | 退出 127，flutter: command not found；未执行双端 HTTP 测试 |
-| Desktop | `flutter build windows --release` | 退出 127，flutter: command not found；未构建 Windows Release |
-| 两端 | `git diff --check` 与 `git diff --cached --check` | 已执行，无空白错误；这不等于 Dart 分析或 Flutter 回归通过 |
+| Mobile | `flutter analyze --no-fatal-infos --no-fatal-warnings` | 成功，0 error、5 warnings、37 infos；[Mobile CI](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36785588879) |
+| Mobile | `flutter test` | 124 项通过；同上 |
+| Mobile | `flutter build apk --release` | 成功，APK 113.5 MB；PR 临时验证签名，不作为正式发布 APK；同上 |
+| Desktop | `flutter analyze --no-fatal-infos --no-fatal-warnings` | 成功，0 error、6 warnings、38 infos；[Windows CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36785895779) |
+| Desktop | `flutter test` | 116 项通过；同上 |
+| Desktop | `flutter build windows --release` | 成功，Windows x64 ZIP 及培训资源检查通过；同上 |
+| Desktop/integration | `flutter analyze --no-fatal-infos --no-fatal-warnings` | No issues found；[Desktop HTTP](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36785895856) / [Mobile HTTP](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36785589132) |
+| Desktop/integration | `flutter test test regression` | 两端工作流各 19 项通过；Desktop 工作流使用最终业务代码组合 |
+| 两端 | `flutter test tool/training_capture_test.dart`、`flutter test tool/training_view_test.dart`、`tool/verify_training_bundle.py` | 实际截图、箭头及打包资源检查通过 |
+| 两端 | `git diff --check`、`git diff --cached --check` | 无空白错误；不替代 Flutter 回归 |
 
-当前运行环境是 Linux，PATH 及已检查的 SDK 目录没有 Flutter/Dart。官方 SDK 清单下载也未成功：普通请求代理连接超时，授权重试返回 HTTP 404。没有伪造 Flutter 测试结果，没有将代码审查或 SQLite 场景模拟计作 Flutter 测试，也未生成安装包。
+分析沿用既有 CI 的非致命 warning/info 参数，没有将其写成零告警结果。完整 Flutter 测试和双端 HTTP 均已实际执行，未把先前 SQLite 模拟计作 Flutter 回归。
 
-## 远端 CI 与审查交付
+### CI 首轮失败及修正
 
-已核实 GitHub 连接对两端仓库有写权限，并检查既有 PR 工作流：可运行两端分析/完整测试、配套 HTTP，以及 Windows/APK 构建。本地已经提交全部代码和回归用例，并修正两端 HTTP 工作流的旧 companion ref。
+- Mobile 首轮 122 通过、2 失败：附件延期提示与既有断言不一致，以及新增 MockClient 响应默认 Latin-1 无法编码中文。恢复现有“仍待重试”提示，并让模拟 HTTP 明确采用 UTF-8 字节及 Content-Type；业务断言保留。重跑 124 项通过。
+- Desktop 首轮 114 通过、2 失败：审计 JSON 的远端 `status` 覆盖本地 `unknown_status` / `identity_mismatch` 决策。修复 `_log` 字段写入顺序，单独保存 `remote_status`，同时保留审计决策；增加相关断言。重跑 116 项通过。
+- 初次失败日志：[Mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36785207393)、[Desktop](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36785209838)。未忽略失败或弱化业务断言。
 
-尝试推送 Mobile 的隔离修复分支时，自动审批明确拒绝：向公开 GitHub 仓库发布大量新增源码和测试属于外部副作用，用户尚未明确授权；本地提交已经能供审查。用户回复“继续”后再次尝试推送，自动审批仍判定尚未明确授权公开发布并再次拒绝。按该拒绝要求，没有改用 GitHub API 绕过；没有创建远端修复分支/PR，也没有执行远端 CI。需要明确允许推送公开仓库修复分支。
+### 原本地环境限制
 
-用户已明确要求推送、发布 APK 和 Windows 包并更新 README。接下来执行：推送两端隔离修复分支、创建草稿 PR、运行现有 PR CI。分析采用现有 CI 的 `flutter analyze --no-fatal-infos --no-fatal-warnings`，完整测试采用 `flutter test`；HTTP 为 `flutter test test regression`，构建为 `flutter build windows --release` / `flutter build apk --release`。PR APK 使用现有临时验证签名。回归通过后按本次授权合并并发布；发布结果将更新至 README。
+本机为 Linux，没有 Flutter/Dart；以下七条命令均实际尝试并返回 127 `flutter: command not found`：Mobile 的 `flutter analyze` / `flutter test` / `flutter build apk --release`，Desktop 的 `flutter analyze` / `flutter test` / `flutter build windows --release`，以及 Desktop/integration 的 `flutter test test regression`。官方 SDK 清单普通请求超时、授权重试返回 404。此后通过 GitHub Actions 的 Ubuntu / Windows runner 实际完成上述分析、测试与构建；本机失败未记为通过。
 
-此前推送审批阻碍已获得本次明确授权；本地 Git 缺少远端凭据，改由已连接的 GitHub 工具上传相同源码。CI 尚待执行，验收尚未完成。
+## 推送、审查与发布
+
+用户已明确授权推送、发布 APK 和电脑包，并更新 README。两端修复分支已上传，审查入口：[Mobile PR #17](https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/17)、[Desktop PR #17](https://github.com/tyz11234/CNKH_POS_Desktop/pull/17)。上传通过已连接的 GitHub 工具完成；本地 Git 没有写入凭据，没有覆盖原 main 或丢弃用户改动。
+
+正式发布流程将合并已验证的业务代码与发布文档，在 main 再跑分析、完整测试、培训资源及 Release 构建，生成 `v1.10.6-mobile` APK 和 `v1.10.6` Windows ZIP；实际 Release 与资产校验值完成后更新此记录及两端 README。
 
 ## 尚未验证
 
-Dart 编译/静态分析、两端完整 Flutter 测试、双端 HTTP 回归和迁移用例执行均待具备 SDK 的环境验证。Windows 构建需要 Windows 构建环境；Android APK 本次未构建。未执行 Android/Windows 真机升级、门店 Wi-Fi/防火墙/断线重连、打印机及真实 MyInvois Sandbox/Production 税务提交。
+未执行 Android / Windows 真机覆盖升级、实体 SQLite 数据库升级、门店 Wi-Fi / 防火墙 / 断线重连、打印机验收。双端 HTTP 使用 localhost，不代表门店网络测试。MyInvois 状态回归使用可控 HTTP 模拟，未调用真实 MyInvois Sandbox / Production 税务提交，也未验收真实企业证书及 Portal 操作。
 
 ## MyInvois 官方依据
 
