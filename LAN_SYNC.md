@@ -1,8 +1,8 @@
 # CNKH LAN Sync v1
 
-> 当前已发布组合：**Desktop v1.10.5+33 + Mobile v1.10.5+33**
+> 当前已发布组合：**Desktop 1.10.6+34 + Mobile 1.10.6+34**
 >
-> 本次发布源码：**1.10.6+34 / schema v10**，两端完整测试及 19 项 HTTP 回归已通过；正式 Release 流程待完成，见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+> 数据库 **schema v10**；两端完整测试、19 项 HTTP 回归及正式 Release 构建已通过，见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
 >
 > 最后更新：**2026-10-01**
 

@@ -10,10 +10,10 @@
 - Mobile 完整 `flutter test` **124 项通过**；Desktop 完整测试 **116 项通过**。
 - Desktop `integration/` 的 `flutter test test regression` **19 项通过**；实际双端 HTTP 覆盖净零库存、首次配对、重复/丢失 ACK、队列拒绝和备份恢复。
 - `flutter analyze --no-fatal-infos --no-fatal-warnings`：Mobile **0 error / 5 warnings / 37 infos**；Desktop **0 error / 6 warnings / 38 infos**。这不是零告警分析。
-- PR CI 的 `flutter build apk --release`、`flutter build windows --release` 及培训资源检查通过；正式发布会在 main 重跑并生成下载资产。
+- PR 与 main 发布 CI 的 `flutter build apk --release`、`flutter build windows --release` 及培训资源检查通过；APK、Windows ZIP 与 SHA256SUMS 已正式发布。
 - 旧数据库升级用例已执行。本机缺少 Flutter 的退出 127 记录与远端实际结果分别记载，详见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
 
-APK 优先使用仓库稳定签名密钥；未配置时沿用此前已授权的 Android Debug 签名发布方式，实际签名以发布 CI 检查为准。签名不匹配时不能覆盖安装；先完成业务同步与备份，保留旧版未确认操作，避免卸载丢失数据。Windows 包沿用完整 ZIP 便携包，解压后运行 `cnkh_pos_desktop.exe`，保留 DLL 和 data 文件夹。
+本次 APK 实际采用 **Android Debug 签名**，证书 SHA-256：`4e28edc15b7df8f8fe3245805e7a7db7e88ba5c5217cd76fa196d993b12f2fc4`；CI 已验证签名、INTERNET 权限及培训资源。该签名不保证与旧 APK 或未来构建一致。签名不匹配时不能覆盖安装；先完成业务同步与备份，保留旧版未确认操作，避免卸载丢失数据。Windows 包沿用完整 ZIP 便携包，解压后运行 `cnkh_pos_desktop.exe`，保留 DLL 和 data 文件夹。
 
 未执行 Android / Windows 真机升级、门店 Wi-Fi / 防火墙 / 打印机验收，未向真实 MyInvois Sandbox / Production 提交税务发票。MyInvois 回归使用可控 HTTP 响应，保留原 UUID、提交尝试和审计信息。
 

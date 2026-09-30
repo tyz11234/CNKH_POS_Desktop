@@ -5,7 +5,7 @@
 - 已阅读两端 README.md、LAN_SYNC.md、相关可靠性/进货/e-Invoice/发布说明；仓库内未发现 AGENTS.md。
 - 开始时两端工作区干净，没有覆盖、丢弃或重置用户改动。
 - 获取并再次核对 origin/main：Mobile `481faeb89ccf2de8d97e395aa00d74f6960a82a3`；Desktop `82566126415fb69ae55b0542f66ee697a654b1e3`，仍为 1.10.5+33。
-- 修复分支：Mobile `fix/offline-sync-stock-history`；Desktop `fix/einvoice-correction-stock-sync`。本次发布源码版本为 1.10.6+34 / schema v10；实际 PR CI 已通过，正式 Release 流程待完成。
+- 修复分支：Mobile `fix/offline-sync-stock-history`；Desktop `fix/einvoice-correction-stock-sync`。1.10.6+34 / schema v10 已合并到 main 并正式发布；PR 与 main 的实际回归和构建均已通过。
 
 ## 逐项复核与改动
 
@@ -79,7 +79,23 @@ Desktop：
 
 用户已明确授权推送、发布 APK 和电脑包，并更新 README。两端修复分支已上传，审查入口：[Mobile PR #17](https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/17)、[Desktop PR #17](https://github.com/tyz11234/CNKH_POS_Desktop/pull/17)。上传通过已连接的 GitHub 工具完成；本地 Git 没有写入凭据，没有覆盖原 main 或丢弃用户改动。
 
-正式发布流程将合并已验证的业务代码与发布文档，在 main 再跑分析、完整测试、培训资源及 Release 构建，生成 `v1.10.6-mobile` APK 和 `v1.10.6` Windows ZIP；实际 Release 与资产校验值完成后更新此记录及两端 README。
+两端 PR #17 已合并。正式发布工作流在 main **再次**执行并成功完成分析、完整测试、培训截图、Release 构建、资源校验及 Release 上传：
+
+| 发布项目 | 源码提交 | main 工作流 | 实际结果 |
+| --- | --- | --- | --- |
+| Mobile 1.10.6+34 | `72a90f3a8ce9755745ce3d5c92f74965da71c419` | [Mobile Release CI](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36787037652) | 124 项完整测试；0 error / 5 warnings / 37 infos；APK Release 构建成功 |
+| Desktop 1.10.6+34 | `e401658c0d1302d526af594fb1b620c542404147` | [Windows Release CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36787027104) | 116 项完整测试；0 error / 6 warnings / 38 infos；Windows x64 Release 构建成功 |
+| 正式 Mobile + 最终 Desktop 业务代码 | Mobile main 发布提交 + Desktop `69454048`（业务代码与 Desktop 发布提交相同） | [main HTTP 回归](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36787037450) | 19 项真实 HTTP 测试通过，分析无问题 |
+| Desktop 培训截图 | Desktop main 发布提交 | [截图验证](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36787027282) | 成功 |
+
+- [Mobile Release v1.10.6-mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.6-mobile)：`CNKH_POS_Mobile.apk` 与 `CNKH_POS_Mobile_v1.10.6.apk`，各 113,558,192 字节；两者 SHA-256 均为 `e68f680c57928aa160a7a82a4ea18fcf1599532b7682672a4f2c8ad1292b46b8`。
+- [Desktop Release v1.10.6](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.6)：`CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip`，17,475,148 字节；SHA-256 为 `ac6edbda2da3c1f484461e7df2d38490142f8fb28fab6780e6983284ab40c7e8`。
+- 两端 Release 均为公开、非草稿、非 prerelease，资产状态 uploaded；GitHub 资产 digest 与实际发布 CI 的 SHA256SUMS 一致。每个 Release 附 `SHA256SUMS.txt`。
+- Windows ZIP 已从正式 Release 下载，实际 SHA-256、ZIP CRC、`cnkh_pos_desktop.exe` / `flutter_windows.dll` / `data/icudtl.dat` 及 Flutter/培训资源检查通过。包沿用现有便携 ZIP，不含安装向导。
+- APK 已从正式 Release 下载：实际 SHA-256 与 CI / GitHub digest 一致，ZIP CRC、AndroidManifest、Release native code 及培训资源存在性通过。额外的本地 `python3 tool/verify_training_bundle.py … --kind mobile` 初次因未生成 `assets/training/login.png` 返回 FileNotFoundError；随后下载独立的发布 CI 截图 artifact（SHA-256 已核对）作为参考，重跑后 16 组截图、尺寸及箭头元数据全部通过。没有从 APK 自身提取文件充当参考。
+- 本次 APK 实际使用 Android Debug 证书；`apksigner verify --print-certs` 通过。证书 SHA-256 为 `4e28edc15b7df8f8fe3245805e7a7db7e88ba5c5217cd76fa196d993b12f2fc4`，INTERNET 权限及培训资源检查通过。未使用稳定发布 keystore，不保证能覆盖旧 APK；保持旧版数据，先同步/备份，不能用卸载代替未确认业务的核对。
+- 发布后的 README、校验值和配对 SHA 仅作为文档更新，不改变安装包业务代码或覆盖发布资产。配对文件固定本次正式发布提交，避免后续联调重新使用旧版本。
+
 
 ## 尚未验证
 

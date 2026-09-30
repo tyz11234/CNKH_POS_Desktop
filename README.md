@@ -10,13 +10,12 @@
 
 | 项目 | 版本 |
 | --- | --- |
-| Desktop `main` 与 Windows Release | **1.10.5+33**（`v1.10.5`） |
-| Mobile `main` 与 Android Release | **1.10.5+33**（`v1.10.5-mobile`） |
+| Desktop `main` 与 Windows Release | **1.10.6+34**（`v1.10.6`） |
+| Mobile `main` 与 Android Release | **1.10.6+34**（`v1.10.6-mobile`） |
 | LAN 协议 | `cnkh-sync:v1` |
-| 本次发布源码 | **1.10.6+34 / schema v10**，PR 回归及构建已通过，正式发布流程待完成 |
-| 已发布本地数据库 | e-Invoice 使用 **schema v9** |
+| 本地数据库 | **schema v10**，自动增量升级旧数据库 |
 
-Desktop 与 Mobile **1.10.5+33** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
+Desktop 与 Mobile **1.10.6+34** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
 
 ## 2026-10-01 · 1.10.6+34
 
@@ -25,23 +24,26 @@ Desktop 与 Mobile **1.10.5+33** 已通过 Release CI 构建并发布，Windows 
 - MyInvois 最终 Invalid 使用独立纠错尝试，保留原 UUID、payload 与审计；未知提交通过 Get Submission 核对，不重复提交。
 - 两端仅增量升级至 schema v10，保持 `cnkh-sync:v1`。新回归覆盖旧数据库、双端 HTTP、实际备份恢复和可控税务 HTTP 响应。
 
-GitHub Actions 已实际执行：Mobile 完整测试 **124 项**、Desktop **116 项**、双端真实 HTTP 回归 **19 项**全部通过；Android Release APK 与 Windows Release 构建通过。分析采用现有 CI 参数 `--no-fatal-infos --no-fatal-warnings`：Mobile **0 error / 5 warnings / 37 infos**，Desktop **0 error / 6 warnings / 38 infos**。正式发布流程完成后更新下方下载链接与校验值。逐项证据、命令、日志与范围见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+GitHub Actions 已实际执行：Mobile 完整测试 **124 项**、Desktop **116 项**、双端真实 HTTP 回归 **19 项**全部通过；Android Release APK 与 Windows Release 构建通过。分析采用现有 CI 参数 `--no-fatal-infos --no-fatal-warnings`：Mobile **0 error / 5 warnings / 37 infos**，Desktop **0 error / 6 warnings / 38 infos**。正式 Release 的 main 工作流也已重跑通过，安装包与校验文件已上传。逐项证据、命令、日志与范围见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
 
 ## 下载与更新
 
-- [Windows x64 便携包（1.10.5+33）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.5/CNKH_POS_Desktop-windows-x64-v1.10.5-33.zip)
-- [Windows ZIP 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.5/SHA256SUMS.txt)
-- [Desktop Release `v1.10.5`](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.5)
-- [Android APK（1.10.5+33）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.5-mobile/CNKH_POS_Mobile.apk)
-- [版本化 APK（内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.5-mobile/CNKH_POS_Mobile_v1.10.5.apk)
-- [Mobile APK 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.5-mobile/SHA256SUMS.txt)
-- [Mobile Release `v1.10.5-mobile`](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.5-mobile)
+- [Windows x64 便携包（1.10.6+34）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.6/CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip)
+- [Windows ZIP 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.6/SHA256SUMS.txt)
+- [Desktop Release `v1.10.6`](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.6)
+- [Android APK（1.10.6+34）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.6-mobile/CNKH_POS_Mobile.apk)
+- [版本化 APK（内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.6-mobile/CNKH_POS_Mobile_v1.10.6.apk)
+- [Mobile APK 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.6-mobile/SHA256SUMS.txt)
+- [Mobile Release `v1.10.6-mobile`](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.6-mobile)
 
-SHA-256（按上述 Release 资产计算）：Desktop ZIP `009e63826fb881f012d61b501640b4004891a408dc1f54101e0b82f77443cd9e`；Mobile APK `a38ae8daae263aa34e2443e2bc8b0f9d930b06b2c52506b0c386ec610ee7bdbb`。
+| 发布文件 | SHA-256 |
+| --- | --- |
+| `CNKH_POS_Mobile.apk`（两个 APK 文件内容相同） | `e68f680c57928aa160a7a82a4ea18fcf1599532b7682672a4f2c8ad1292b46b8` |
+| `CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip` | `ac6edbda2da3c1f484461e7df2d38490142f8fb28fab6780e6983284ab40c7e8` |
 
 更新 Desktop 前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
 
-Mobile APK 由 Release 工作流按仓库签名配置签名：配置完整的稳定 keystore 时使用该密钥；否则在获授权的发布任务中使用 Android Debug 密钥。若 Android 提示签名不一致，请先完成业务同步和备份，再处理卸载与安装；卸载可能清除本地数据。
+本次 APK 是 Release 构建，实际使用 **Android Debug 签名证书**；没有使用稳定发布 keystore。证书 SHA-256：`4e28edc15b7df8f8fe3245805e7a7db7e88ba5c5217cd76fa196d993b12f2fc4`。该证书不保证与旧 APK 或未来构建一致；签名不匹配时 Android 会拒绝覆盖安装。请保留旧版，先同步并备份业务数据，尤其是未确认的离线操作；卸载会清除应用本地数据。
 
 ## 2026-09-26 · 1.10.5+33
 
@@ -114,7 +116,7 @@ Desktop 静态分析、完整测试、Windows Release 构建、培训资源校�
 
 右上角及 Settings 原培训入口均提供 11 课：登录与权限、商品销售、收款、退款、库存、手机连接电脑、数据同步、数据备份、e-Invoice 设置、e-Invoice 提交、常见错误处理。
 
-培训使用 `tool/training_capture_test.dart` 实际渲染的应用页面截图；箭头坐标来自真实控件位置，可缩放查看。截图资料为隔离测试数据库内容，配对截图不是门店可用配对码。Mobile 的电脑操作课程使用同版本 Desktop 截图。
+培训使用 `tool/training_capture_test.dart` 实际渲染的应用页面截图；箭头坐标来自真实控件位置，可缩放查看。截图资料为隔离测试数据库内容，配对截图不是门店可用配对码。Desktop 培训使用本版本实际截图；Mobile 的电脑操作课程沿用其工作流固定的 Desktop 源码截图（见下方开发与验证）。
 
 ### 开发与验证
 
