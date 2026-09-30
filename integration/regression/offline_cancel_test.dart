@@ -55,7 +55,7 @@ void main() {
     final d = await desktopDb.db;
     final imported = (await desktop.salesAll()).single;
     await d.insert('e_invoice_documents', {'id':'status-test','sale_id':imported.id,'invoice_no':imported.receiptNo,'environment':'production','status':'submitted'});
-    for (final state in ['submitted','validated','rejected']) {
+    for (final state in ['submitted','validated','rejected','invalid']) {
       await d.update('e_invoice_documents', {'status':state}, where:'id=?',whereArgs:['status-test']);
       await client.synchronize(config);
       expect((await store.history(config.normalizedBase, 'production')).single['status'], state);
@@ -64,7 +64,7 @@ void main() {
     expect((await store.history(config.normalizedBase, 'sandbox')).single['status'], 'pending');
     await host.stop();
     await expectLater(client.synchronize(config), throwsA(anything));
-    expect((await store.history(config.normalizedBase, 'production')).single['status'], 'rejected');
+    expect((await store.history(config.normalizedBase, 'production')).single['status'], 'invalid');
   });
   test('Desktop-origin invoice status follows synchronized receipt despite different local UUID', () async {
     final product = (await desktop.getProduct('desktop-product'))!;

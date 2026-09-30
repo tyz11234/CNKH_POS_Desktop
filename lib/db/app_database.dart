@@ -70,7 +70,7 @@ class AppDatabase {
     final path = _testPath??p.join(dir!.path, 'cnkh_pos_desktop.db');
     _db = await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) async {
@@ -239,7 +239,7 @@ CREATE TABLE audit_logs (
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 9) await ensureEInvoiceSchema(db);
+    if (oldVersion < 10) await ensureEInvoiceSchema(db);
     if(oldVersion<7) await ensureReliabilitySchema(db);
     if (oldVersion < 2) {
       final cols = await db.rawQuery('PRAGMA table_info(sales)');

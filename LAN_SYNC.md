@@ -1,7 +1,10 @@
 # CNKH LAN Sync v1
 
-> 当前推荐正式组合：**Desktop v1.10.4+32 + Mobile v1.10.4+32**  
-> 最后更新：**2026-09-23**
+> 当前已发布组合：**Desktop v1.10.5+33 + Mobile v1.10.5+33**
+>
+> 修复源码：**1.10.6+34 / schema v10**，尚未完成 Flutter 回归或发布，见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+>
+> 最后更新：**2026-09-30**
 
 CNKH POS 使用 **local-first / no-cloud** 架构。Desktop 是店内局域网权威主机，Mobile 通过同一个 Wi-Fi / LAN 与 Desktop 直接同步。
 
@@ -78,6 +81,17 @@ Mobile 不把 WebSocket 当成唯一数据来源；断线、重连或事件遗�
 - Mobile 支持强制全量对账。
 
 ## 当前实现位置
+
+### 修复源码的可选能力
+
+- `stock_moves_v1`：`GET /api/v1/stock-moves?since=` 导出稳定 ID 的库存活动，按流水插入顺序推进游标；销售后作废仍保留两笔活动。主机游标回退时全量替换主机来源标记，不删除本机业务流水。
+- `mutation_rejections_v1`：`POST /api/v1/mutations` 对明确事务拒绝的进货撤销返回 `rejected_operation`。客户端校验操作 ID 后保留请求，核实并补偿旧版本已执行的本机撤销，再允许后续业务同步。超时、无结构错误或丢失 ACK 保持原请求顺序等待确认。
+- Mobile 配对前事务入队，首次同步先上传。已有 SKU/条码按唯一身份关联；已有 Desktop 的库存/成本基线不会被手机缓存覆盖。字段冲突与无法核实的旧库存基线保留为待处理错误，不丢弃业务。
+- 完整目录是权威快照；只停用已映射但快照缺失的资料。待确认库存业务先上传，失败时不覆盖本机库存。无效快照不推进游标。
+- `einvoice_status_v1` 的 `status_version=2` 支持最终 `invalid`，只镜像最新尝试；未声明新版状态的客户端继续收到旧版认识的 `rejected` 表示。
+- 没有完整库存流水能力的旧 Desktop 仍可同步其他 v1 业务；Mobile 撤销会明确提示先升级 Desktop，保留本机资料与队列。
+
+协议前缀与认证方式不变。
 
 Desktop：
 

@@ -4,7 +4,7 @@
 
 技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
 
-> README 最后更新：**2026-09-26**。默认源码与发布分支：`main`。
+> README 最后更新：**2026-09-30**。默认源码与发布分支：`main`。
 
 ## 当前源码与发布版本
 
@@ -13,9 +13,19 @@
 | Desktop `main` 与 Windows Release | **1.10.5+33**（`v1.10.5`） |
 | Mobile `main` 与 Android Release | **1.10.5+33**（`v1.10.5-mobile`） |
 | LAN 协议 | `cnkh-sync:v1` |
-| 本地数据库 | e-Invoice 使用 **schema v9** |
+| 修复分支源码（未发布） | **1.10.6+34 / schema v10**，验收限制见下方 |
+| 已发布本地数据库 | e-Invoice 使用 **schema v9** |
 
 Desktop 与 Mobile **1.10.5+33** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
+
+## 2026-09-30 · 1.10.6+34 修复源码（未发布）
+
+- 增加可选库存流水同步，检测销售后作废的净零库存活动；明确拒绝的撤销保留请求和审计，未知结果等待原请求确认。
+- Mobile 配对前业务持久化，首次同步先上传再对账；完整快照停用消失记录并保护待确认业务，手动进货保存原子成本快照。
+- MyInvois 最终 Invalid 使用独立纠错尝试，保留原 UUID、payload 与审计；未知提交通过 Get Submission 核对，不重复提交。
+- 两端仅增量升级至 schema v10，保持 `cnkh-sync:v1`。新回归覆盖旧数据库、双端 HTTP、实际备份恢复和可控税务 HTTP 响应。
+
+本次环境没有 Flutter/Dart，分析、完整测试、HTTP 回归及构建命令均返回 127，未完成验收，也未发布安装包。逐项证据、代码入口、用例与实际结果见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
 
 ## 下载与更新
 
@@ -80,8 +90,9 @@ Desktop 静态分析、完整测试、Windows Release 构建、培训资源校�
 | Pending | 本地销售尚未提交；补齐资料后由 Desktop 提交 |
 | Submitted | MyInvois 已接收，等待查询验证结果 |
 | Validated | 官方返回 Valid |
-| Rejected | 被拒收或验证失败；核对资料及 Portal 验证结果 |
-| needs_review / submitting | 提交结果未知或程序中断；先在 Portal 查找 UUID，再使用“核对 UUID”，不要重提 |
+| Rejected | 同步拒收且无 UUID；更正资料后生成新的重试记录，保留原记录 |
+| Invalid | 已有 UUID 的最终验证失败；查询错误，更正资料后用“更正 / 生成”创建新的发票号码及关联尝试 |
+| needs_review / submitting | 提交结果未知或程序中断；先在 Portal 查找 UUID 和 Submission UID，再使用“核对 UUID”验证原提交，不要重提 |
 | Cancelled | 官方已确认取消；不会自动退款或改动 POS 库存 |
 
 网络超时、重复提交响应或未知结果会冻结重试，防止重复发票。明确的认证/请求错误允许纠正后重试。取消须填写原因，并由 MyInvois 执行取消期限规则；超期调整、贷项和退款票在 Portal 办理。
@@ -94,6 +105,7 @@ Desktop 静态分析、完整测试、Windows Release 构建、培训资源校�
 
 - Desktop schema **v9**：新增 `e_invoice_settings`、`e_invoice_documents`、`e_invoice_logs`；v8 及更早版本自动执行增量迁移，原业务表数据不变。
 - Mobile schema **v9**：新增独立 `e_invoice_status` 镜像表；按电脑地址和环境隔离，不修改 sales。
+- 修复源码 schema **v10**：Desktop 新增提交尝试序号与父记录，保留旧 UUID/日志；Mobile 扩展 Outbox 并恢复可核实的从未配对业务。迁移回归本次已编写但未执行。
 - Client ID、Secret、PFX/P12 证书及证书密码以 AES-256-GCM 密文保存在 e_invoice_settings，密钥使用操作系统安全存储；OAuth Token 仅驻留内存。日志不记录凭据或完整发票资料。
 - 旧 scaffold 中若曾人工保存明文凭据，升级后会清空该明文，需重新输入。公司和提交资料保留。旧备份可能仍含其原始内容，请按敏感资料保管。
 - 更换电脑/Windows 用户或丢失 OS 密钥后，需要重新输入凭据。数据库备份保留加密内容，不导出解密密钥。

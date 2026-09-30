@@ -32,14 +32,32 @@ Future<void> ensureEInvoiceSchema(DatabaseExecutor db) async {
     'buyer_json': "TEXT NOT NULL DEFAULT '{}'",
     'updated_at': "TEXT NOT NULL DEFAULT ''",
     'long_id': "TEXT NOT NULL DEFAULT ''",
+    'attempt_no': 'INTEGER NOT NULL DEFAULT 1',
+    'parent_document_id': "TEXT NOT NULL DEFAULT ''",
   });
   // Both historical scaffold variants remain readable.
   await columns('e_invoice_logs', {
     'request_json': "TEXT NOT NULL DEFAULT ''", 'response_json': "TEXT NOT NULL DEFAULT ''",
   });
+  // Only legacy rows that received the default attempt number need a
+  // backfill. Never renumber valid attempts on a later database open.
+  final duplicateAttempts = await db.rawQuery('''SELECT sale_id,environment,COUNT(*) AS n
+    FROM e_invoice_documents GROUP BY sale_id,environment
+    HAVING COUNT(*)>COUNT(DISTINCT attempt_no)''');
+  for (final group in duplicateAttempts) {
+    final documents = await db.query('e_invoice_documents',
+      columns: ['id'], where: 'sale_id=? AND environment=?',
+      whereArgs: [group['sale_id'], group['environment']],
+      orderBy: 'updated_at,id');
+    for (var i = 0; i < documents.length; i++) {
+      await db.update('e_invoice_documents', {'attempt_no': i + 1},
+        where: 'id=?', whereArgs: [documents[i]['id']]);
+    }
+  }
   // Legacy scaffolds did not encrypt credentials. Require re-entry rather than retain plaintext.
   await db.execute('PRAGMA secure_delete = ON');
   await db.execute("UPDATE e_invoice_settings SET client_id='', client_secret='' WHERE client_id<>'' OR client_secret<>''");
   await db.execute('CREATE INDEX IF NOT EXISTS idx_einvoice_sale ON e_invoice_documents(sale_id, environment)');
+  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_einvoice_sale_attempt ON e_invoice_documents(sale_id, environment, attempt_no)');
   await db.execute('CREATE INDEX IF NOT EXISTS idx_einvoice_status ON e_invoice_documents(status)');
 }

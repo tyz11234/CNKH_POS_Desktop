@@ -446,6 +446,8 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'purchases_v1',
           'barcode_queue_idempotency',
           'einvoice_status_v1',
+          'stock_moves_v1',
+          'mutation_rejections_v1',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -453,6 +455,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         'name': name,
         'clients': connectedClients,
         'cursor': await _latestChangeSeq(db),
+        'stock_moves_cursor': await _latestStockMoveSeq(db),
       });
       return;
     }
@@ -463,6 +466,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     }
     if (request.method == 'GET' && path == '/api/v1/products') {
       await _getProducts(request);
+      return;
+    }
+    if (request.method == 'GET' && path == '/api/v1/stock-moves') {
+      await _getStockMoves(request);
       return;
     }
     if (request.method == 'GET' &&
@@ -492,11 +499,16 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     if (request.method == 'GET' && path == '/api/v1/einvoices') {
       final db = await _db.db;
       final after = request.uri.queryParameters['after'] ?? '';
+      final extendedStatuses = request.uri.queryParameters['status_version'] == '2';
       final rows = await db.rawQuery('''SELECT d.id AS document_id, d.sale_id,
         COALESCE(m.client_sale_id,'') AS client_sale_id, d.invoice_no AS receipt_no,
-        d.environment, d.status, d.updated_at FROM e_invoice_documents d
+        d.environment, CASE WHEN d.status='invalid' AND ?=0 THEN 'rejected' ELSE d.status END AS status,
+        d.updated_at FROM e_invoice_documents d
         LEFT JOIN lan_sync_mobile_sales m ON m.sale_id=d.sale_id
-        WHERE d.id>? ORDER BY d.id LIMIT 200''', [after]);
+        WHERE d.id>? AND NOT EXISTS(SELECT 1 FROM e_invoice_documents newer
+          WHERE newer.sale_id=d.sale_id AND newer.environment=d.environment
+            AND newer.attempt_no>d.attempt_no)
+        ORDER BY d.id LIMIT 200''', [extendedStatuses ? 1 : 0, after]);
       await _json(request.response, HttpStatus.ok, {'items': rows, 'has_more': rows.length == 200, 'next': rows.isEmpty ? after : rows.last['document_id']});
       return;
     }
@@ -514,6 +526,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       final ack = <String>[];
       String? error;
       String? failed;
+      Map<String, Object?>? rejection;
       for (final raw in operations) {
         final op = Map<String, dynamic>.from(raw as Map);
         try {
@@ -522,6 +535,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         } catch (e) {
           error = '$e';
           failed = op['id']?.toString();
+          if (op['kind'] == 'purchase_reverse' &&
+              (e is StateError || e is FormatException || e is ArgumentError)) {
+            rejection = {'id': failed, 'kind': 'purchase_reverse', 'code': 'purchase_reverse_rejected'};
+          }
           break;
         }
       }
@@ -530,6 +547,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         'acknowledged': ack,
         'failed_id': failed,
         'error': error,
+        if (rejection != null) 'rejected_operation': rejection,
       });
       return;
     }
@@ -634,6 +652,76 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
 
   int _requestedCursor(HttpRequest request) {
     return int.tryParse(request.uri.queryParameters['since'] ?? '') ?? 0;
+  }
+
+  Future<int> _latestStockMoveSeq(Database db) async {
+    return Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COALESCE(MAX(rowid),0) FROM stock_moves'),
+        ) ??
+        0;
+  }
+
+  Future<void> _getStockMoves(HttpRequest request) async {
+    final db = await _db.db;
+    final since = _requestedCursor(request);
+    final cursor = await _latestStockMoveSeq(db);
+    final rows = await db.rawQuery(
+      '''SELECT rowid AS cursor, id, product_id, "change", reason, notes, created_at
+         FROM stock_moves WHERE rowid>? ORDER BY rowid ASC''',
+      [since],
+    );
+    final items = <Map<String, Object?>>[];
+    for (final move in rows) {
+      final reason = move['reason']?.toString() ?? '';
+      final notes = move['notes']?.toString() ?? '';
+      String sourceId = '';
+      if (reason == 'purchase') {
+        final purchases = await db.query(
+          'purchases',
+          columns: const ['id'],
+          where: 'purchase_no=?',
+          whereArgs: [notes],
+          limit: 1,
+        );
+        if (purchases.isNotEmpty) sourceId = purchases.single['id'] as String;
+      } else if (reason == 'sale' || reason == 'sale_void') {
+        final sales = await db.query(
+          'sales',
+          columns: const ['id'],
+          where: 'receipt_no=?',
+          whereArgs: [notes],
+          limit: 1,
+        );
+        if (sales.isNotEmpty) {
+          sourceId = sales.single['id'] as String;
+          final mobile = await db.query(
+            'lan_sync_mobile_sales',
+            columns: const ['client_sale_id'],
+            where: 'sale_id=?',
+            whereArgs: [sourceId],
+            limit: 1,
+          );
+          if (mobile.isNotEmpty) {
+            sourceId = mobile.single['client_sale_id'] as String;
+          }
+        }
+      }
+      items.add({
+        'cursor': move['cursor'],
+        'id': move['id'],
+        'product_id': move['product_id'],
+        'change': move['change'],
+        'reason': reason,
+        'notes': notes,
+        'created_at': move['created_at'],
+        'source_id': sourceId,
+      });
+    }
+    await _json(request.response, HttpStatus.ok, {
+      'ok': true,
+      'items': items,
+      'cursor': cursor,
+    });
   }
 
   Future<Map<String, Map<String, Object?>>> _changesFor(

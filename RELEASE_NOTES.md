@@ -1,3 +1,16 @@
+# CNKH POS Desktop 1.10.6+34（修复源码，未发布）
+
+- 为 v1 协议增加可选库存流水与确定性撤销拒绝能力；Mobile 可发现销售后作废的净零库存活动，并保留失败请求及审计。
+- 首次配对按 SKU/条码安全关联已有资料，保留 Desktop 库存与成本基线；业务进货 ID 重放校验内容，避免重复加库存。
+- MyInvois 区分同步拒收与最终 Invalid，使用不可覆盖的提交尝试、关联纠错记录和新发票号码；未知结果核对原 Get Submission，不再提交。
+- schema v10 保留原 UUID、签名 payload 和日志；增加双端 HTTP、真实备份恢复、丢失 ACK 和可控税务 HTTP 回归用例。
+
+## 本次实际验证
+
+本地缺少 Flutter/Dart。`flutter analyze`、`flutter test`、`integration/` 下的 `flutter test test regression` 和 Windows Release 构建命令均返回 127，未执行分析、测试或构建。未验证真机、门店网络及真实 MyInvois。本版尚未完成验收或发布；详细证据及后续执行命令见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+
+---
+
 # CNKH POS Desktop 1.10.5+33
 
 - 手机撤销进货前同步检查 Desktop 权威库存变化；冲突时拒绝操作，不静默丢弃撤销业务。

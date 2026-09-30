@@ -37,9 +37,9 @@ class InvoiceMapper {
       'Contact': [{'Telephone': value(phone), if ('${p['email'] ?? ''}'.isNotEmpty) 'ElectronicMail': value(p['email'])}],
     }]};
   }
-  Map<String, dynamic> mapSale(Map<String, Object?> sale, {required Map<String, dynamic> supplier, required Map<String, dynamic> buyer, required DateTime issuedAt}) {
+  Map<String, dynamic> mapSale(Map<String, Object?> sale, {required Map<String, dynamic> supplier, required Map<String, dynamic> buyer, required DateTime issuedAt, String? invoiceNo}) {
     if (sale['voided'] == 1) throw const FormatException('已作废销售不能生成发票');
-    final number = requiredText(Map<String, dynamic>.from(sale), 'receipt_no', max: 50);
+    final number = requiredText({'receipt_no': invoiceNo ?? sale['receipt_no']}, 'receipt_no', max: 50);
     if (!RegExp(r'^\d{5}$').hasMatch('${supplier['msic'] ?? ''}')) throw const FormatException('MSIC 必须为五位数字');
     final classification = requiredText(supplier, 'classification', max: 3);
     if (!RegExp(r'^\d{3}$').hasMatch(classification)) throw const FormatException('商品分类须为三位 MyInvois classification code');

@@ -92,10 +92,33 @@ void main() {
     for(final table in ['e_invoice_logs','e_invoice_documents','e_invoice_settings']) { await db.execute('DROP TABLE $table'); }
     await db.setVersion(8); await database.close();
     final upgraded = await database.db;
-    expect(await upgraded.getVersion(),9);
+    expect(await upgraded.getVersion(),10);
     for(final e in before.entries) { expect(await upgraded.query(e.key),e.value); }
     for(final table in ['e_invoice_logs','e_invoice_documents','e_invoice_settings']) { expect(await upgraded.query(table),isEmpty); }
     await ensureEInvoiceSchema(upgraded);
+  });
+  test('legacy duplicate e-Invoice rows migrate to ordered immutable attempts', () async {
+    final db = await database.db;
+    await db.execute('DROP TABLE e_invoice_documents');
+    await db.execute('''CREATE TABLE e_invoice_documents (
+      id TEXT PRIMARY KEY, sale_id TEXT NOT NULL, invoice_no TEXT NOT NULL,
+      submission_uid TEXT NOT NULL DEFAULT '', document_uuid TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending', error_message TEXT NOT NULL DEFAULT '', submitted_at TEXT)''');
+    for (final id in ['old-a','old-b']) {
+      await db.insert('e_invoice_documents', {'id': id, 'sale_id': 'same-sale', 'invoice_no': 'R-1', 'status': 'rejected'});
+    }
+    await ensureEInvoiceSchema(db);
+    final attempts = await db.query('e_invoice_documents', orderBy: 'attempt_no');
+    expect(attempts.map((r) => r['id']), ['old-a','old-b']);
+    expect(attempts.map((r) => r['attempt_no']), [1,2]);
+    expect(attempts.map((r) => r['parent_document_id']), ['', '']);
+    // Updating the first attempt later must not change its number or collide
+    // with the unique index when the schema is checked on the next open.
+    await db.update('e_invoice_documents', {'updated_at': '2099-01-01'},
+      where: 'id=?', whereArgs: ['old-a']);
+    await ensureEInvoiceSchema(db);
+    expect((await db.query('e_invoice_documents', orderBy: 'attempt_no'))
+      .map((r) => r['id']), ['old-a','old-b']);
   });
   test('settings encrypt both credentials and isolate environments', () async {
     final db = await database.db; final keys = MemoryKeys();
@@ -235,6 +258,139 @@ void main() {
     await expectLater(service.prepare('reused-sale-id','sandbox',buyer),throwsStateError);
     service.dispose();
   });
+  test('unknown result preserves UUID and audit; Invalid correction appends a new attempt', () async {
+    final s=await sale();
+    await repo.auth.initializeAdmin('839201');
+    await repo.auth.login('admin','839201');
+    final db=await database.db;
+    var posts=0, detailCalls=0, currentStatus='Processing';
+    final keys=MemoryKeys();
+    EInvoiceService makeService()=>EInvoiceService(repo,keyStore:keys,documentSigner:testSign,clientFactory:(env,settings)=>MyInvoisClient(
+      environment:env,
+      credentials:()=>settings.load(environment:env,credentials:true),
+      transport:MockClient((r)async{
+        if(r.url.path=='/connect/token') return http.Response('{"access_token":"t","expires_in":3600}',200);
+        if(r.method=='POST') {
+          posts++;
+          final request=jsonDecode(r.body) as Map<String,dynamic>;
+          final submittedCode=request['documents'][0]['codeNumber'];
+          final uid=posts==1?'uuid-original':'uuid-correction';
+          return http.Response(jsonEncode({'submissionUID':'submission-$posts','acceptedDocuments':[{'uuid':uid,'invoiceCodeNumber':submittedCode}]}),202);
+        }
+        if(r.url.path.startsWith('/api/v1.0/documentsubmissions/')) {
+          return http.Response(jsonEncode({'documentSummary':[{
+            'uuid':'uuid-original','status':currentStatus,
+            if(currentStatus=='Invalid') 'validationResults':{'validationSteps':[{'status':'Invalid','error':[{'code':'BuyerTinMismatch','message':'Buyer TIN does not match'}]}]},
+          }]}),200);
+        }
+        if(r.url.path.endsWith('/details')) {
+          detailCalls++;
+          final status='Invalid';
+          return http.Response(jsonEncode({
+            'uuid':'uuid-original','status':status,'internalId':s.receiptNo,
+            'issuerTin':supplier['tin'],'totalPayableAmount':20.0,
+            if(status=='Invalid') 'validationResults':{'validationSteps':[{'status':'Invalid','error':[{'code':'BuyerTinMismatch','message':'Buyer TIN does not match'}]}]},
+          }),200);
+        }
+        return http.Response('{}',500);
+      }),
+    ));
+    final service=makeService();
+    await service.saveSettings(supplier,'id','secret');
+    await service.prepare(s.id,'sandbox',buyer);
+    await service.submitPendingInvoice(s.id);
+    final original=(await db.query('e_invoice_documents')).single;
+    final originalPayload=original['payload_json'];
+    await expectLater(service.refresh(original['id'] as String),throwsStateError);
+    var unchanged=(await db.query('e_invoice_documents')).single;
+    expect(unchanged['status'],'submitted');
+    expect(unchanged['document_uuid'],'uuid-original');
+    expect((await db.query('e_invoice_logs',where:'action=?',whereArgs:['query'])).last['response_json'],contains('unknown_status'));
+    // Previous releases stored MyInvois Invalid as Rejected with a UUID.
+    await db.update('e_invoice_documents',{'status':'rejected'},where:'id=?',whereArgs:[original['id']]);
+    await expectLater(service.prepare(s.id,'sandbox',buyer),throwsStateError);
+    currentStatus='Invalid';
+    final retryService=makeService();
+    await retryService.refresh(original['id'] as String);
+    await retryService.reconcile(original['id'] as String,'uuid-original');
+    expect(detailCalls,1);
+    final invalid=(await db.query('e_invoice_documents',where:'id=?',whereArgs:[original['id']])).single;
+    expect(invalid['status'],'invalid');
+    expect(invalid['document_uuid'],'uuid-original');
+    expect(invalid['payload_json'],originalPayload);
+    expect(invalid['error_message'],contains('Buyer TIN does not match'));
+    await expectLater(retryService.prepare(s.id,'sandbox',buyer),throwsStateError);
+    await expectLater(retryService.cancel(original['id'] as String,'not allowed'),throwsStateError);
+    final correction=jsonDecode(await retryService.prepareCorrection(s.id,'sandbox',buyer)) as Map<String,dynamic>;
+    expect(correction['Invoice'][0]['ID'][0]['_'],'${s.receiptNo}-C2');
+    final attempts=await db.query('e_invoice_documents',where:'sale_id=?',whereArgs:[s.id],orderBy:'attempt_no');
+    expect(attempts,hasLength(2));
+    expect(attempts[0]['document_uuid'],'uuid-original');
+    expect(attempts[0]['status'],'invalid');
+    expect(attempts[1]['attempt_no'],2);
+    expect(attempts[1]['parent_document_id'],original['id']);
+    expect(attempts[1]['status'],'pending');
+    final history=await retryService.history('sandbox');
+    expect(history.where((r)=>r['sale_id']==s.id && r['is_latest_attempt']==true)
+      .single['document_id'],attempts[1]['id']);
+    // Regenerating an unsubmitted correction keeps its invoice number and
+    // the link to the original Invalid document.
+    final regenerated=jsonDecode(await retryService.prepare(s.id,'sandbox',buyer));
+    expect(regenerated['Invoice'][0]['ID'][0]['_'],'${s.receiptNo}-C2');
+    expect((await db.query('e_invoice_documents',where:'id=?',whereArgs:[attempts[1]['id']]))
+      .single['parent_document_id'],original['id']);
+    await retryService.submitPendingInvoice(s.id);
+    final submitted=await db.query('e_invoice_documents',where:'id=?',whereArgs:[attempts[1]['id']]);
+    expect(submitted.single['status'],'submitted');
+    expect(submitted.single['document_uuid'],'uuid-correction');
+    expect(await db.query('e_invoice_documents',where:'document_uuid=?',whereArgs:['uuid-original']),hasLength(1));
+    expect((await db.query('e_invoice_logs',where:'action=?',whereArgs:['correction_created'])),hasLength(1));
+    expect(posts,2);
+    service.dispose();
+    retryService.dispose();
+  });
+  test('synchronous MyInvois rejection remains auditable and can be retried without UUID', () async {
+    final s=await sale();
+    await repo.auth.initializeAdmin('839201');
+    await repo.auth.login('admin','839201');
+    final db=await database.db;
+    var posts=0;
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,clientFactory:(env,settings)=>MyInvoisClient(
+      environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
+        if(r.url.path=='/connect/token') return http.Response('{"access_token":"t","expires_in":3600}',200);
+        if(r.method=='POST') {
+          posts++;
+          final code=(jsonDecode(r.body) as Map)['documents'][0]['codeNumber'];
+          if(posts==1) return http.Response(jsonEncode({'submissionUID':'rejected-submission','rejectedDocuments':[{'invoiceCodeNumber':code,'error':{'code':'InvalidBuyer','message':'Buyer details rejected'}}]}),202);
+          return http.Response(jsonEncode({'submissionUID':'accepted-submission','acceptedDocuments':[{'uuid':'accepted-uuid','invoiceCodeNumber':code}]}),202);
+        }
+        return http.Response('{}',500);
+      }),
+    ));
+    await service.saveSettings(supplier,'id','secret');
+    await service.prepare(s.id,'sandbox',buyer);
+    await service.submitPendingInvoice(s.id);
+    final rejected=(await db.query('e_invoice_documents')).single;
+    expect(rejected['status'],'rejected');
+    expect(rejected['document_uuid'],'');
+    expect(rejected['error_message'],contains('拒收'));
+    expect(rejected['submission_uid'],'rejected-submission');
+    expect(rejected['error_message'],contains('Buyer details rejected'));
+    final submitAudit=await db.query('e_invoice_logs',where:'action=?',whereArgs:['submit']);
+    expect(submitAudit.single['response_json'],contains('InvalidBuyer'));
+    await service.prepare(s.id,'sandbox',buyer);
+    await service.submitPendingInvoice(s.id);
+    final attempts=await db.query('e_invoice_documents',where:'sale_id=?',whereArgs:[s.id],orderBy:'attempt_no');
+    expect(attempts,hasLength(2));
+    expect(attempts[0]['status'],'rejected');
+    expect(attempts[0]['document_uuid'],'');
+    expect(attempts[1]['status'],'submitted');
+    expect(attempts[1]['invoice_no'],s.receiptNo);
+    expect(attempts[1]['attempt_no'],2);
+    expect((await db.query('e_invoice_logs',where:'action=?',whereArgs:['retry_created'])),hasLength(1));
+    expect(posts,2);
+    service.dispose();
+  });
   test('ambiguous timeout blocks retries across service restart', () async {
     final s=await sale();await repo.auth.initializeAdmin('839201');await repo.auth.login('admin','839201');
     final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,clientFactory:(env,settings)=>MyInvoisClient(environment:env,credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r)async{
@@ -245,5 +401,131 @@ void main() {
     await expectLater(service.submitPendingInvoice(s.id),throwsA(isA<SocketException>()));
     final restarted=EInvoiceService(repo);await expectLater(restarted.submitPendingInvoice(s.id),throwsStateError);
     expect((await (await database.db).query('e_invoice_documents')).single['status'],'needs_review');service.dispose();restarted.dispose();
+  });
+  test('lost submit response is reconciled via Get Submission without another POST', () async {
+    final s=await sale();
+    await repo.auth.initializeAdmin('839201');
+    await repo.auth.login('admin','839201');
+    var posts=0,queries=0;
+    var matches=false;
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,
+      clientFactory:(env,settings)=>MyInvoisClient(environment:env,
+        credentials:()=>settings.load(environment:env,credentials:true),
+        transport:MockClient((r)async {
+          if(r.url.path=='/connect/token') return http.Response('{"access_token":"t","expires_in":3600}',200);
+          if(r.method=='POST') { posts++; throw const SocketException('ACK lost'); }
+          expect(r.url.path,'/api/v1.0/documentsubmissions/portal-uid');
+          queries++;
+          return http.Response(jsonEncode({'documentSummary':[{
+            'uuid':'portal-uuid','submissionUid':'portal-uid','status':'Valid',
+            'internalId':matches?s.receiptNo:'OTHER-INVOICE',
+            'issuerTin':supplier['tin'],'totalPayableAmount':20.0,
+          }]}),200);
+        })));
+    await service.saveSettings(supplier,'id','secret');
+    await service.prepare(s.id,'sandbox',buyer);
+    await expectLater(service.submitPendingInvoice(s.id),throwsA(isA<SocketException>()));
+    final db=await database.db;
+    final doc=(await db.query('e_invoice_documents')).single;
+    await expectLater(service.reconcile(doc['id'] as String,'portal-uuid'),throwsStateError);
+    expect(queries,0);
+    await expectLater(service.reconcile(doc['id'] as String,'portal-uuid',submissionUid:'portal-uid'),throwsStateError);
+    expect((await db.query('e_invoice_documents')).single['status'],'needs_review');
+    expect((await db.query('e_invoice_documents')).single['document_uuid'],'');
+    matches=true;
+    await service.reconcile(doc['id'] as String,'portal-uuid',submissionUid:'portal-uid');
+    final recovered=(await db.query('e_invoice_documents')).single;
+    expect(recovered['status'],'validated');
+    expect(recovered['document_uuid'],'portal-uuid');
+    expect(recovered['submission_uid'],'portal-uid');
+    await expectLater(service.prepare(s.id,'sandbox',buyer),throwsStateError);
+    await expectLater(service.submitPendingInvoice(s.id),throwsStateError);
+    final audit=await db.query('e_invoice_logs');
+    expect(audit.any((r)=>'${r['response_json']}'.contains('unknown_outcome')),true);
+    expect(audit.any((r)=>'${r['response_json']}'.contains('identity_mismatch')),true);
+    expect(audit.any((r)=>'${r['response_json']}'.contains('validated')),true);
+    expect(posts,1);
+    expect(queries,2);
+    service.dispose();
+  });
+  test('a synchronously rejected correction retries its own invoice number and retains all attempts', () async {
+    final s=await sale();
+    await repo.auth.initializeAdmin('839201');
+    await repo.auth.login('admin','839201');
+    var posts=0;
+    final codes=<String>[];
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,
+      clientFactory:(env,settings)=>MyInvoisClient(environment:env,
+        credentials:()=>settings.load(environment:env,credentials:true),
+        transport:MockClient((r)async {
+          if(r.url.path=='/connect/token') return http.Response('{"access_token":"t","expires_in":3600}',200);
+          if(r.method=='POST') {
+            posts++;
+            final code=jsonDecode(r.body)['documents'][0]['codeNumber'] as String;
+            codes.add(code);
+            if(posts==2) return http.Response(jsonEncode({'submissionUID':'rejected-correction',
+              'rejectedDocuments':[{'invoiceCodeNumber':code,'error':{'code':'BuyerError','message':'Correct the buyer'}}]}),202);
+            return http.Response(jsonEncode({'submissionUID':'uid-$posts',
+              'acceptedDocuments':[{'invoiceCodeNumber':code,'uuid':'uuid-$posts'}]}),202);
+          }
+          return http.Response('{"documentSummary":[{"uuid":"uuid-1","status":"Invalid"}]}',200);
+        })));
+    await service.saveSettings(supplier,'id','secret');
+    await service.prepare(s.id,'sandbox',buyer);
+    await service.submitPendingInvoice(s.id);
+    final db=await database.db;
+    final original=(await db.query('e_invoice_documents')).single;
+    await service.refresh(original['id'] as String);
+    await service.prepareCorrection(s.id,'sandbox',buyer);
+    await service.submitPendingInvoice(s.id);
+    await service.prepare(s.id,'sandbox',{...buyer,'name':'Corrected Buyer'});
+    await service.submitPendingInvoice(s.id);
+    final attempts=await db.query('e_invoice_documents',orderBy:'attempt_no');
+    expect(attempts.map((r)=>r['status']),['invalid','rejected','submitted']);
+    expect(attempts[0]['document_uuid'],'uuid-1');
+    expect(attempts[0]['payload_json'],original['payload_json']);
+    expect(attempts[2]['parent_document_id'],attempts[1]['id']);
+    expect(codes,[s.receiptNo,'${s.receiptNo}-C2','${s.receiptNo}-C2']);
+    await expectLater(service.prepareCorrection(s.id,'sandbox',buyer),throwsStateError);
+    await expectLater(service.submitPendingInvoice(s.id),throwsStateError);
+    expect(posts,3);
+    service.dispose();
+  });
+  test('a legacy Pending row with a submission UID must be reconciled without clearing its evidence', () async {
+    final s=await sale();
+    await repo.auth.initializeAdmin('839201');
+    await repo.auth.login('admin','839201');
+    var posts=0;
+    final service=EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,
+      clientFactory:(env,settings)=>MyInvoisClient(environment:env,
+        credentials:()=>settings.load(environment:env,credentials:true),
+        transport:MockClient((request)async {
+          if(request.url.path=='/connect/token') return http.Response('{"access_token":"t","expires_in":3600}',200);
+          if(request.method=='POST') { posts++; return http.Response('{}',500); }
+          expect(request.url.path,'/api/v1.0/documentsubmissions/legacy-submission');
+          return http.Response(jsonEncode({'documentSummary':[{
+            'uuid':'legacy-uuid','submissionUid':'legacy-submission','status':'Valid',
+            'internalId':s.receiptNo,'issuerTin':supplier['tin'],'totalPayableAmount':20.0,
+          }]}),200);
+        })));
+    await service.saveSettings(supplier,'id','secret');
+    await service.prepare(s.id,'sandbox',buyer);
+    final db=await database.db;
+    final original=(await db.query('e_invoice_documents')).single;
+    await db.update('e_invoice_documents',{'submission_uid':'legacy-submission'},
+      where:'id=?',whereArgs:[original['id']]);
+    await expectLater(service.prepare(s.id,'sandbox',buyer),throwsStateError);
+    await expectLater(service.submitPendingInvoice(s.id),throwsStateError);
+    final preserved=(await db.query('e_invoice_documents')).single;
+    expect(preserved['submission_uid'],'legacy-submission');
+    expect(preserved['payload_json'],original['payload_json']);
+    await service.reconcile(original['id'] as String,'legacy-uuid');
+    final recovered=(await db.query('e_invoice_documents')).single;
+    expect(recovered['document_uuid'],'legacy-uuid');
+    expect(recovered['status'],'validated');
+    expect(recovered['payload_json'],original['payload_json']);
+    expect(await db.query('e_invoice_documents'),hasLength(1));
+    expect(posts,0);
+    service.dispose();
   });
 }

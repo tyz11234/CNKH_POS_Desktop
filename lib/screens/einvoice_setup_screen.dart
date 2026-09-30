@@ -76,26 +76,37 @@ class _EInvoiceSetupScreenState extends State<EInvoiceSetupScreen> {
       certificateName = file.name;
     });
   }
-  Future<void> _prepare(Map<String, Object?> row) async {
+  Future<void> _prepare(Map<String, Object?> row, {bool correction = false}) async {
+    if (correction) {
+      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: const Text('生成单独的更正尝试？'),
+        content: Text('原发票 ${row['document_invoice_no'] ?? row['receipt_no']} 的 UUID 和 Invalid 记录会保留。新尝试会使用新的发票号码；请先核对 MyInvois 验证错误及买方资料。只有确认原文件状态后才继续。'),
+        actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('返回')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('继续更正'))],
+      ));
+      if (confirmed != true) return;
+    }
     final saved = jsonDecode(row['buyer_json'] as String) as Map<String, dynamic>;
     final labels = {'name': 'Buyer Name', 'tin': 'Buyer TIN', 'id_type': 'ID Type: BRN / NRIC / PASSPORT / ARMY', 'id_number': 'ID Number', 'address': 'Address', 'city': 'City', 'state': 'State Code 01–17', 'postcode': 'Postcode', 'phone': 'Phone +60…', 'sst': 'SST / NA'};
     final controls = {for (final key in labels.keys) key: TextEditingController(text: '${saved[key] ?? (key == 'name' ? row['customer_name'] ?? '' : key == 'phone' ? row['customer_phone'] ?? '' : key == 'id_type' ? 'BRN' : key == 'sst' ? 'NA' : '')}')};
     final buyer = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => AlertDialog(
-      title: Text('买方资料 · ${row['receipt_no']}'),
+      title: Text('${correction ? '更正尝试' : '买方资料'} · ${row['receipt_no']}'),
       content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('资料仅用于本张 e-Invoice，不修改原销售。请填写真实资料。'),
+        if (correction) const Text('这会新增一份独立提交记录，并保留原 Invalid UUID。'),
         for (final e in labels.entries) Padding(padding: const EdgeInsets.only(top: 12), child: TextField(controller: controls[e.key], decoration: InputDecoration(labelText: e.value))),
       ]))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('返回')), FilledButton(onPressed: () => Navigator.pop(context, {for (final e in controls.entries) e.key: e.value.text.trim()}), child: const Text('生成 Invoice'))],
     ));
     if (buyer == null) return;
     await _run(() async {
-      final json = await service.prepare(row['sale_id'] as String, environment, buyer);
+      final json = correction
+          ? await service.prepareCorrection(row['sale_id'] as String, environment, buyer)
+          : await service.prepare(row['sale_id'] as String, environment, buyer);
       if (!mounted) return;
       await showDialog<void>(context: context, builder: (context) => AlertDialog(title: const Text('Invoice JSON · 已生成，尚未提交'), content: SizedBox(width: 720, child: SingleChildScrollView(child: SelectableText(const JsonEncoder.withIndent('  ').convert(jsonDecode(json))))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭'))]));
     });
   }
   Future<void> _submit(Map<String, Object?> row) async {
-    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text('提交到 ${environment == 'production' ? 'Production 正式环境' : 'Sandbox 测试环境'}'), content: Text('发票 ${row['receipt_no']} · RM ${((row['total_cents'] as int)/100).toStringAsFixed(2)}\n确认公司、买方和税务资料正确后提交。'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('返回')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('提交'))]));
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text('提交到 ${environment == 'production' ? 'Production 正式环境' : 'Sandbox 测试环境'}'), content: Text('发票 ${row['document_invoice_no'] ?? row['receipt_no']} · RM ${((row['total_cents'] as int)/100).toStringAsFixed(2)}\n确认公司、买方和税务资料正确后提交。'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('返回')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('提交'))]));
     if (confirmed == true) await _run(() => service.submitPendingInvoice(row['sale_id'] as String, environment: environment));
   }
   @override Widget build(BuildContext context) => DefaultTabController(length: 2, child: Scaffold(
@@ -121,20 +132,30 @@ class _EInvoiceSetupScreenState extends State<EInvoiceSetupScreen> {
           ]),
         ]),
         ListView(padding: const EdgeInsets.all(16), children: [
-          const Text('显示最近 500 笔；可按单号搜索旧记录。Pending 尚未提交；Submitted 已接收；Validated 验证通过；Rejected 被拒收/验证失败。取消 e-Invoice 不会退款或改动库存。'),
+          const Text('显示最近 500 笔；可按单号搜索旧记录。Pending 尚未提交；Submitted 已接收；Validated 验证通过；Rejected 为同步拒收；Invalid 为取得 UUID 后验证失败。更正会新建独立记录并保留原 UUID。取消 e-Invoice 不会退款或改动库存。'),
           TextField(controller: search, decoration: const InputDecoration(labelText: '搜索 Invoice / Receipt Number'), onSubmitted: (_) => _run(() async {})),
           TextButton(onPressed: busy ? null : () => _run(() async {}), child: const Text('刷新本地列表')),
           for (final row in rows) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${row['receipt_no']} · ${row['status']}', style: Theme.of(context).textTheme.titleMedium),
+            if (row['document_id'] != null && row['document_invoice_no'] != row['receipt_no']) Text('本次发票号码：${row['document_invoice_no']} · 尝试 ${row['attempt_no']}'),
             Text('${row['customer_name'] ?? ''} · RM ${((row['total_cents'] as int)/100).toStringAsFixed(2)}'),
             if ('${row['error_message']}'.isNotEmpty) Text('${row['error_message']}'),
             if ('${row['document_uuid']}'.isNotEmpty) SelectableText('UUID: ${row['document_uuid']}'),
             if (admin) Wrap(spacing: 8, children: [
-              if (row['voided'] != 1 && ['pending','rejected'].contains(row['status']) && row['document_uuid'] == '') TextButton(onPressed: busy ? null : () => _prepare(row), child: const Text('买方资料 / 生成')),
-              if (row['document_id'] != null && row['status'] == 'pending' && row['voided'] != 1) FilledButton(onPressed: busy ? null : () => _submit(row), child: const Text('提交')),
+              if (row['is_latest_attempt'] == true && row['voided'] != 1 && ['pending','rejected'].contains(row['status']) && row['document_uuid'] == '' && (row['status'] == 'rejected' || row['submission_uid'] == '')) TextButton(onPressed: busy ? null : () => _prepare(row), child: const Text('买方资料 / 生成')),
+              if (row['is_latest_attempt'] == true && row['voided'] != 1 && row['status'] == 'invalid' && '${row['document_uuid']}'.isNotEmpty) TextButton(onPressed: busy ? null : () => _prepare(row, correction: true), child: const Text('生成更正尝试')),
+              if (row['is_latest_attempt'] == true && row['document_id'] != null && row['status'] == 'pending' && row['voided'] != 1 && row['document_uuid'] == '' && row['submission_uid'] == '') FilledButton(onPressed: busy ? null : () => _submit(row), child: const Text('提交')),
               if (row['submission_uid'] != '') TextButton(onPressed: busy ? null : () => _run(() => service.refresh(row['document_id'] as String)), child: const Text('查询 MyInvois')),
-              if (row['document_id'] != null) TextButton(onPressed: busy ? null : () async { final uuid = await _prompt('用 MyInvois UUID 核对'); if (uuid != null && uuid.trim().isNotEmpty) await _run(() => service.reconcile(row['document_id'] as String, uuid)); }, child: const Text('核对 UUID')),
-              if (row['document_uuid'] != '' && row['status'] != 'cancelled') TextButton(onPressed: busy ? null : () async { final reason = await _prompt('取消 e-Invoice 原因', hint: '受 MyInvois 取消期限限制；不会退款'); if (reason != null) await _run(() => service.cancel(row['document_id'] as String, reason)); }, child: const Text('取消 e-Invoice')),
+              if (row['document_id'] != null && (['needs_review','submitting'].contains(row['status']) || (row['status'] == 'pending' && (row['document_uuid'] != '' || row['submission_uid'] != '')))) TextButton(onPressed: busy ? null : () async {
+                final uuid = await _prompt('核对 Portal 中的 UUID', hint: '结果未知时先查询 Portal，不要重复提交');
+                if (uuid == null || uuid.trim().isEmpty) return;
+                final uid = '${row['submission_uid'] ?? ''}'.isNotEmpty
+                    ? '${row['submission_uid']}' : await _prompt('Portal 中的 Submission UID');
+                if (uid == null || uid.trim().isEmpty) return;
+                await _run(() => service.reconcile(row['document_id'] as String, uuid, submissionUid: uid));
+              }, child: const Text('核对 UUID')),
+              if (row['document_id'] != null && row['status'] == 'invalid' && '${row['document_uuid']}'.isNotEmpty) TextButton(onPressed: busy ? null : () async { final uuid = await _prompt('查看 Invalid 文件的验证详情 UUID'); if (uuid != null && uuid.trim().isNotEmpty) await _run(() => service.reconcile(row['document_id'] as String, uuid)); }, child: const Text('查看验证详情')),
+              if (row['document_uuid'] != '' && ['submitted','validated'].contains(row['status'])) TextButton(onPressed: busy ? null : () async { final reason = await _prompt('取消 e-Invoice 原因', hint: '受 MyInvois 取消期限限制；不会退款'); if (reason != null) await _run(() => service.cancel(row['document_id'] as String, reason)); }, child: const Text('取消 e-Invoice')),
             ]),
           ]))),
         ]),
