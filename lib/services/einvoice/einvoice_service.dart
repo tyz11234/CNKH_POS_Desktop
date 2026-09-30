@@ -415,6 +415,10 @@ class EInvoiceService {
   }
   static String _now() => DateTime.now().toUtc().toIso8601String();
   Future<void> _update(DatabaseExecutor db, String id, Map<String, Object?> values) => db.update('e_invoice_documents', {...values, 'updated_at': _now()}, where: 'id=?', whereArgs: [id]).then((_) {});
-  Future<void> _log(DatabaseExecutor db, String id, String action, String status, {Map<String, Object?> details = const {}}) => db.insert('e_invoice_logs', {'id': AppDatabase.newId(), 'document_id': id, 'action': action, 'response_json': jsonEncode({'status': status, ...details}), 'created_at': _now()}).then((_) {});
+  Future<void> _log(DatabaseExecutor db, String id, String action, String status, {Map<String, Object?> details = const {}}) => db.insert('e_invoice_logs', {'id': AppDatabase.newId(), 'document_id': id, 'action': action, 'response_json': jsonEncode({
+    ...details,
+    if (details.containsKey('status')) 'remote_status': details['status'],
+    'status': status,
+  }), 'created_at': _now()}).then((_) {});
   void dispose() { for (final client in _clients.values) { client.close(); } }
 }

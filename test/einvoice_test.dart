@@ -305,7 +305,10 @@ void main() {
     var unchanged=(await db.query('e_invoice_documents')).single;
     expect(unchanged['status'],'submitted');
     expect(unchanged['document_uuid'],'uuid-original');
-    expect((await db.query('e_invoice_logs',where:'action=?',whereArgs:['query'])).last['response_json'],contains('unknown_status'));
+    final unknownAudit=jsonDecode((await db.query('e_invoice_logs',where:'action=?',whereArgs:['query'])).last['response_json'] as String);
+    expect(unknownAudit['status'],'unknown_status');
+    expect(unknownAudit['remote_status'],'Processing');
+    expect(unknownAudit['uuid'],'uuid-original');
     // Previous releases stored MyInvois Invalid as Rejected with a UUID.
     await db.update('e_invoice_documents',{'status':'rejected'},where:'id=?',whereArgs:[original['id']]);
     await expectLater(service.prepare(s.id,'sandbox',buyer),throwsStateError);
