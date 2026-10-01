@@ -253,10 +253,10 @@ Future<String> defaultEReceiptCachePath() async {
 }
 
 /// Reads `ereceipt_cache_dir` from SQLite settings, else app support/e_receipt_cache.
-Future<Directory> eReceiptCacheDir() async {
+Future<Directory> eReceiptCacheDir({PosRepository? repo}) async {
   String custom = '';
   try {
-    custom = (await PosRepository().getSetting(kEReceiptCacheDirKey)).trim();
+    custom = (await (repo ?? PosRepository()).getSetting(kEReceiptCacheDirKey)).trim();
   } catch (_) {}
   final path = custom.isNotEmpty ? custom : await defaultEReceiptCachePath();
   final dir = Directory(p.join(path, OwnedReceiptCache.folder));
@@ -270,8 +270,8 @@ Future<Directory> eReceiptCacheDir() async {
 }
 
 /// Delete cached PDFs older than [kEReceiptCacheTtl]. Returns deleted count.
-Future<int> purgeEReceiptCache({Duration ttl = kEReceiptCacheTtl}) async {
-  final dir = await eReceiptCacheDir();
+Future<int> purgeEReceiptCache({Duration ttl = kEReceiptCacheTtl, PosRepository? repo}) async {
+  final dir = await eReceiptCacheDir(repo: repo);
   return OwnedReceiptCache(dir).clear(before: DateTime.now().subtract(ttl));
 }
 
@@ -282,7 +282,7 @@ Future<int> clearEReceiptCache({PosRepository? repo}) async =>
 Future<int> countEReceiptCache({PosRepository? repo}) async =>
     OwnedReceiptCache(await eReceiptCacheDir(repo: repo)).ownedFiles().length;
 
-/// Write PDF into private cache. Filename is stable per receipt.
+/// Write a uniquely named PDF into the owned cache.
 /// Does **not** delete after share — purge old files on startup / explicitly.
 Future<File> writeReceiptPdfCached(
   SaleRecord sale, {
@@ -290,7 +290,7 @@ Future<File> writeReceiptPdfCached(
   ReceiptTemplate? template,
   PosRepository? repo,
 }) async {
-  final dir = await eReceiptCacheDir();
+  final dir = await eReceiptCacheDir(repo: repo);
   final safe = sale.receiptNo.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
   final file = File('${dir.path}/receipt_${safe}_${AppDatabase.newId()}.pdf');
   final tmp = await writeReceiptPdfTemp(

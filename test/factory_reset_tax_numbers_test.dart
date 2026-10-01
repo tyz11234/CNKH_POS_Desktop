@@ -37,7 +37,7 @@ void main() {
       var tax = await db.query('e_invoice_documents', orderBy: 'id');
       var logs = await db.query('e_invoice_logs');
       await db.delete('settings', where: "key LIKE 'document_sequence:%'");
-      await db.setVersion(9); await database.close();
+      await db.execute('PRAGMA user_version = 9'); await database.close();
       final upgraded = await database.db;
       await ensureEInvoiceSchema(upgraded); await ensureEInvoiceSchema(upgraded);
       for (final expected in [43,44]) {

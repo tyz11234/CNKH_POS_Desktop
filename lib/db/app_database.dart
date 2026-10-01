@@ -469,10 +469,11 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
     prefix: 'H-',
   );
 
-  Future<String> nextPurchaseNo() => _reserveNumber(
+  Future<String> nextPurchaseNo({DatabaseExecutor? executor}) => _reserveNumber(
     table: 'purchases',
     column: 'purchase_no',
     prefix: 'PO-',
+    executor: executor,
   );
 
   Future<String> _reserveNumber({
