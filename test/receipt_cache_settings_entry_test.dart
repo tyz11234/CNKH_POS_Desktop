@@ -57,6 +57,8 @@ void main() {
     final clear = find.text('电子收据缓存 / E-receipt cache');
     await tester.scrollUntilVisible(clear, 500, maxScrolls: 30,
         scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    expect(clear.hitTestable(), findsOneWidget);
     await tester.tap(clear);
     await flush(tester);
     expect(find.text('清空电子收据缓存？'), findsOneWidget);
