@@ -19,8 +19,8 @@ class EscPosReceiptEncoder {
       final painter = TextPainter(
         text: TextSpan(text: line.isEmpty ? ' ' : line,
           style: const TextStyle(color: Color(0xff000000), fontSize: 18,
-            height: 1.3, fontFamily: 'monospace',
-            fontFamilyFallback: ['CNKHReceiptSC'])),
+            height: 1.3, fontFamily: 'CNKHReceiptSC',
+            fontFamilyFallback: ['monospace'])),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: widthDots.toDouble());
       final height = math.max(24, painter.height.ceil());

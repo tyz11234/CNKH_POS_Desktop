@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
 import '../db/app_database.dart';
 import '../models/app_user.dart';
 
