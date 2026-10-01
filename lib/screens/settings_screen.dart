@@ -474,7 +474,7 @@ const SizedBox(height: 12),
             subtitle: const Text('私有缓存最多保留 7 天；可一键清空'),
             trailing: const Icon(Icons.delete_outline),
             onTap: () async {
-              final n = await countEReceiptCache();
+              final n = await countEReceiptCache(repo: widget.repo);
               if (!context.mounted) return;
               final ok = await showDialog<bool>(
                 context: context,
@@ -488,7 +488,7 @@ const SizedBox(height: 12),
                 ),
               );
               if (ok != true) return;
-              final deleted = await clearEReceiptCache();
+              final deleted = await clearEReceiptCache(repo: widget.repo);
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('已删除 $deleted 个缓存 PDF')),

@@ -8,23 +8,31 @@ import 'package:cnkh_pos_desktop/screens/admin/user_admin_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory temp;
+  late AppDatabase database;
+  late PosRepository repo;
+  // Initialize FFI and credentials in the real setup zone, as the existing
+  // login widget suite does; only page interaction uses the virtual clock.
+  setUp(() async {
+    temp = await Directory.systemTemp.createTemp('cnkh-admin-cancel-');
+    database = AppDatabase.forTesting('${temp.path}/pos.db', seed: false);
+    repo = PosRepository(database: database);
+    await (await database.db).insert('demo_users', {'id': 'admin1', 'username': 'admin',
+      'display_name': 'Admin', 'role': 'ADMIN', 'is_active': 1});
+    await repo.auth.initializeAdmin('123456');
+    await repo.auth.login('admin', '123456');
+  });
+  tearDown(() async {
+    await database.close();
+    await temp.delete(recursive: true);
+  });
   testWidgets('F08 page creation followed by PIN cancel keeps a login-capable admin', (tester) async {
-    final temp = (await tester.runAsync(() =>
-        Directory.systemTemp.createTemp('cnkh-admin-cancel-')))!;
-    final database = AppDatabase.forTesting('${temp.path}/pos.db', seed: false);
-    final repo = PosRepository(database: database);
     Future<void> flush() async {
       for (var i=0;i<6;i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds:50)));
         await tester.pump(const Duration(milliseconds:100));
       }
     }
-    try {
-      await tester.runAsync(() async {
-        await (await database.db).insert('demo_users',{'id':'admin1','username':'admin',
-          'display_name':'Admin','role':'ADMIN','is_active':1});
-        await repo.auth.initializeAdmin('123456'); await repo.auth.login('admin','123456');
-      });
       await tester.pumpWidget(MaterialApp(home: UserAdminPage(repo:repo))); await flush();
       await tester.tap(find.text('新增账号')); await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).at(0),'Admin2');
@@ -43,6 +51,5 @@ void main() {
       });
       await tester.pumpWidget(const SizedBox());
       expect(tester.takeException(),isNull);
-    } finally { await tester.runAsync(() async { await database.close(); await temp.delete(recursive:true); }); }
-  });
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }
