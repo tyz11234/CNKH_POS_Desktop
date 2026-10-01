@@ -118,5 +118,24 @@ void main() {
         role: 'STAFF', isActive: true), throwsStateError);
       expect(await repo.auth.needsSetup(), isFalse);
     });
+    test('F08 legacy mixed-case credentials retain lockout and PIN replacement login', () async {
+      await service.createUser(username: 'admin2', displayName: 'Admin Two', role: 'ADMIN');
+      await service.setPin('ADMIN2', '654321');
+      final db = await database.db;
+      await db.update('user_credentials', {'username': 'AdMiN2'},
+          where: 'username=?', whereArgs: ['admin2']);
+      for (var i = 0; i < 5; i++) {
+        await expectLater(repo.auth.login('ADMIN2', '000000'), throwsStateError);
+      }
+      await expectLater(repo.auth.login('admin2', '654321'), throwsStateError);
+      await service.setPin('ADMIN2', '765432');
+      expect(await db.query('user_credentials', where: 'username=? COLLATE NOCASE',
+          whereArgs: ['admin2']), hasLength(1));
+      await service.updateUser(id: 'admin-1', displayName: 'Admin',
+          role: 'STAFF', isActive: true);
+      repo.auth.logout();
+      expect((await repo.auth.login('aDmIn2', '765432')).isAdmin, isTrue);
+      await expectLater(repo.auth.login('ADMIN2', '654321'), throwsStateError);
+    });
   });
 }

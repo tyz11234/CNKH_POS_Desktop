@@ -25,6 +25,31 @@ class LoseProductAck extends http.BaseClient {
   @override void close() => inner.close();
 }
 
+/// Exercise v1 peers that predate identity ACKs and barcode sale snapshots.
+class LegacyIdentityWire extends http.BaseClient {
+  final inner = http.Client();
+  @override Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request is http.Request && request.method == 'POST') {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (request.url.path == '/api/v1/mutations') {
+        for (final op in body['operations'] as List) { op.remove('client_entity_id'); }
+      } else if (request.url.path == '/api/v1/sales') {
+        for (final sale in body['sales'] as List) {
+          for (final line in sale['lines'] as List) { line.remove('barcode'); }
+        }
+      }
+      request.body = jsonEncode(body);
+    }
+    final response = await inner.send(request);
+    if (request.url.path != '/api/v1/mutations') return response;
+    final body = jsonDecode(await response.stream.bytesToString()) as Map<String, dynamic>;
+    body.remove('entity_mappings');
+    return http.StreamedResponse(Stream.value(utf8.encode(jsonEncode(body))),
+        response.statusCode, headers: {...response.headers}..remove('content-length'));
+  }
+  @override void close() => inner.close();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); HttpOverrides.global = null;
   late Directory temp; late pc.AppDatabase desktopDb; late phone.AppDatabase mobileDb;
@@ -96,6 +121,19 @@ void main() {
     expect(await (await mobileDb.db).query('sync_outbox'),hasLength(2));
     expect(await desktop.salesAll(),isEmpty);
     expect((await desktop.getProduct('pc-original'))!.stock,100);
+  });
+  test('F01 v1 peer without barcode or identity ACK resolves its historical product alias before catalog pull', () async {
+    await products(); await sale();
+    final transport = LegacyIdentityWire();
+    try {
+      final legacy = LanSyncClient(mobile, httpClient: transport);
+      await legacy.saveConfig(config);
+      await legacy.synchronize(config); await legacy.synchronize(config);
+      expect((await desktop.getProduct('pc-original'))!.stock, 98);
+      expect((await mobile.getProduct('phone-original'))!.stock, 98);
+      expect(await desktop.salesAll(), hasLength(1));
+      expect(await (await mobileDb.db).query('sync_outbox'), isEmpty);
+    } finally { transport.close(); }
   });
   for(final full in [false,true]) {
     test('F02 ${full?'full':'incremental'} tombstone/recreate preserves historical IDs and repeated catalog succeeds', () async {

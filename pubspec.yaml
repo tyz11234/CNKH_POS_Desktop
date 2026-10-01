@@ -50,6 +50,7 @@ flutter:
   assets:
     - assets/training/
     - assets/fonts/NotoSansSC-Regular.ttf
+    - assets/fonts/OFL.txt
     - assets/catalog.json
     - assets/seed_customers.json
     - assets/seed_suppliers.json

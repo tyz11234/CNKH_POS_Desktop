@@ -9,7 +9,8 @@ import 'package:cnkh_pos_desktop/screens/admin/user_admin_page.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   testWidgets('F08 page creation followed by PIN cancel keeps a login-capable admin', (tester) async {
-    final temp = await Directory.systemTemp.createTemp('cnkh-admin-cancel-');
+    final temp = (await tester.runAsync(() =>
+        Directory.systemTemp.createTemp('cnkh-admin-cancel-')))!;
     final database = AppDatabase.forTesting('${temp.path}/pos.db', seed: false);
     final repo = PosRepository(database: database);
     Future<void> flush() async {

@@ -28,7 +28,9 @@ class OwnedReceiptCache {
 
   Stream<File> ownedFiles() async* {
     if (await FileSystemEntity.type(directory.path, followLinks: false) !=
-        FileSystemEntityType.directory) return;
+        FileSystemEntityType.directory) {
+      return;
+    }
     await for (final marker in directory.list(followLinks: false)) {
       if (marker is! File || !marker.path.endsWith(_suffix)) continue;
       try {
@@ -36,11 +38,15 @@ class OwnedReceiptCache {
         final name = record['filename'];
         if (record['format'] != 'cnkh-receipt-cache:v2' ||
             name is! String || p.basename(name) != name ||
-            !name.toLowerCase().endsWith('.pdf')) continue;
+            !name.toLowerCase().endsWith('.pdf')) {
+          continue;
+        }
         final file = File(p.join(directory.path, name));
         if ('${file.path}$_suffix' != marker.path ||
             await FileSystemEntity.type(file.path, followLinks: false) !=
-                FileSystemEntityType.file) continue;
+                FileSystemEntityType.file) {
+          continue;
+        }
         final hash = await Sha256().hash(await file.readAsBytes());
         if (base64Encode(hash.bytes) == record['sha256']) yield file;
       } catch (_) {

@@ -41,11 +41,12 @@ void main() {
       expect(printer.bytes.sublist(printer.bytes.length-3), [0x1d, 0x56, 0]);
       final narrow = await service.buildReceiptBytes('中文 ABC 123\n${'长商品名字' * 40}', widthDots: 384);
       final wide = await service.buildReceiptBytes('中文 ABC 123\n${'长商品名字' * 40}', widthDots: 576);
-      expect(narrow.sublist(6, 12), [0x1d, 0x76, 0x30, 0, 48, 0]);
-      expect(wide.sublist(6, 12), [0x1d, 0x76, 0x30, 0, 72, 0]);
+      expect(narrow.sublist(5, 11), [0x1d, 0x76, 0x30, 0, 48, 0]);
+      expect(wide.sublist(5, 11), [0x1d, 0x76, 0x30, 0, 72, 0]);
       expect(narrow.every((b) => b >= 0 && b <= 255), isTrue);
       expect(narrow.length, greaterThan(1000));
       expect(await service.buildReceiptBytes('中文'), isNot(await service.buildReceiptBytes('英文')));
+      expect(await service.buildReceiptBytes('中'), isNot(await service.buildReceiptBytes('文')));
       await expectLater(service.buildReceiptBytes('text', widthDots: 500), throwsArgumentError);
     } finally { await database.close(); await temp.delete(recursive: true); }
   });

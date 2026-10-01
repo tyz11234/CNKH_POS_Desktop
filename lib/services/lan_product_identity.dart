@@ -34,10 +34,15 @@ Future<Map<String, Object?>?> lanMutationIdentityAck(
 Future<Map<String, Object?>> resolveLanSaleProduct(DatabaseExecutor db,
     Map<String, Object?> line, {required bool allowDeleted}) async {
   var id = (line['productId'] ?? line['product_id'])?.toString() ?? '';
-  if (id.startsWith('pc-')) id = id.substring(3);
-  final alias = await lanProductAlias(db, id);
+  var alias = await lanProductAlias(db, id);
   id = alias ?? id;
-  final direct = await db.query('products', where: 'id=?', whereArgs: [id]);
+  var direct = await db.query('products', where: 'id=?', whereArgs: [id]);
+  if (direct.isEmpty && alias == null && id.startsWith('pc-')) {
+    id = id.substring(3);
+    alias = await lanProductAlias(db, id);
+    id = alias ?? id;
+    direct = await db.query('products', where: 'id=?', whereArgs: [id]);
+  }
   if (direct.isNotEmpty && !allowDeleted && direct.single['is_deleted'] == 1) {
     throw StateError('原销售商品已删除，不能关联到重建商品；业务保留');
   }

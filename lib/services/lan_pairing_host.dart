@@ -1407,12 +1407,11 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         for (final rawLine
             in incomingVoided ? <Map<String, Object?>>[] : lines) {
           final line = Map<String, Object?>.from(rawLine);
-          var productId =
+          final productId =
               (line['productId'] ?? line['product_id'])?.toString().trim() ??
                   '';
-          if (productId.startsWith('pc-')) {
-            productId = productId.substring(3);
-          }
+          // The resolver already returned the authoritative Desktop ID. It
+          // can itself begin with pc-; stripping it again loses the deduction.
           final qty = _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
           if (productId.isEmpty || qty <= 0) continue;
           final changed = await txn.rawUpdate(

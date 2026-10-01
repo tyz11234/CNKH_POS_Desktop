@@ -86,12 +86,12 @@ class AuthService {
     if (diff != 0) {
       await db.transaction((txn) async {
         await txn.rawUpdate(
-          'UPDATE user_credentials SET failed_attempts=failed_attempts+1 WHERE username=?',
+          'UPDATE user_credentials SET failed_attempts=failed_attempts+1 WHERE username=? COLLATE NOCASE',
           [name],
         );
         final row = (await txn.query(
           'user_credentials',
-          where: 'username=?',
+          where: 'username=? COLLATE NOCASE',
           whereArgs: [name],
         )).single;
         if ((row['failed_attempts'] as int) >= 5)
@@ -104,7 +104,7 @@ class AuthService {
                   .add(const Duration(minutes: 5))
                   .toIso8601String(),
             },
-            where: 'username=?',
+            where: 'username=? COLLATE NOCASE',
             whereArgs: [name],
           );
       });
@@ -133,10 +133,11 @@ class AuthService {
       whereArgs: [username],
     )).isEmpty)
       throw StateError('账号不存在');
-    await db.insert(
-      'user_credentials',
-      await _credential(username, pin),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final credential = await _credential(username, pin);
+    await db.transaction((txn) async {
+      await txn.delete('user_credentials', where: 'username=? COLLATE NOCASE',
+          whereArgs: [username.trim()]);
+      await txn.insert('user_credentials', credential);
+    });
   }
 }
