@@ -10,6 +10,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'pos_repository.dart';
+import '../db/app_database.dart';
+import 'owned_receipt_cache.dart';
+import 'package:path/path.dart' as p;
 import 'receipt_template.dart';
 
 export 'receipt_template.dart'
@@ -256,7 +259,10 @@ Future<Directory> eReceiptCacheDir() async {
     custom = (await PosRepository().getSetting(kEReceiptCacheDirKey)).trim();
   } catch (_) {}
   final path = custom.isNotEmpty ? custom : await defaultEReceiptCachePath();
-  final dir = Directory(path);
+  final dir = Directory(p.join(path, OwnedReceiptCache.folder));
+  if (await FileSystemEntity.type(dir.path, followLinks: false) == FileSystemEntityType.link) {
+    throw StateError('收据缓存目录不能是链接');
+  }
   if (!await dir.exists()) {
     await dir.create(recursive: true);
   }
@@ -266,45 +272,15 @@ Future<Directory> eReceiptCacheDir() async {
 /// Delete cached PDFs older than [kEReceiptCacheTtl]. Returns deleted count.
 Future<int> purgeEReceiptCache({Duration ttl = kEReceiptCacheTtl}) async {
   final dir = await eReceiptCacheDir();
-  final cutoff = DateTime.now().subtract(ttl);
-  var n = 0;
-  await for (final ent in dir.list()) {
-    if (ent is! File) continue;
-    if (!ent.path.toLowerCase().endsWith('.pdf')) continue;
-    try {
-      final st = await ent.stat();
-      if (st.modified.isBefore(cutoff)) {
-        await ent.delete();
-        n++;
-      }
-    } catch (_) {}
-  }
-  return n;
+  return OwnedReceiptCache(dir).clear(before: DateTime.now().subtract(ttl));
 }
 
-/// Delete all cached e-receipt PDFs. Returns deleted count.
-Future<int> clearEReceiptCache() async {
-  final dir = await eReceiptCacheDir();
-  var n = 0;
-  await for (final ent in dir.list()) {
-    if (ent is! File) continue;
-    if (!ent.path.toLowerCase().endsWith('.pdf')) continue;
-    try {
-      await ent.delete();
-      n++;
-    } catch (_) {}
-  }
-  return n;
-}
+/// Delete only verified app-owned PDFs. Uncertain legacy files are preserved.
+Future<int> clearEReceiptCache({PosRepository? repo}) async =>
+    OwnedReceiptCache(await eReceiptCacheDir(repo: repo)).clear();
 
-Future<int> countEReceiptCache() async {
-  final dir = await eReceiptCacheDir();
-  var n = 0;
-  await for (final ent in dir.list()) {
-    if (ent is File && ent.path.toLowerCase().endsWith('.pdf')) n++;
-  }
-  return n;
-}
+Future<int> countEReceiptCache({PosRepository? repo}) async =>
+    OwnedReceiptCache(await eReceiptCacheDir(repo: repo)).ownedFiles().length;
 
 /// Write PDF into private cache. Filename is stable per receipt.
 /// Does **not** delete after share — purge old files on startup / explicitly.
@@ -316,7 +292,7 @@ Future<File> writeReceiptPdfCached(
 }) async {
   final dir = await eReceiptCacheDir();
   final safe = sale.receiptNo.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-  final file = File('${dir.path}/receipt_$safe.pdf');
+  final file = File('${dir.path}/receipt_${safe}_${AppDatabase.newId()}.pdf');
   final tmp = await writeReceiptPdfTemp(
     sale,
     storeName: storeName,
@@ -325,6 +301,7 @@ Future<File> writeReceiptPdfCached(
   );
   try {
     await tmp.copy(file.path);
+    await OwnedReceiptCache(dir).register(file);
   } finally {
     try {
       if (await tmp.exists()) await tmp.delete();

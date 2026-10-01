@@ -603,7 +603,8 @@ class _ReportsPageState extends State<ReportsPage> {
 class DailyClosePage extends StatefulWidget {
   final PosRepository repo;
   final AppUser user;
-  const DailyClosePage({super.key, required this.repo, required this.user});
+  final DateTime Function()? clock;
+  const DailyClosePage({super.key, required this.repo, required this.user, this.clock});
   @override
   State<DailyClosePage> createState() => _DailyClosePageState();
 }
@@ -613,6 +614,8 @@ class _DailyClosePageState extends State<DailyClosePage> {
   final _count = TextEditingController(text: '0.00');
   final _notes = TextEditingController();
   int _systemCash = 0;
+  String _businessDate = '';
+  bool _saving = false;
   List<Map<String, Object?>> _history = [];
 
   @override
@@ -622,19 +625,21 @@ class _DailyClosePageState extends State<DailyClosePage> {
   }
 
   Future<void> _load() async {
-    final dash = await widget.repo.dashboardToday();
+    _businessDate = (widget.clock ?? DateTime.now)().toIso8601String().substring(0, 10);
+    final dash = await widget.repo.dashboardToday(businessDate: _businessDate);
     _systemCash = dash['cash'] ?? 0;
     _history = await widget.repo.listClosings();
     if (mounted) setState(() {});
   }
 
   Future<void> _save() async {
-    final day = DateTime.now().toIso8601String().substring(0, 10);
+    if (_saving || _businessDate.isEmpty) return;
+    setState(() => _saving = true);
+    try {
     await widget.repo.saveDailyClosing(
-      businessDate: day,
+      businessDate: _businessDate,
       openingCashCents: rmToCents(double.tryParse(_open.text) ?? 0),
       countedCashCents: rmToCents(double.tryParse(_count.text) ?? 0),
-      systemCashCents: _systemCash,
       closedBy: widget.user.username,
       notes: _notes.text.trim(),
     );
@@ -643,6 +648,11 @@ class _DailyClosePageState extends State<DailyClosePage> {
       const SnackBar(content: Text('日结已保存 / Closing saved')),
     );
     await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -673,7 +683,7 @@ class _DailyClosePageState extends State<DailyClosePage> {
             decoration: const InputDecoration(labelText: '备注'),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: _save, child: const Text('保存日结')),
+          FilledButton(onPressed: _saving ? null : _save, child: const Text('保存日结')),
           const Divider(height: 32),
           const Text(
             '历史 / History',

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
@@ -6,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:cnkh_pos_desktop/db/app_database.dart';
 import 'package:cnkh_pos_desktop/db/einvoice_schema.dart';
+import 'package:cnkh_pos_desktop/services/lan_pairing_host.dart';
 import 'package:cnkh_pos_desktop/models/cart_item.dart';
 import 'package:cnkh_pos_desktop/services/pos_repository.dart';
 import 'package:cnkh_pos_desktop/services/einvoice/einvoice_settings.dart';
@@ -51,6 +53,84 @@ void main() {
     await repo.upsertProduct(p);
     return repo.createSale(cart:CartState(items:[CartItem(product:p,qty:2,discountCents:20)],orderDiscountCents:100),paymentMethod:'CASH',paidCents:2000,cashier:'admin');
   }
+
+  for (final viaLan in [false, true]) {
+    test('F03 ${viaLan ? 'LAN' : 'local'} void during OAuth prevents all tax submission', () async {
+      final s = await sale();
+      await repo.auth.initializeAdmin('839201'); await repo.auth.login('admin', '839201');
+      final authEntered = Completer<void>(); final releaseAuth = Completer<void>();
+      var submits = 0;
+      final service = EInvoiceService(repo, keyStore: MemoryKeys(), documentSigner: testSign,
+        clientFactory: (env, settings) => MyInvoisClient(environment: env,
+          credentials: () => settings.load(environment: env, credentials: true),
+          transport: MockClient((request) async {
+            if (request.url.path == '/connect/token') {
+              authEntered.complete(); await releaseAuth.future;
+              return http.Response('{"access_token":"fake","expires_in":3600}',200);
+            }
+            submits++; return http.Response('{}',200);
+          })));
+      await service.saveSettings(supplier, 'id', 'secret');
+      await service.prepare(s.id, 'sandbox', buyer);
+      final pending = service.submitPendingInvoice(s.id);
+      final assertion = expectLater(pending, throwsStateError);
+      await authEntered.future;
+      LanPairingHost? host;
+      try {
+        if (viaLan) {
+          HttpOverrides.global = null;
+          host = LanPairingHost.forTesting(repo, database: database); await host.start();
+          final response = await http.post(Uri.parse('http://127.0.0.1:${host.port}/api/v1/mutations'),
+            headers: {'Content-Type':'application/json','X-CNKH-Token':await repo.getSetting('lan_host_token')},
+            body: jsonEncode({'operations':[{'id':'void-during-oauth','kind':'sale_void',
+              'payload':{'client_sale_id':s.id,'receipt_no':s.receiptNo,'note':'cancel'}}]}));
+          expect(jsonDecode(response.body)['acknowledged'], ['void-during-oauth']);
+        } else { await repo.voidSale(s.id, 'cancel'); }
+        releaseAuth.complete(); await assertion;
+        expect(submits,0);
+        final db = await database.db;
+        expect((await db.query('sales',where:'id=?',whereArgs:[s.id])).single['voided'],1);
+        final doc = (await db.query('e_invoice_documents')).single;
+        expect(doc['status'],'pending'); expect(doc['payload_hash'],isNotEmpty);
+        expect(doc['document_uuid'],'');
+        expect(await db.query('e_invoice_logs',where:"action='pos_sale_void'"),hasLength(1));
+      } finally { if (!releaseAuth.isCompleted) releaseAuth.complete(); await host?.stop(); service.dispose(); }
+    });
+  }
+  test('F03 claim wins over local and LAN void; accepted UUID and duplicate-submit protection survive', () async {
+    final s = await sale();
+    await repo.auth.initializeAdmin('839201'); await repo.auth.login('admin','839201');
+    final entered = Completer<void>(); final release = Completer<void>(); var posts = 0;
+    final service = EInvoiceService(repo,keyStore:MemoryKeys(),documentSigner:testSign,
+      clientFactory:(env,settings)=>MyInvoisClient(environment:env,
+        credentials:()=>settings.load(environment:env,credentials:true),transport:MockClient((r) async {
+          if (r.url.path=='/connect/token') return http.Response('{"access_token":"fake","expires_in":3600}',200);
+          posts++; entered.complete(); await release.future;
+          return http.Response(jsonEncode({'submissionUID':'retained-uid','acceptedDocuments':[
+            {'invoiceCodeNumber':s.receiptNo,'uuid':'retained-uuid'}]}),202);
+        })));
+    await service.saveSettings(supplier,'id','secret'); await service.prepare(s.id,'sandbox',buyer);
+    final submitting=service.submitPendingInvoice(s.id); await entered.future;
+    HttpOverrides.global=null;
+    final host=LanPairingHost.forTesting(repo,database:database); await host.start();
+    try {
+      await expectLater(repo.voidSale(s.id,'late void'),throwsStateError);
+      final response=await http.post(Uri.parse('http://127.0.0.1:${host.port}/api/v1/mutations'),
+        headers:{'Content-Type':'application/json','X-CNKH-Token':await repo.getSetting('lan_host_token')},
+        body:jsonEncode({'operations':[{'id':'late-lan-void','kind':'sale_void','payload':{
+          'client_sale_id':s.id,'receipt_no':s.receiptNo,'note':'late void'}}]}));
+      expect(jsonDecode(utf8.decode(response.bodyBytes))['acknowledged'],isEmpty);
+      release.complete(); await submitting;
+      await expectLater(service.submitPendingInvoice(s.id),throwsStateError);
+      final db=await database.db; final doc=(await db.query('e_invoice_documents')).single;
+      expect(doc['document_uuid'],'retained-uuid'); expect(doc['submission_uid'],'retained-uid');
+      expect(doc['status'],'submitted'); expect(posts,1);
+      expect((await db.query('sales',where:'id=?',whereArgs:[s.id])).single['voided'],0);
+      expect(await db.query('stock_reversals'),isEmpty);
+      expect(await db.query('sync_applied_operations',where:'id=?',whereArgs:['late-lan-void']),isEmpty);
+      expect(await db.query('e_invoice_logs',where:"action='submit_start'"),hasLength(1));
+    } finally { if(!release.isCompleted) release.complete(); await host.stop(); service.dispose(); }
+  });
   test('PFX profile is checked and generated signature is mathematically valid', () async {
     final signer = EInvoiceSigner();
     final pfx = base64Decode(_testPfxB64);

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../db/app_database.dart';
 import 'sync_store.dart';
+import 'einvoice/sale_submission_guard.dart';
 
 Future<void> reverseSale(DatabaseExecutor txn, String id, String note) async {
   final rows = await txn.query('sales', where: 'id=?', whereArgs: [id]);
@@ -14,6 +15,7 @@ Future<void> reverseSale(DatabaseExecutor txn, String id, String note) async {
     whereArgs: [id],
   )).isNotEmpty)
     return;
+  await guardAndAuditSaleVoid(txn, id);
   final quantities = <String, double>{};
   final moves = await txn.query(
     'stock_moves',

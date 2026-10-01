@@ -434,7 +434,11 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
         'demo_users',
       ]) {
         try {
-          await txn.delete(table);
+          if (table == 'settings') {
+            await txn.delete(table, where: "key NOT LIKE 'document_sequence:%'");
+          } else {
+            await txn.delete(table);
+          }
         } catch (_) {}
       }
     });

@@ -6,6 +6,14 @@ import 'package:sqflite/sqflite.dart';
 import '../db/app_database.dart';
 import '../models/app_user.dart';
 
+/// Structural validation of the PBKDF2 credential used by actual login.
+bool hasValidPinCredential(Map<String, Object?> row) {
+  try {
+    return base64Decode(row['salt'] as String).length == 24 &&
+        base64Decode(row['pin_hash'] as String).length == 32;
+  } catch (_) { return false; }
+}
+
 Future<String> _digest(List<String> input) async {
   final key = await Pbkdf2(
     macAlgorithm: Hmac.sha256(),
@@ -29,7 +37,7 @@ class AuthService {
     final random = Random.secure();
     final salt = base64Encode(List.generate(24, (_) => random.nextInt(256)));
     return {
-      'username': user.toLowerCase(),
+      'username': user.trim().toLowerCase(),
       'salt': salt,
       'pin_hash': await compute(_digest, [pin, salt]),
       'failed_attempts': 0,
@@ -58,10 +66,10 @@ class AuthService {
     );
     final creds = await db.query(
       'user_credentials',
-      where: 'username=?',
+      where: 'username=? COLLATE NOCASE',
       whereArgs: [name],
     );
-    if (users.isEmpty || creds.isEmpty)
+    if (users.isEmpty || creds.isEmpty || !hasValidPinCredential(creds.first))
       throw StateError('账号或 PIN 无效，未设置 PIN 请联系管理员');
     final c = creds.first;
     final until = DateTime.tryParse(c['locked_until'] as String);
@@ -105,7 +113,7 @@ class AuthService {
     await db.update(
       'user_credentials',
       {'failed_attempts': 0, 'locked_until': ''},
-      where: 'username=?',
+      where: 'username=? COLLATE NOCASE',
       whereArgs: [name],
     );
     final u = users.first;
