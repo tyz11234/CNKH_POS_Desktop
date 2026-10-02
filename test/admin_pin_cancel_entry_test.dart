@@ -33,15 +33,31 @@ void main() {
         await tester.pump(const Duration(milliseconds:100));
       }
     }
+    Future<void> waitFor(Finder finder) async {
+      // SQLite uses real I/O. Wait for the actual UI state rather than assuming
+      // a fixed 300 ms is sufficient on a busy Windows runner.
+      for (var i = 0; i < 100 && finder.evaluate().isEmpty; i++) {
+        await tester.runAsync(() =>
+            Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+      await tester.pumpAndSettle();
+      expect(finder, findsOneWidget);
+    }
       await tester.pumpWidget(MaterialApp(home: UserAdminPage(repo:repo))); await flush();
-      await tester.tap(find.text('新增账号')); await tester.pumpAndSettle();
+      // Start the async page action in the real zone, including the database
+      // continuation after its dialog completes.
+      await tester.runAsync(() async { await tester.tap(find.text('新增账号')); });
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).at(0),'Admin2');
       await tester.enterText(find.byType(TextField).at(1),'Second Admin');
       await tester.tap(find.byType(DropdownButtonFormField<String>)); await tester.pumpAndSettle();
       await tester.tap(find.text('ADMIN · 管理员').last); await tester.pumpAndSettle();
-      await tester.tap(find.text('保存')); await flush();
+      await tester.runAsync(() async { await tester.tap(find.text('保存')); });
+      await waitFor(find.text('设置 Admin2 PIN'));
       expect(find.text('设置 Admin2 PIN'),findsOneWidget);
-      await tester.tap(find.text('取消')); await flush();
+      await tester.runAsync(() async { await tester.tap(find.text('取消')); });
+      await waitFor(find.text('员工账号已保存'));
       await tester.runAsync(() async {
         final service=UserAdminService(repo);
         await expectLater(service.updateUser(id:'admin1',displayName:'Admin',role:'STAFF',isActive:true),throwsStateError);
