@@ -2,6 +2,30 @@
 
 基线：Mobile e77b54686b0dd3a6af2c045643c31b22fac61e21；Desktop 29bba6f61ee8257b5a510199fb38350fee74a78b。开始时已通过远端 main 检查确认一致；原工作区干净，修改位于独立分支 fix/20261001-eleven-regressions。两仓库没有适用 AGENTS.md。已读取 README、FIX_VERIFICATION、相关业务代码及 CI 配套说明。
 
+## 2026-10-03 · 1.10.7+35 发布验证
+
+两端修复 PR #18 已合并到 main，安装包与 SHA256SUMS 已发布。固定发布源码：Desktop `9b297535e8a0e3619efc995cbeb7d647ef63b586`（`v1.10.7`），Mobile `c0b0a67c62c417e3b7e54cfee5ff9d96c141a345`（`v1.10.7-mobile`）。发布只提高应用版本号，数据库仍为 schema v10，协议仍为 cnkh-sync:v1；没有删除税务记录、UUID、审计或未确认业务。
+
+| 工作目录 | 本次实际命令 | 发布回归结果 | 运行证据 |
+| --- | --- | --- | --- |
+| Mobile | `flutter pub get`；`flutter analyze --no-fatal-infos --no-fatal-warnings` | 成功；0 errors / 5 warnings / 37 infos，退出 0 | [Mobile main 发布 CI](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961364) |
+| Mobile | `flutter test` | 130 项通过 | 同上 |
+| Mobile | `flutter build apk --release` | 成功；APK 签名、INTERNET 与培训资源验证通过 | 同上 |
+| Desktop | `flutter pub get`；`flutter analyze --no-fatal-infos --no-fatal-warnings` | 成功；0 errors / 6 warnings / 38 infos，退出 0 | [Windows main 发布 CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37029953298) |
+| Desktop | `flutter test` | 132 项通过 | 同上 |
+| Desktop | `flutter build windows --release` | 成功；Windows x64，培训资源检查与 ZIP 上传通过 | 同上 |
+| Desktop/integration | `flutter pub get`；`flutter analyze --no-fatal-infos --no-fatal-warnings`；`flutter test test regression` | 成功；0 / 0 / 0；29 项真实 HTTP 回归通过 | [新版 main 配套 HTTP](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961222) |
+| 两端 | `flutter test tool/training_capture_test.dart`；`flutter test tool/training_view_test.dart` | 通过，培训捕获/显示各 1 项；Mobile 历史 Desktop 培训截图不计作本轮业务验证 | 对应发布 CI |
+| Mobile | `python3 tool/verify_training_bundle.py build/app/outputs/flutter-apk/app-release.apk --kind mobile` | 16 组资源通过 | Mobile 发布 CI |
+| Desktop | `python tool/verify_training_bundle.py build/windows/x64/runner/Release --kind desktop` | 11 组资源通过 | Windows 发布 CI |
+| Mobile | `apksigner verify --print-certs <APK>`；`aapt dump permissions <APK>`；`sha256sum <APK>` | 签名有效，INTERNET 存在，哈希与 Release digest 一致 | Mobile 发布 CI |
+
+HTTP 使用 Desktop `458b52a8300b37900d1e5557d5b35e7d57d4f202` + Mobile `c0b0a67c62c417e3b7e54cfee5ff9d96c141a345`；两端均为 1.10.7+35。发布版本的业务代码、测试、资源与这些受测源码一致，文档及 companion 固定值差异不改变业务实现。发布前另实际通过 [Desktop 1.10.7 HTTP #113](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37003545232) 与 [Mobile 1.10.7 HTTP #101](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37003549635)，各 29 项。Flutter stable 3.47.6，GitHub Actions Ubuntu/Windows runner；本地 SDK 限制与修复分支失败记录保留在下文，不把它们或历史绿色 CI 计为发布通过。
+
+APK `ba6e763059eebcee46ef8d55962546f92e3f4332391da82fedc81fb204e6e3ad`（115187111 字节）；Windows ZIP `33818e0fe9e6a6141a790d842b909c023eca0dc528ccc42d2f17b3505d548c77`（17487790 字节）。两个版本化/通用 APK 资产内容相同。本次 APK 是 Release 构建，实际使用 **Android Debug 签名证书**；没有使用稳定发布 keystore。证书 SHA-256：`51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。 **与 1.10.6 APK 的证书不同，不能直接覆盖安装该版本。** 更新前完成业务同步并备份，保留旧 APK 和未确认的离线操作；不要直接卸载含有未同步数据的旧版，卸载会清除本地数据。Android/Windows 实体覆盖升级尚未验收。
+
+安装包下载与完整校验步骤见 [README](README.md)。以下为发布前修复分支的原始证据，PR 临时 APK、旧版本 artifact 与本次公开安装包不同。
+
 ## 行为、位置和回归
 
 | 编号 | 复核根因及修复 | 回归入口 | 本轮回归结果 |
@@ -26,7 +50,7 @@
 
 旧缓存设置被解释为缓存父目录，在 cnkh_receipts_owned_v2 子目录写入新缓存；无可靠归属的旧 PDF 不自动搬移或删除。已提交或结果未知税务文档保留原始号码、UUID、payload 和审计。新字体复用 Desktop 的 NotoSansSC-Regular.ttf，两端打包版权及 OFL 许可；字形优先使用该字体，自动化比较不同汉字输出以防默认字体方块掩盖问题。
 
-## 本轮命令和结果
+## 修复分支命令和结果（发布前）
 
 执行日期：2026-10-01 至 2026-10-02。两端继续保持 1.10.6+34、schema v10；main 在 2026-10-02 再次 fetch 后仍为上述基线。审查提交为 Desktop `1cae8372edd7597948ba8abe45a9cfaec1fcf20e`、Mobile `55dfae9ba78e817a9e29514b2e491ea9b30691f4`。交付前固定 companion SHA；后续验证文档提交不改变业务代码或测试内容。
 
@@ -54,6 +78,8 @@
 
 ### 本轮失败与修正记录
 
+- [1.10.7 Windows PR #170](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37002158364)：131 项通过、1 项失败，F08 新建管理员页面固定等待 300 ms 后 PIN 弹窗尚未出现。测试改为从真实事件循环触发页面操作，有界等待真实 PIN 弹窗及保存提示；[下一轮 #171](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37002895369) 又发现弹窗期间页面忙碌动画使 pumpAndSettle 超时，改为有限帧渲染而不要求整个页面空闲。保留取消 PIN、停用/降级拒绝和实际登录断言。没有跳过或削弱测试，最终发布 CI 已完整重跑通过。
+
 - [首轮 Desktop](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36865709206)、[首轮 Mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36865713190)：编译/分析发现事务号码 executor、Desktop 缓存 repo 参数和测试数据库 setVersion 接口不一致。按真实入口补齐参数，并改用 SQLite `PRAGMA user_version` 旧版本夹具；没有跳过测试。
 - [首轮可编译 HTTP](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36866242944)：25 项通过、3 项失败。实际复现 canonical Desktop ID 再次剥除 pc- 导致漏扣库存，以及销售回拉改写本地历史 ID。修正解析后 ID 的使用和回拉的不可重绑映射，现有库存和历史断言保持。
 - [Mobile 输出测试首轮](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/36866236311)：中文字库未打包；随后字体回退仍可能被 Flutter 测试默认字体的方块掩盖。两端把内置中文字库作为首选，保留“中”和“文”输出不同的断言。
@@ -64,19 +90,19 @@
 
 最终 errors/warnings/infos 的逐条位置与规则见 [ELEVEN_BUG_ANALYZE.md](ELEVEN_BUG_ANALYZE.md)。Desktop 44、Mobile 42 项实际诊断完整保留；没有通过 suppression 或删除文件清空告警。
 
-### Release 构建与签名
+### 发布前 Release 构建与签名
 
 Mobile 最终 Release APK 已编译成功，115.2 MB；`apksigner verify --print-certs`、merged manifest 及 APK 内 INTERNET 权限检查都通过。本轮 APK SHA-256 为 `f1771a82a10123614666392bb2c33ad45c358c140a3bd8e8fd0f1791c8633309`；PR 验证证书 SHA-256 为 `a200798d10b01f246dc2efa136ea6e18553467dfae527b6ee0d1da209bb1a092`。该证书本轮生成、有效期两天，不能用于门店正式升级或作为稳定签名；没有发布正式 APK，既有工作流不上传 PR APK。正式发布/上传步骤按既有条件未执行，与跳过测试无关。
 
-Windows x64 Release 已编译、资源校验、打包及 artifact 上传成功；[本轮 Windows artifact](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36997979170/artifacts/11222663296) 包含 `CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip` 和 SHA256SUMS。内部应用 ZIP SHA-256：`c67375cc7ed8b69124e91439010f7710e939446535234592284eb4274ae30bc0`；GitHub 外层 artifact ZIP digest：`77f861234c2c7738fe4b245a6c8d03e713a128720a142f34533d1a230e3a7459`，两者不是同一个文件。没有创建新 Release，README 的下载链接仍指历史 1.10.6。
+Windows x64 Release 已编译、资源校验、打包及 artifact 上传成功；[本轮 Windows artifact](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/36997979170/artifacts/11222663296) 包含 `CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip` 和 SHA256SUMS。内部应用 ZIP SHA-256：`c67375cc7ed8b69124e91439010f7710e939446535234592284eb4274ae30bc0`；GitHub 外层 artifact ZIP digest：`77f861234c2c7738fe4b245a6c8d03e713a128720a142f34533d1a230e3a7459`，两者不是同一个文件。该阶段没有创建 Release，README 当时仍指历史 1.10.6；最终发布见上文。
 
-PR 审查入口：[Desktop #18](https://github.com/tyz11234/CNKH_POS_Desktop/pull/18)、[Mobile #18](https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/18)。提交保留为独立审查分支；本次没有合并 main 或发布安装包。
+PR 审查入口：[Desktop #18](https://github.com/tyz11234/CNKH_POS_Desktop/pull/18)、[Mobile #18](https://github.com/tyz11234/CNKH_POS_Mobile_APK/pull/18)。当时保留独立审查分支、尚未发布；PR 现已合并，最终安装包见上文。
 
 本机最初没有 Flutter/Dart。已实际尝试从官方 Git 仓库安装 Flutter stable；SDK 下载后实际尝试 `flutter-sdk/bin/flutter --version`；启动进程被自动审批拒绝，理由是它尝试访问未经授权的 link-local 云实例元数据服务，可能触及云凭据。版本探测没有成功，本机没有执行本轮 Flutter analyze/test/HTTP/Release 命令。本轮不再通过该进程执行网络请求，采用仓库现有 GitHub Actions 的 Ubuntu/Windows 环境执行实际 Flutter/HTTP/Release 命令。历史 CI 与 Python/SQLite 场景模拟均未计入本轮通过。
 
 ## 未验收范围
 
-未执行 Android/Windows 真机覆盖升级、用户实体旧库、门店网络/防火墙/断线、电池与相机 OCR、WhatsApp 原生分享、实体蓝牙打印机（GS v 0 支持与物理宽度）、真实 MyInvois Sandbox/Production、真实企业证书与 Portal 操作。SQLite 旧库回归是隔离测试数据库，不代表门店旧库验收。HTTP 使用 localhost，税务 HTTP 全部受控模拟。未合并 main 或发布安装包。
+未执行 Android/Windows 真机覆盖升级、用户实体旧库、门店网络/防火墙/断线、电池与相机 OCR、WhatsApp 原生分享、实体蓝牙打印机（GS v 0 支持与物理宽度）、真实 MyInvois Sandbox/Production、真实企业证书与 Portal 操作。SQLite 旧库回归是隔离测试数据库，不代表门店旧库验收。HTTP 使用 localhost，税务 HTTP 全部受控模拟。安装包发布不扩大这些验收范围。
 
 附带观察：F05 设置页回归中，Mobile 真实 PDF 写入仍产生既有的 `Courier has no Unicode support` 日志。缓存归属与删除结果已单独断言；该日志不作为 PDF 中文视觉验收通过，也没有借本轮重写 PDF 票据布局。
 

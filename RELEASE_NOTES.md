@@ -13,14 +13,14 @@
 
 保持离线收银、现有页面布局、`cnkh-sync:v1` 与 schema v10。本轮不新增数据库版本或重绑历史实体；旧库增量升级、重复 ensure、旧草稿、历史业务及未确认队列保留已有实际回归。首次配对与库存基线修复建议两端同时更新。旧商品已删除的待上传业务仍明确拒绝并保留，需人工核对，不能通过清空队列解决。
 
-修复分支本轮实际通过 Mobile 完整测试 **130 项**、Desktop **132 项**、Desktop `integration/` 真实 HTTP **29 项**。`flutter analyze --no-fatal-infos --no-fatal-warnings`：Mobile **0 errors / 5 warnings / 37 infos**，Desktop **0 errors / 6 warnings / 38 infos**；这不是零告警。发布 CI 将对 1.10.7+35 重跑完整测试、培训资源检查及 Android/Windows Release 构建，并验证 APK 的签名与 INTERNET 权限。实际发布命令、运行链接、文件 SHA-256 和签名证书最终记录于 README 与 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)。
+修复分支本轮实际通过 Mobile 完整测试 **130 项**、Desktop **132 项**、Desktop `integration/` 真实 HTTP **29 项**。`flutter analyze --no-fatal-infos --no-fatal-warnings`：Mobile **0 errors / 5 warnings / 37 infos**，Desktop **0 errors / 6 warnings / 38 infos**；这不是零告警。main 发布 CI 已对 1.10.7+35 重跑完整测试、培训资源检查及 Android/Windows Release 构建，签名与 INTERNET 检查通过。[Mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961364) / [Desktop](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37029953298) / [HTTP](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961222)。实际发布命令、运行链接、文件 SHA-256 和签名证书记录于 README 与 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)。
 
 ## 下载与升级
 
 - [Android APK](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/CNKH_POS_Mobile.apk) / [APK SHA256SUMS](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/SHA256SUMS.txt)
 - [Windows x64 ZIP 便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.7/CNKH_POS_Desktop-windows-x64-v1.10.7-35.zip) / [ZIP SHA256SUMS](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.7/SHA256SUMS.txt)
 
-发布沿用现有 CI：优先使用已配置的稳定 Android keystore；未配置时沿用此前已授权的 Android Debug 签名方式，以实际签名检查为准。不是 PR 的两天临时验证证书。不同签名不能覆盖安装；更新前同步并备份业务及未确认的离线操作，保留旧 APK，不能直接卸载有未同步数据的旧版。Windows 沿用完整 ZIP 便携包，关闭程序后完整解压，运行 `cnkh_pos_desktop.exe`，保留 DLL 与 data 文件夹。
+本次 APK 是 Release 构建，实际使用 **Android Debug 签名证书**；没有使用稳定发布 keystore。证书 SHA-256：`51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。 **与 1.10.6 APK 的证书不同，不能直接覆盖安装该版本。** 更新前完成业务同步并备份，保留旧 APK 和未确认的离线操作；不要直接卸载含有未同步数据的旧版，卸载会清除本地数据。Android/Windows 实体覆盖升级尚未验收。 Windows 包为完整 ZIP 便携包，关闭程序后解压并保留 DLL 与 data。
 
 未执行实体 Android/Windows 升级、门店旧数据库、门店网络/防火墙、相机 OCR、原生分享及实体蓝牙打印机验收；SQLite 旧库与 localhost HTTP 回归不代表现场验收。税务测试全部使用可控 HTTP，没有真实 MyInvois Sandbox/Production 提交。
 

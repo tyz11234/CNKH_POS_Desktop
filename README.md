@@ -4,26 +4,47 @@
 
 技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
 
-> README 最后更新：**2026-10-02**。默认源码与发布分支：`main`。
+> README 最后更新：**2026-10-03**。默认源码与发布分支：`main`。
 
-## 2026-10-02 · 1.10.7+35 发布准备
+## 2026-10-03 · 1.10.7+35：F01–F11 修复发布
 
 本轮从两端 **1.10.6+34** 基线复核 F01–F11，保持现有 POS/LAN 架构、页面布局、离线销售和 `cnkh-sync:v1`。修复包括首次配对商品身份 ACK、软删除重建、税务提交/作废协调、初始库存基线、收据缓存归属、OCR 草稿行 ID、原子进货、具备凭据的最后管理员保护、中文栅格小票、重置后税务号码和事务日结。
 
-本轮实际 CI：Mobile 完整测试 **130 项**、Desktop **132 项**、双端真实 HTTP **29 项**均通过；Android Release APK 与 Windows x64 Release 构建成功。两端 analyze 使用 `--no-fatal-infos --no-fatal-warnings`，分别 **0 errors / 5 warnings / 37 infos** 和 **0 errors / 6 warnings / 38 infos**。PR APK 为临时验证签名，实体打印、门店旧库/网络和真实 MyInvois 未验收。
+本版 main 发布 CI 实际通过：Mobile 完整测试 **130 项**、Desktop **132 项**；使用配套新版源码的真实 HTTP **29 项**通过。Android Release APK 与 Windows x64 Release 构建、培训资源检查均成功。两端 analyze 使用 `--no-fatal-infos --no-fatal-warnings`，Mobile **0 errors / 5 warnings / 37 infos**，Desktop **0 errors / 6 warnings / 38 infos**。[Mobile 发布 CI](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961364)、[Windows 发布 CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37029953298)、[双端 HTTP](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961222)。实体打印、门店旧库/网络、相机 OCR 和真实 MyInvois 尚未验收。
 
-本轮修复准备以两端 **1.10.7+35** 发布；发布 CI 将重新运行完整测试和构建，完成后更新下面的下载链接、文件校验值与实际签名证书。完整说明、逐项回归和本轮实际执行结果见 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)；下方 1.10.6 发布数据属于历史记录，不能代替本次测试。
+两端修复已合并 main，并发布 1.10.7+35。逐项根因、实际入口回归、兼容性和未验收范围见 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)；以下历史版本的 CI 不替代本次回归。
 
 ## 当前源码与发布版本
 
 | 项目 | 版本 |
 | --- | --- |
-| Desktop `main` 与 Windows Release | **1.10.6+34**（`v1.10.6`） |
-| Mobile `main` 与 Android Release | **1.10.6+34**（`v1.10.6-mobile`） |
+| Desktop `main` 与 Windows Release | **1.10.7+35**（`v1.10.7`） |
+| Mobile `main` 与 Android Release | **1.10.7+35**（`v1.10.7-mobile`） |
 | LAN 协议 | `cnkh-sync:v1` |
 | 本地数据库 | **schema v10**，自动增量升级旧数据库 |
 
-Desktop 与 Mobile **1.10.6+34** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
+Desktop 与 Mobile **1.10.7+35** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
+
+## 下载与更新
+
+- [Android APK（1.10.7+35）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/CNKH_POS_Mobile.apk)
+- [版本化 APK（内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/CNKH_POS_Mobile_v1.10.7.apk)
+- [APK SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/SHA256SUMS.txt)
+- [Mobile Release v1.10.7-mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.7-mobile)
+- [Windows x64 ZIP 便携包（1.10.7+35）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.7/CNKH_POS_Desktop-windows-x64-v1.10.7-35.zip)
+- [ZIP SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.7/SHA256SUMS.txt)
+- [Desktop Release v1.10.7](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.7)
+
+| 发布文件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `CNKH_POS_Mobile.apk`（两个 APK 相同） | 115187111 | `ba6e763059eebcee46ef8d55962546f92e3f4332391da82fedc81fb204e6e3ad` |
+| `CNKH_POS_Desktop-windows-x64-v1.10.7-35.zip` | 17487790 | `33818e0fe9e6a6141a790d842b909c023eca0dc528ccc42d2f17b3505d548c77` |
+
+以上文件哈希由发布 CI 计算，并与 GitHub Release 资产 digest 核对一致。PowerShell 可用 `Get-FileHash <文件名> -Algorithm SHA256`；Linux/macOS 可用 `sha256sum <文件名>` / `shasum -a 256 <文件名>` 核对。
+
+本次 APK 是 Release 构建，实际使用 **Android Debug 签名证书**；没有使用稳定发布 keystore。证书 SHA-256：`51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。 **与 1.10.6 APK 的证书不同，不能直接覆盖安装该版本。** 更新前完成业务同步并备份，保留旧 APK 和未确认的离线操作；不要直接卸载含有未同步数据的旧版，卸载会清除本地数据。Android/Windows 实体覆盖升级尚未验收。
+
+Windows 沿用完整 ZIP 便携包，不含安装向导。先备份业务数据并关闭程序，将 ZIP 完整解压到独立目录，再运行 `cnkh_pos_desktop.exe`；保留同目录 DLL 和 data 文件夹。首次启动按现有增量迁移升级旧库，schema 仍为 v10。首次配对与库存基线修复应使用两端配套 1.10.7+35。
 
 ## 2026-10-01 · 1.10.6+34
 
@@ -33,25 +54,6 @@ Desktop 与 Mobile **1.10.6+34** 已通过 Release CI 构建并发布，Windows 
 - 两端仅增量升级至 schema v10，保持 `cnkh-sync:v1`。新回归覆盖旧数据库、双端 HTTP、实际备份恢复和可控税务 HTTP 响应。
 
 GitHub Actions 已实际执行：Mobile 完整测试 **124 项**、Desktop **116 项**、双端真实 HTTP 回归 **19 项**全部通过；Android Release APK 与 Windows Release 构建通过。分析采用现有 CI 参数 `--no-fatal-infos --no-fatal-warnings`：Mobile **0 error / 5 warnings / 37 infos**，Desktop **0 error / 6 warnings / 38 infos**。正式 Release 的 main 工作流也已重跑通过，安装包与校验文件已上传。逐项证据、命令、日志与范围见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
-
-## 下载与更新
-
-- [Windows x64 便携包（1.10.6+34）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.6/CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip)
-- [Windows ZIP 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.6/SHA256SUMS.txt)
-- [Desktop Release `v1.10.6`](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.6)
-- [Android APK（1.10.6+34）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.6-mobile/CNKH_POS_Mobile.apk)
-- [版本化 APK（内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.6-mobile/CNKH_POS_Mobile_v1.10.6.apk)
-- [Mobile APK 的 SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.6-mobile/SHA256SUMS.txt)
-- [Mobile Release `v1.10.6-mobile`](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.6-mobile)
-
-| 发布文件 | SHA-256 |
-| --- | --- |
-| `CNKH_POS_Mobile.apk`（两个 APK 文件内容相同） | `e68f680c57928aa160a7a82a4ea18fcf1599532b7682672a4f2c8ad1292b46b8` |
-| `CNKH_POS_Desktop-windows-x64-v1.10.6-34.zip` | `ac6edbda2da3c1f484461e7df2d38490142f8fb28fab6780e6983284ab40c7e8` |
-
-更新 Desktop 前先备份业务数据并关闭程序。将 ZIP 完整解压到单独目录，运行 `cnkh_pos_desktop.exe`，保留同目录 DLL 和 data 文件夹；此包不含安装向导。
-
-本次 APK 是 Release 构建，实际使用 **Android Debug 签名证书**；没有使用稳定发布 keystore。证书 SHA-256：`4e28edc15b7df8f8fe3245805e7a7db7e88ba5c5217cd76fa196d993b12f2fc4`。该证书不保证与旧 APK 或未来构建一致；签名不匹配时 Android 会拒绝覆盖安装。请保留旧版，先同步并备份业务数据，尤其是未确认的离线操作；卸载会清除应用本地数据。
 
 ## 2026-09-26 · 1.10.5+33
 
