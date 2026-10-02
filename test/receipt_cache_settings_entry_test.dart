@@ -48,23 +48,31 @@ void main() {
       await tester.pump(const Duration(milliseconds: 80));
     }
   }
+  Future<void> waitFor(WidgetTester tester, Finder finder) async {
+    // File/FFI work needs the real event loop, while the dialog needs frames.
+    for (var i = 0; i < 100 && finder.evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 80));
+    }
+    await tester.pumpAndSettle();
+    expect(finder, findsOneWidget);
+  }
   testWidgets('F05 actual settings clear deletes its own generated PDF and preserves the selected folder documents',
       (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: SettingsScreen(
       qrStorage: QrStorage(), repo: repo,
       user: const AppUser(username: 'admin', role: AppRole.admin)))));
     await flush(tester);
-    final clear = find.text('电子收据缓存 / E-receipt cache');
+    final clear = find.widgetWithText(ListTile, '电子收据缓存 / E-receipt cache');
     await tester.scrollUntilVisible(clear, 500, maxScrolls: 30,
         scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(clear.hitTestable(), findsOneWidget);
-    await tester.tap(clear);
-    await flush(tester);
-    expect(find.text('清空电子收据缓存？'), findsOneWidget);
+    await tester.runAsync(() async { await tester.tap(clear); });
+    await waitFor(tester, find.text('清空电子收据缓存？'));
     expect(find.text('当前约 1 个 PDF。清空后无法从本机重发旧缓存。'), findsOneWidget);
-    await tester.tap(find.text('清空'));
-    await flush(tester);
+    await tester.runAsync(() async { await tester.tap(find.text('清空')); });
+    await waitFor(tester, find.text('已删除 1 个缓存 PDF'));
     await tester.runAsync(() async {
       expect(await owned.exists(), isFalse);
       expect(await contract.exists(), isTrue);

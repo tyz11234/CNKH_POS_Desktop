@@ -6,7 +6,7 @@
 
 | 编号 | 复核根因及修复 | 回归入口 |
 | --- | --- | --- |
-| F01 | 确认首次 product_upsert 只 ACK，不返回身份，销售空 SKU 无法解析。Desktop lan_product_identity.dart 与 lan_mutations.dart 在事务保存不可重绑别名和可重放 ACK；lan_pairing_host.dart 返回可选 entity_mappings。Mobile lan_sync.dart 接收确认后先持久化映射，再继续队列；旧 ACK 也有唯一 SKU/条码解析。销售保存条码快照；已解析的 Desktop ID 不再重复剥除 pc- 前缀（本轮 HTTP 在该类真实 ID 上发现了漏扣库存）。歧义拒绝并保留操作。 | integration/test/eleven_bug_entries_test.dart：未配对销售、空 SKU、已有 Desktop 商品、丢失和重复 ACK、重复同步、不唯一旧条码 |
+| F01 | 确认首次 product_upsert 只 ACK，不返回身份，销售空 SKU 无法解析。Desktop lan_product_identity.dart 与 lan_mutations.dart 在事务保存不可重绑别名和可重放 ACK；lan_pairing_host.dart 返回可选 entity_mappings。Mobile lan_sync.dart 接收确认后先持久化映射，再继续队列；旧客户端不需要新增字段，服务端也依据已建立别名或唯一 SKU/条码解析。销售保存条码快照；已解析的 Desktop ID 不再重复剥除 pc- 前缀（本轮 HTTP 在该类真实 ID 上发现了漏扣库存）。歧义拒绝并保留操作。 | integration/test/eleven_bug_entries_test.dart：未配对销售、空 SKU、已有 Desktop 商品、丢失和重复 ACK、重复同步、不唯一旧条码 |
 | F02 | 确认自然键候选包含已删除/已映射旧实体。Mobile _upsertProduct 只选择活动且未关联其他 Desktop 实体的候选；tombstone 只按身份处理。rememberEntityId 双向禁止重绑；销售回拉按原映射恢复本地 ID，包括已删除商品，保留历史实体。 | 同一 HTTP 文件：增量、全量、重复拉取、历史销售/进货/流水及未 ACK 进货保留 |
 | F03 | 确认 OAuth 后认领不再检查销售状态。认领事务重新核对销售；sale_reversal.dart 的共享入口调用 sale_submission_guard.dart，让本地与 LAN 作废参与同一 SQLite 一致性规则。作废先提交则不发送税务请求；认领先提交则拒绝处理中/未知结果的作废。保留 UUID、尝试和审计，不在事务等待网络。 | test/einvoice_test.dart：挂起模拟 OAuth 后本地/LAN 作废、认领后两种作废、重复提交与 UUID/审计保留；全部税务响应受控模拟 |
 | F04 | 确认初始库存差额被写成后续活动。catalog_stock_baseline.dart 依据完整 Desktop 流水和本机已确认进货数量证明初始基线；基线单独保留，真实后续流水仍拦截撤销，包括销售后作废的净零活动。缺少证明则继续保守拒绝。 | HTTP 实际 PurchaseOcrRepository.reversePurchase：相同/不同基线、重复撤销、认领后 Desktop 活动导致拒绝、原请求/后续队列/最终库存一致 |
@@ -20,11 +20,11 @@
 
 ## 兼容性和迁移
 
-数据库版本仍为 v10，没有重建业务表或改写历史实体。新 LAN 身份 ACK 和基线证明记录使用现有 settings 表，在业务事务中写入并随备份保存；旧数据保持原样。OCR 新 ID 只影响新解析结果，旧草稿/附件/别名/提交幂等键保留。旧库升级和重复 ensure 回归包含在完整测试中。
+数据库版本仍为 v10，没有重建业务表或改写历史实体。新 LAN 身份 ACK 和基线证明记录使用现有 settings 表，在业务事务中写入并随备份保存；旧数据保持原样。ACK 的 entity_mappings 和请求 client_entity_id 都是可选字段，协议仍为 v1，旧端继续使用原来的响应/请求格式。首次配对修复应使用配套新版本；老客户端不发新字段的 HTTP 场景也已覆盖。OCR 新 ID 只影响新解析结果，旧草稿/附件/别名/提交幂等键保留。旧库升级和重复 ensure 回归包含在完整测试中。
 
-有未 ACK 旧商品业务时，目录覆盖继续受到保护；旧目标已删除的业务明确报错且保留，不能自动关联到同码新商品。需要人工核对业务，不能清空队列来使测试通过。
+有未 ACK 旧商品业务时，目录覆盖继续受到保护；旧目标已删除的业务明确报错且保留，不能自动关联到同码新商品。需要人工核对业务，不能清空队列来使测试通过。此时上传失败仍会保护目录游标，不能宣称这笔已删除目标的待同步业务已成功。
 
-旧缓存设置被解释为缓存父目录，在 cnkh_receipts_owned_v2 子目录写入新缓存；无可靠归属的旧 PDF 不自动搬移或删除。已提交或结果未知税务文档保留原始号码、UUID、payload 和审计。
+旧缓存设置被解释为缓存父目录，在 cnkh_receipts_owned_v2 子目录写入新缓存；无可靠归属的旧 PDF 不自动搬移或删除。已提交或结果未知税务文档保留原始号码、UUID、payload 和审计。新字体复用 Desktop 的 NotoSansSC-Regular.ttf，两端打包版权及 OFL 许可；字形优先使用该字体，自动化比较不同汉字输出以防默认字体方块掩盖问题。
 
 ## 本轮命令和结果
 
@@ -35,5 +35,7 @@
 ## 未验收范围
 
 未执行 Android/Windows 真机覆盖升级、用户实体旧库、门店网络/防火墙/断线、电池与相机 OCR、WhatsApp 原生分享、实体蓝牙打印机（GS v 0 支持与物理宽度）、真实 MyInvois Sandbox/Production、真实企业证书与 Portal 操作。SQLite 旧库回归是隔离测试数据库，不代表门店旧库验收。HTTP 使用 localhost，税务 HTTP 全部受控模拟。未合并 main 或发布安装包。
+
+附带观察：F05 设置页回归中，Mobile 真实 PDF 写入仍产生既有的 `Courier has no Unicode support` 日志。缓存归属与删除结果已单独断言；该日志不作为 PDF 中文视觉验收通过，也没有借本轮重写 PDF 票据布局。
 
 排除的分类联动没有改动。快速挂单、恢复期间 LAN 写入等待验证风险不作为这 11 项修复的依据；没有用未经复现的新风险推动重构。
