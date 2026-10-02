@@ -6,13 +6,13 @@
 
 > README 最后更新：**2026-10-02**。默认源码与发布分支：`main`。
 
-## 2026-10-02 · 11 项 Bug 修复分支
+## 2026-10-02 · 1.10.7+35 发布准备
 
 本轮从两端 **1.10.6+34** 基线复核 F01–F11，保持现有 POS/LAN 架构、页面布局、离线销售和 `cnkh-sync:v1`。修复包括首次配对商品身份 ACK、软删除重建、税务提交/作废协调、初始库存基线、收据缓存归属、OCR 草稿行 ID、原子进货、具备凭据的最后管理员保护、中文栅格小票、重置后税务号码和事务日结。
 
 本轮实际 CI：Mobile 完整测试 **130 项**、Desktop **132 项**、双端真实 HTTP **29 项**均通过；Android Release APK 与 Windows x64 Release 构建成功。两端 analyze 使用 `--no-fatal-infos --no-fatal-warnings`，分别 **0 errors / 5 warnings / 37 infos** 和 **0 errors / 6 warnings / 38 infos**。PR APK 为临时验证签名，实体打印、门店旧库/网络和真实 MyInvois 未验收。
 
-当前修复属于审查分支，尚未合并或发布。完整说明、逐项回归和本轮实际执行结果见 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)；下方 1.10.6 发布数据属于历史记录，不能代替本次测试。
+本轮修复准备以两端 **1.10.7+35** 发布；发布 CI 将重新运行完整测试和构建，完成后更新下面的下载链接、文件校验值与实际签名证书。完整说明、逐项回归和本轮实际执行结果见 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)；下方 1.10.6 发布数据属于历史记录，不能代替本次测试。
 
 ## 当前源码与发布版本
 
