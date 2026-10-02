@@ -41,7 +41,10 @@ void main() {
             Future<void>.delayed(const Duration(milliseconds: 50)));
         await tester.pump(const Duration(milliseconds: 80));
       }
-      await tester.pumpAndSettle();
+      // The page remains busy until the PIN dialog closes, so its background
+      // progress animation intentionally never settles while this dialog is
+      // open. Finish the route transition without waiting for global idleness.
+      await tester.pump(const Duration(milliseconds: 300));
       expect(finder, findsOneWidget);
     }
       await tester.pumpWidget(MaterialApp(home: UserAdminPage(repo:repo))); await flush();
