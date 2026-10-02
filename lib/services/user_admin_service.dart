@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+import 'auth_service.dart';
 
 import '../db/app_database.dart';
 import 'pos_repository.dart';
@@ -65,13 +65,12 @@ class UserAdminService {
       final wasActiveAdmin = old['role'] == 'ADMIN' && old['is_active'] == 1;
       final remainsActiveAdmin = normalizedRole == 'ADMIN' && isActive;
       if (wasActiveAdmin && !remainsActiveAdmin) {
-        final count = Sqflite.firstIntValue(
-              await txn.rawQuery(
-                "SELECT COUNT(*) FROM demo_users WHERE role='ADMIN' AND is_active=1 AND id<>?",
-                [id],
-              ),
-            ) ??
-            0;
+        final candidates = await txn.rawQuery('''
+          SELECT c.salt,c.pin_hash FROM demo_users u
+          JOIN user_credentials c ON c.username=u.username COLLATE NOCASE
+          WHERE u.role='ADMIN' AND u.is_active=1 AND u.id<>?
+        ''', [id]);
+        final count = candidates.where(hasValidPinCredential).length;
         if (count == 0) {
           throw StateError('不能停用或降级最后一个有效管理员');
         }

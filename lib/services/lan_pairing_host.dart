@@ -10,6 +10,7 @@ import '../models/product.dart';
 import 'lan_sync.dart' show kPairingPrefix;
 import 'pos_repository.dart';
 import 'lan_mutations.dart';
+import 'lan_product_identity.dart';
 import 'sale_reversal.dart';
 import 'sync_store.dart';
 
@@ -524,6 +525,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       }
       final db = await _db.db;
       final ack = <String>[];
+      final identities = <Map<String, Object?>>[];
       String? error;
       String? failed;
       Map<String, Object?>? rejection;
@@ -532,6 +534,8 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         try {
           await applyLanMutation(db, op);
           ack.add(op['id'] as String);
+          final identity = await lanMutationIdentityAck(db, op['id'] as String);
+          if (identity != null) identities.add(identity);
         } catch (e) {
           error = '$e';
           failed = op['id']?.toString();
@@ -545,6 +549,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       await _json(request.response, HttpStatus.ok, {
         'ok': error == null,
         'acknowledged': ack,
+        'entity_mappings': identities,
         'failed_id': failed,
         'error': error,
         if (rejection != null) 'rejected_operation': rejection,
@@ -1312,27 +1317,8 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         final requiredQty = <String, double>{};
         for (final raw in (sale['lines'] as List? ?? [])) {
           final line = Map<String, Object?>.from(raw as Map);
-          var pid =
-              (line['productId'] ?? line['product_id'])?.toString() ?? '';
-          if (pid.startsWith('pc-')) pid = pid.substring(3);
-          var products = await txn.query(
-            'products',
-            where: 'id=?',
-            whereArgs: [pid],
-          );
-          if (products.isEmpty &&
-              (line['sku']?.toString() ?? '').isNotEmpty) {
-            products = await txn.query(
-              'products',
-              where: 'sku=? AND is_deleted=0',
-              whereArgs: [line['sku']],
-            );
-          }
-          if (products.length != 1 ||
-              (!incomingVoided && products.first['is_deleted'] == 1)) {
-            throw StateError('销售商品未找到或不唯一：${line['nameZh'] ?? pid}');
-          }
-          pid = products.first['id'] as String;
+          final product = await resolveLanSaleProduct(txn, line, allowDeleted: incomingVoided);
+          final pid = product['id'] as String;
           final qty = _asDouble(line['qty'] ?? line['quantity']);
           if (!qty.isFinite || qty <= 0) {
             throw const FormatException('invalid quantity');
@@ -1340,7 +1326,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           requiredQty[pid] = (requiredQty[pid] ?? 0) + qty;
           if (!incomingVoided &&
               policy == 'block' &&
-              (products.first['stock'] as num) < requiredQty[pid]!) {
+              (product['stock'] as num) < requiredQty[pid]!) {
             throw StateError('库存不足，销售保留在手机待处理');
           }
           lines.add({...line, 'productId': pid});
@@ -1421,12 +1407,11 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         for (final rawLine
             in incomingVoided ? <Map<String, Object?>>[] : lines) {
           final line = Map<String, Object?>.from(rawLine);
-          var productId =
+          final productId =
               (line['productId'] ?? line['product_id'])?.toString().trim() ??
                   '';
-          if (productId.startsWith('pc-')) {
-            productId = productId.substring(3);
-          }
+          // The resolver already returned the authoritative Desktop ID. It
+          // can itself begin with pc-; stripping it again loses the deduction.
           final qty = _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
           if (productId.isEmpty || qty <= 0) continue;
           final changed = await txn.rawUpdate(

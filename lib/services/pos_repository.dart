@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'auth_service.dart';
 import 'sale_reversal.dart';
 import 'sync_store.dart';
+import 'daily_closing.dart';
 
 import 'package:sqflite/sqflite.dart';
 
@@ -187,8 +188,10 @@ class AuditEntry {
 }
 
 class PosRepository {
-  PosRepository({AppDatabase? database})
-    : _db = database ?? AppDatabase.instance;
+  PosRepository({AppDatabase? database, DateTime Function()? clock})
+    : _db = database ?? AppDatabase.instance,
+      _clock = clock ?? DateTime.now;
+  final DateTime Function() _clock;
   final AppDatabase _db;
   AppDatabase get database => _db;
   late final AuthService auth = AuthService(database: _db);
@@ -455,7 +458,7 @@ class PosRepository {
     final rounding = isCredit ? 0 : checkoutRoundingAdjustment(raw);
     var receipt = '';
     final id = AppDatabase.newId();
-    final now = DateTime.now().toIso8601String();
+    final now = _clock().toIso8601String();
     final record = {
       'id': id,
       'receipt_no': receipt,
@@ -500,6 +503,7 @@ class PosRepository {
           throw StateError('库存不足：${rows.first['name_zh']}');
         for (final line in lines.where((l) => l['productId'] == e.key)) {
           line['unitCostCents'] = rows.first['cost_cents'];
+          line['barcode'] = rows.first['barcode'];
         }
       }
       record['lines_json'] = jsonEncode(lines);
@@ -638,6 +642,8 @@ class PosRepository {
     required int totalCents,
     required String operator,
     String notes = '',
+    String? purchaseId,
+    List<Product> newProducts = const [],
   }) async {
     if (lines.isEmpty || totalCents < 0) throw ArgumentError('进货内容无效');
     for (final l in lines) {
@@ -646,10 +652,33 @@ class PosRepository {
         throw ArgumentError('进货数量或成本无效');
     }
     final d = await _db.db;
-    final id = AppDatabase.newId();
-    final no = await _db.nextPurchaseNo();
+    final id = purchaseId ?? AppDatabase.newId();
     final now = DateTime.now().toIso8601String();
     await d.transaction((txn) async {
+      final existing = await txn.query('purchases', where: 'id=?', whereArgs: [id]);
+      if (existing.isNotEmpty) {
+        final saved = existing.single;
+        final stored = (jsonDecode(saved['lines_json'] as String) as List)
+            .map((raw) => Map<String, Object?>.from(raw as Map)..remove('desktopBeforeCostCents')).toList();
+        if (saved['supplier_id'] != supplierId || saved['supplier_name'] != supplierName ||
+            saved['total_cents'] != totalCents || saved['notes'] != notes ||
+            jsonEncode(stored) != jsonEncode(lines)) {
+          throw StateError('同一进货请求内容已改变，原进货保留');
+        }
+        return;
+      }
+      final no = await _db.nextPurchaseNo(executor: txn);
+      for (final product in newProducts) {
+        for (final code in ['sku', 'barcode']) {
+          final value = product.toMap()[code]?.toString() ?? '';
+          if (value.isNotEmpty && (await txn.query('products', columns: ['id'],
+              where: '$code=? AND is_deleted=0', whereArgs: [value])).isNotEmpty) {
+            throw StateError('新商品 $code 已存在，请重新匹配');
+          }
+        }
+        await txn.insert('products', product.toMap());
+        await queueMutation(txn, 'product_upsert', product.id, {'row': product.toMap()});
+      }
       final remoteLines = <Map<String, Object?>>[];
       final storedLines = <Map<String, Object?>>[];
       final desktopBeforeCosts = <String, int>{};
@@ -726,8 +755,10 @@ class PosRepository {
     });
   }
 
-  Future<Map<String, int>> dashboardToday() async {
-    final sales = await salesToday();
+  Future<Map<String, int>> dashboardToday({String? businessDate}) async {
+    final sales = businessDate == null ? await salesToday() :
+        (await (await _db.db).query('sales', where: 'voided=0 AND substr(sold_at,1,10)=?',
+            whereArgs: [businessDate])).map(SaleRecord.fromMap).toList();
     var salesTotal = 0;
     var cash = 0;
     var card = 0;
@@ -830,24 +861,25 @@ class PosRepository {
   }
 
   Future<void> saveDailyClosing({
-    required String businessDate,
+    String? businessDate,
     required int openingCashCents,
     required int countedCashCents,
-    required int systemCashCents,
+    int? systemCashCents, // Compatibility only; never trusted for persistence.
     required String closedBy,
     String notes = '',
   }) async {
     final d = await _db.db;
-    await d.insert('daily_closings', {
-      'id': AppDatabase.newId(),
-      'business_date': businessDate,
-      'opening_cash_cents': openingCashCents,
-      'counted_cash_cents': countedCashCents,
-      'system_cash_cents': systemCashCents,
-      'notes': notes,
-      'closed_at': DateTime.now().toIso8601String(),
-      'closed_by': closedBy,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await d.transaction((txn) async {
+      final now = _clock();
+      await saveAuthoritativeDailyClosing(txn,
+        businessDate: businessDate ?? now.toIso8601String().substring(0, 10),
+        closedAt: now,
+        openingCashCents: openingCashCents,
+        countedCashCents: countedCashCents,
+        closedBy: closedBy,
+        notes: notes,
+      );
+    });
   }
 
   Future<List<Map<String, Object?>>> listClosings() async {

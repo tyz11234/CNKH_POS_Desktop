@@ -434,7 +434,11 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
         'demo_users',
       ]) {
         try {
-          await txn.delete(table);
+          if (table == 'settings') {
+            await txn.delete(table, where: "key NOT LIKE 'document_sequence:%'");
+          } else {
+            await txn.delete(table);
+          }
         } catch (_) {}
       }
     });
@@ -465,10 +469,11 @@ CREATE TABLE IF NOT EXISTS barcode_print_queue (
     prefix: 'H-',
   );
 
-  Future<String> nextPurchaseNo() => _reserveNumber(
+  Future<String> nextPurchaseNo({DatabaseExecutor? executor}) => _reserveNumber(
     table: 'purchases',
     column: 'purchase_no',
     prefix: 'PO-',
+    executor: executor,
   );
 
   Future<String> _reserveNumber({

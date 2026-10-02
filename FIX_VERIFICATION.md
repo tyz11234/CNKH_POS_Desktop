@@ -1,5 +1,7 @@
 # CNKH POS 修复与验证记录（2026-10-01）
 
+> 本文是发布 1.10.6+34 的上一轮历史记录。F01–F11 的本轮新代码、实际测试及限制见 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)。本文的绿色 CI 不计入本轮通过。
+
 ## 基线与工作区
 
 - 已阅读两端 README.md、LAN_SYNC.md、相关可靠性/进货/e-Invoice/发布说明；仓库内未发现 AGENTS.md。

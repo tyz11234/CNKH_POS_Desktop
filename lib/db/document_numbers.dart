@@ -28,7 +28,17 @@ Future<String> reserveDocumentNumber(
         [prefix.length + 1, '$prefix%'],
       )) ??
       0;
-  final next = max(lastReserved, lastStored) + 1;
+  var retainedTax = 0;
+  if (table == 'sales' && (await db.rawQuery(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='e_invoice_documents'"))
+      .isNotEmpty) {
+    retainedTax = Sqflite.firstIntValue(await db.rawQuery(
+      'SELECT COALESCE(MAX(CAST(substr(invoice_no, ?) AS INTEGER)),0) '
+      'FROM e_invoice_documents WHERE invoice_no LIKE ?',
+      [prefix.length + 1, '$prefix%'],
+    )) ?? 0;
+  }
+  final next = max(max(lastReserved, lastStored), retainedTax) + 1;
   await db.insert(
     'settings',
     {'key': key, 'value': '$next'},

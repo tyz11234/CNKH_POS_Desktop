@@ -7,12 +7,19 @@ import '../db/app_database.dart';
 import '../db/ocr_purchase_schema.dart';
 import 'purchase_reverse_safety.dart';
 import 'sale_reversal.dart';
+import 'lan_product_identity.dart';
 
 Future<String> _resolvePurchaseProductId(
   DatabaseExecutor txn,
   Map<String, dynamic> line,
   String requestedId,
 ) async {
+  final alias = await lanProductAlias(txn, requestedId);
+  requestedId = alias ?? requestedId;
+  final historical = await txn.query('products', columns: ['is_deleted'], where: 'id=?', whereArgs: [requestedId]);
+  if ((alias != null && historical.isEmpty) || (historical.isNotEmpty && historical.single['is_deleted'] == 1)) {
+    throw StateError('原进货商品已删除或移除，历史业务不能关联到重建商品');
+  }
   final sku = (line['productSku'] ?? line['sku'])?.toString().trim() ?? '';
   final barcode =
       (line['productBarcode'] ?? line['barcode'])?.toString().trim() ?? '';
@@ -207,6 +214,8 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       final row = Map<String, Object?>.from(p['row'] as Map);
       var entityId = row['id']?.toString() ?? '';
       if (entityId.isEmpty) throw const FormatException('entity id required');
+      final mobileEntityId = op['client_entity_id']?.toString() ?? entityId;
+      if (entity == 'product') entityId = await lanProductAlias(txn, entityId) ?? entityId;
       final before = p['before'] is Map
           ? Map<String, Object?>.from(p['before'] as Map)
           : null;
@@ -229,6 +238,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
             throw StateError('首次配对冲突：$entityId 的 $key 与电脑不同，操作仍保留在手机队列');
           }
         }
+        if (entity == 'product') await rememberLanProductAlias(txn, mobileEntityId, identity['id'] as String, id);
         await txn.insert('sync_applied_operations', {
           'id': id,
           'applied_at': now,
@@ -275,6 +285,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
           }
         }
       }
+      if (entity == 'product') await rememberLanProductAlias(txn, mobileEntityId, entityId, id);
       if (existing.isEmpty) {
         if (before != null) throw StateError('电脑端记录已删除');
         await txn.insert(table, {'id': entityId, ...changes});

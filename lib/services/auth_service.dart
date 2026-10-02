@@ -2,9 +2,16 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
 import '../db/app_database.dart';
 import '../models/app_user.dart';
+
+/// Structural validation of the PBKDF2 credential used by actual login.
+bool hasValidPinCredential(Map<String, Object?> row) {
+  try {
+    return base64Decode(row['salt'] as String).length == 24 &&
+        base64Decode(row['pin_hash'] as String).length == 32;
+  } catch (_) { return false; }
+}
 
 Future<String> _digest(List<String> input) async {
   final key = await Pbkdf2(
@@ -29,7 +36,7 @@ class AuthService {
     final random = Random.secure();
     final salt = base64Encode(List.generate(24, (_) => random.nextInt(256)));
     return {
-      'username': user.toLowerCase(),
+      'username': user.trim().toLowerCase(),
       'salt': salt,
       'pin_hash': await compute(_digest, [pin, salt]),
       'failed_attempts': 0,
@@ -58,10 +65,10 @@ class AuthService {
     );
     final creds = await db.query(
       'user_credentials',
-      where: 'username=?',
+      where: 'username=? COLLATE NOCASE',
       whereArgs: [name],
     );
-    if (users.isEmpty || creds.isEmpty)
+    if (users.isEmpty || creds.isEmpty || !hasValidPinCredential(creds.first))
       throw StateError('账号或 PIN 无效，未设置 PIN 请联系管理员');
     final c = creds.first;
     final until = DateTime.tryParse(c['locked_until'] as String);
@@ -78,12 +85,12 @@ class AuthService {
     if (diff != 0) {
       await db.transaction((txn) async {
         await txn.rawUpdate(
-          'UPDATE user_credentials SET failed_attempts=failed_attempts+1 WHERE username=?',
+          'UPDATE user_credentials SET failed_attempts=failed_attempts+1 WHERE username=? COLLATE NOCASE',
           [name],
         );
         final row = (await txn.query(
           'user_credentials',
-          where: 'username=?',
+          where: 'username=? COLLATE NOCASE',
           whereArgs: [name],
         )).single;
         if ((row['failed_attempts'] as int) >= 5)
@@ -96,7 +103,7 @@ class AuthService {
                   .add(const Duration(minutes: 5))
                   .toIso8601String(),
             },
-            where: 'username=?',
+            where: 'username=? COLLATE NOCASE',
             whereArgs: [name],
           );
       });
@@ -105,7 +112,7 @@ class AuthService {
     await db.update(
       'user_credentials',
       {'failed_attempts': 0, 'locked_until': ''},
-      where: 'username=?',
+      where: 'username=? COLLATE NOCASE',
       whereArgs: [name],
     );
     final u = users.first;
@@ -125,10 +132,11 @@ class AuthService {
       whereArgs: [username],
     )).isEmpty)
       throw StateError('账号不存在');
-    await db.insert(
-      'user_credentials',
-      await _credential(username, pin),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final credential = await _credential(username, pin);
+    await db.transaction((txn) async {
+      await txn.delete('user_credentials', where: 'username=? COLLATE NOCASE',
+          whereArgs: [username.trim()]);
+      await txn.insert('user_credentials', credential);
+    });
   }
 }

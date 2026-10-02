@@ -137,6 +137,8 @@ class EInvoiceService {
       final latest = latestRows.isEmpty ? null : latestRows.single;
       if (latest?['id'] != previous?['id'] || latest?['status'] != previousStatus ||
           '${latest?['document_uuid'] ?? ''}' != previousUuid) throw StateError('提交状态已变更，请刷新列表');
+      final currentSale = await txn.query('sales', columns: ['voided'], where: 'id=?', whereArgs: [saleId]);
+      if (currentSale.isEmpty || currentSale.single['voided'] == 1) throw StateError('销售已作废或移除');
       final invoiceCollision = await txn.query('e_invoice_documents', where: 'invoice_no=? AND environment=? AND sale_id<>?',
         whereArgs: [invoiceNo, environment, saleId], limit: 1);
       if (invoiceCollision.isNotEmpty) throw StateError('此发票号码已有税务记录，不能重复使用');
@@ -196,6 +198,11 @@ class EInvoiceService {
     await client.authenticate(); // Auth failures cannot have submitted the document.
     final id = doc['id'] as String;
     final claimed = await db.transaction((txn) async {
+      final currentSale = await txn.query('sales', columns: ['voided'],
+          where: 'id=?', whereArgs: [saleId]);
+      if (currentSale.isEmpty || currentSale.single['voided'] == 1) {
+        throw StateError('销售已作废或移除，未发送税务提交');
+      }
       final changed = await txn.update('e_invoice_documents', {'status': 'submitting', 'error_message': '', 'updated_at': _now()}, where: 'id=? AND status=? AND payload_hash=?', whereArgs: [id, 'pending', doc['payload_hash']]);
       if (changed == 1) {
         await _log(txn, id, 'submit_start', 'submitting', details: {

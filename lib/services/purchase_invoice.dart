@@ -418,6 +418,8 @@ class PurchaseInvoiceTextParser {
 class PurchaseLineMatcher {
   PurchaseLineMatcher(this.repo);
   final PosRepository repo;
+  final _operationIds = Expando<String>();
+  final _newProductIds = Expando<String>();
 
   Future<List<PurchaseDraftLine>> resolve(List<PurchaseDraftLine> input) async {
     final out = <PurchaseDraftLine>[];
@@ -500,82 +502,54 @@ class PurchaseLineMatcher {
     return out;
   }
 
-  /// Create missing products then [PosRepository.createPurchase].
+  /// The matcher prepares an intent only. Repository commits products, original
+  /// costs, inventory and the purchase together; retries share a purchase ID.
   Future<void> commit({
     required List<PurchaseDraftLine> lines,
     required Supplier supplier,
     required String operator,
     String notes = '',
+    String? operationId,
   }) async {
     final selected = lines.where((l) => l.selected).toList();
-    if (selected.isEmpty) {
-      throw StateError('请至少勾选一行 / Select at least one line');
-    }
-
+    if (selected.isEmpty) throw StateError('请至少勾选一行 / Select at least one line');
+    final id = operationId ?? (_operationIds[lines] ??= AppDatabase.newId());
     final purchaseLines = <Map<String, Object?>>[];
+    final newProducts = <Product>[];
+    final newByIdentity = <String, String>{};
+    final resolved = <PurchaseDraftLine, String>{};
     var total = 0;
-
     for (final line in selected) {
-      String productId;
-      String name;
-      if (line.willCreate || line.productId == null) {
-        final id = AppDatabase.newId();
-        final cost = line.unitCostCents < 0 ? 0 : line.unitCostCents;
-        final sell = line.effectiveSellCents < 0 ? cost : line.effectiveSellCents;
-        final p = Product(
-          id: id,
-          nameZh: line.name.trim().isEmpty ? '未命名商品' : line.name.trim(),
-          nameEn: '',
-          sku: line.sku.trim().isNotEmpty
-              ? line.sku.trim()
-              : (line.barcode.trim().isNotEmpty
-                  ? line.barcode.trim()
-                  : id.substring(0, 8)),
-          barcode: line.barcode.trim(),
-          priceCents: sell,
-          costCents: cost,
-          stock: 0,
-          unit: 'pcs',
-          category: '',
-        );
-        await repo.upsertProduct(p);
-        productId = id;
-        name = p.nameZh;
-        // So subsequent lines in same commit can reuse
-        line.productId = id;
-        line.willCreate = false;
-      } else {
-        productId = line.productId!;
-        name = line.name;
-        // Refresh cost on existing product from invoice unit cost when provided
-        if (line.unitCostCents > 0) {
-          final existing = await repo.getProduct(productId);
-          if (existing != null && existing.costCents != line.unitCostCents) {
-            await repo.upsertProduct(
-              existing.copyWith(costCents: line.unitCostCents),
-              original: existing,
-            );
-          }
+      var productId = line.productId;
+      if (line.willCreate || productId == null) {
+        final identity = line.barcode.trim().isNotEmpty ? 'barcode:${line.barcode.trim()}'
+            : line.sku.trim().isNotEmpty ? 'sku:${line.sku.trim()}'
+            : 'name:${normalizeProductName(line.name)}';
+        productId = newByIdentity[identity];
+        if (productId == null) {
+          productId = _newProductIds[line] ??= AppDatabase.newId();
+          newByIdentity[identity] = productId;
+          newProducts.add(Product(
+            id: productId, nameZh: line.name.trim().isEmpty ? '未命名商品' : line.name.trim(),
+            nameEn: '', sku: line.sku.trim().isNotEmpty ? line.sku.trim()
+                : line.barcode.trim().isNotEmpty ? line.barcode.trim() : productId.substring(0, 8),
+            barcode: line.barcode.trim(), priceCents: line.effectiveSellCents,
+            costCents: line.unitCostCents, stock: 0, unit: 'pcs', category: '',
+          ));
         }
       }
-      final sub = (line.unitCostCents * line.qty).round();
-      total += sub;
-      purchaseLines.add({
-        'productId': productId,
-        'name': name,
-        'qty': line.qty,
-        'unitCostCents': line.unitCostCents,
-        'subtotalCents': sub,
-      });
+      resolved[line] = productId;
+      final subtotal = (line.unitCostCents * line.qty).round();
+      total += subtotal;
+      purchaseLines.add({'productId': productId, 'name': line.name,
+        'qty': line.qty, 'unitCostCents': line.unitCostCents, 'subtotalCents': subtotal});
     }
-
-    await repo.createPurchase(
-      supplierId: supplier.id,
-      supplierName: supplier.name,
-      lines: purchaseLines,
-      totalCents: total,
-      operator: operator,
-      notes: notes,
-    );
+    await repo.createPurchase(supplierId: supplier.id, supplierName: supplier.name,
+      lines: purchaseLines, totalCents: total, operator: operator, notes: notes,
+      purchaseId: id, newProducts: newProducts);
+    for (final entry in resolved.entries) {
+      entry.key.productId = entry.value;
+      entry.key.willCreate = false;
+    }
   }
 }
