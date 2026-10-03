@@ -76,7 +76,12 @@ void main() {
         expect(pageMatch, isNotNull);
         expect(int.parse(pageMatch!.group(1)!), greaterThan(1));
 
-        final extracted = await Process.run('pdftotext', [file.path, '-']);
+        final extracted = await Process.run('pdftotext', [
+          '-enc',
+          'UTF-8',
+          file.path,
+          '-',
+        ]);
         expect(extracted.exitCode, 0, reason: '${extracted.stderr}');
         expect(extracted.stdout, contains('中文商品000'));
         expect(extracted.stdout, contains('中文页脚'));

@@ -83,6 +83,7 @@ void main() {
       expect(find.byType(CheckoutScreen), findsOneWidget);
       if (leaveProgrammatically) await tester.pumpWidget(const SizedBox());
       repo.gate.complete();
+      await tester.pump();
       await tester.runAsync(() => commitFinished.future.timeout(const Duration(seconds: 10)));
       await flush(tester);
       expect(committed, 1);
