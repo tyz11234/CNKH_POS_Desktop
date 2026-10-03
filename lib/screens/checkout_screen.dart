@@ -109,10 +109,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       (_method == PayMethod.credit ? 0 : checkoutRoundingAdjustment(_raw));
 
   int _parseRm(String text) {
-    final raw = text.trim().replaceAll(',', '');
-    final rm = double.tryParse(raw);
-    if (rm == null) return 0;
-    return rmToCents(rm);
+    return tryParseRmCents(text) ?? 0;
   }
 
   String _methodKey(PayMethod m) => switch (m) {
@@ -143,6 +140,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _confirmOnce() async {
+    final amount = _method == PayMethod.credit
+        ? _depositCtrl.text
+        : _cashCtrl.text;
+    if ((_method == PayMethod.cash || _method == PayMethod.credit) &&
+        tryParseRmCents(amount) == null) {
+      _toast('金额格式无效 / Invalid amount', error: true);
+      return;
+    }
     final policy = await widget.repo.stockPolicy();
     if (!mounted) return;
     for (final item in widget.cart.items) {

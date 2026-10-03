@@ -766,10 +766,15 @@ class _DailyClosePageState extends State<DailyClosePage> {
     if (_saving || _businessDate.isEmpty) return;
     setState(() => _saving = true);
     try {
+      final opening = tryParseRmCents(_open.text);
+      final counted = tryParseRmCents(_count.text);
+      if (opening == null || opening < 0 || counted == null || counted < 0) {
+        throw ArgumentError('金额格式无效 / Invalid amount');
+      }
       await widget.repo.saveDailyClosing(
         businessDate: _businessDate,
-        openingCashCents: rmToCents(double.tryParse(_open.text) ?? 0),
-        countedCashCents: rmToCents(double.tryParse(_count.text) ?? 0),
+        openingCashCents: opening,
+        countedCashCents: counted,
         closedBy: widget.user.username,
         notes: _notes.text.trim(),
       );

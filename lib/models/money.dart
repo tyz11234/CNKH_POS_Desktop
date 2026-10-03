@@ -1,6 +1,16 @@
 /// Integer-cent money helpers (sen). Never store MYR as binary float.
 int rmToCents(double rm) => (rm * 100).round();
 
+/// Validate editable RM text before rounding or persisting it. Non-finite
+/// values and values beyond exact integer-cent precision are never amounts.
+int? tryParseRmCents(String text) {
+  final value = double.tryParse(text.trim().replaceAll(',', ''));
+  if (value == null || !value.isFinite) return null;
+  final scaled = value * 100;
+  if (!scaled.isFinite || scaled.abs() > 9007199254740991) return null;
+  return scaled.round();
+}
+
 double centsToRm(int cents) => cents / 100.0;
 
 String formatRm(int cents) {
@@ -25,7 +35,9 @@ int checkoutRoundingAdjustment(int cents) => roundCheckoutCents(cents) - cents;
 
 /// Percent discount of [grossCents], half-up to nearest sen.
 int percentDiscountCents(int grossCents, double percent) {
+  if (!percent.isFinite) throw ArgumentError('折扣百分比无效');
   if (grossCents <= 0 || percent <= 0) return 0;
+  if (percent >= 100) return grossCents;
   final raw = (grossCents * percent / 100.0).round();
   return clampDiscountCents(raw, grossCents);
 }

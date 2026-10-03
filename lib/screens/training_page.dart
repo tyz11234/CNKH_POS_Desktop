@@ -16,9 +16,9 @@ class TrainingPage extends StatelessWidget {
     ("手机连接电脑", "pair", "电脑和手机连接同一可信 Wi-Fi。电脑打开配对页显示二维码，手机使用右上角扫码配对。过期时在电脑刷新二维码；不要把配对二维码发给店外人员。"),
     ("数据同步", "sync", "在设置检查电脑地址和配对连接，执行同步。系统先上传手机待处理操作，再拉取电脑数据。失败时保留手机数据，检查 Wi-Fi、电脑程序和防火墙后重试。不要先清空手机。"),
     ("数据备份", "backup", "在电脑备份/还原页创建备份，保存到独立介质并定期验证还原。手机先同步到电脑后纳入电脑备份。换电脑或 Windows 用户后，MyInvois 凭据需要重新输入；保留原税务提交记录。"),
-    ("e-Invoice 设置", "einvoice_setup", "仅在 Desktop 设置 → e-Invoice Setup 由管理员填写公司名称、TIN、BRN、地址、MSIC、联系方式、商品分类和适用税务资料。先选择 Sandbox，保存 Client ID / Secret，再 Test Connection。正式环境使用独立凭据。"),
+    ("e-Invoice 设置", "einvoice_setup", "仅在 Desktop 设置 → e-Invoice Setup 由管理员填写公司名称、TIN、BRN、地址、MSIC、联系方式、商品分类和适用税务资料。先选择 Sandbox，保存 Client ID / Secret，导入与公司 TIN/BRN 匹配且有效的 PFX/P12 数字证书，再 Test Connection。Test Connection 只验证 OAuth 连接；正式环境使用独立凭据和证书。"),
     ("e-Invoice 提交", "einvoice_history", "Desktop 的 Submission History 中选销售，填写真实买方税务资料，生成并核对 Invoice JSON，再确认提交环境和金额。Submitted 表示已接收；查询到 Validated 才算验证通过。手机通过 LAN 同步获取状态。"),
-    ("常见错误处理", "einvoice_history", "Pending：尚未提交。Rejected：核对资料及 MyInvois 验证结果。凭据错误：在电脑重新保存对应环境凭据。结果未知：先到 MyInvois 查找 UUID，再用核对 UUID 恢复状态，切勿重复提交。取消受官方期限限制；超期或退款应在 Portal 办理相应调整单。"),
+    ("常见错误处理", "einvoice_history", "Pending：尚未提交。Rejected：同步拒收，核对资料后重新生成。Invalid：已取得 UUID 的验证失败；先查看验证详情，再使用“生成更正尝试”，保留原 UUID 和记录。凭据错误：在电脑重新保存对应环境凭据。结果未知：先到 MyInvois 查找 UUID 和 Submission UID，再用核对 UUID 恢复状态，切勿重复提交。取消受官方期限限制；超期或退款应在 Portal 办理相应调整单。"),
   ];
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('CNKH POS Employee Training')),

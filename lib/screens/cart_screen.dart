@@ -269,11 +269,23 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
     );
+    final text = ctrl.text.trim();
+    ctrl.dispose();
     if (ok != true || !mounted) return;
-    final v = double.tryParse(ctrl.text.trim()) ?? 0;
+    final v = double.tryParse(text);
+    final cents = mode == 'rm' ? tryParseRmCents(text) : null;
+    if (v == null || !v.isFinite || v < 0 || (mode == 'rm' && cents == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('折扣格式无效 / Invalid discount'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
     final oldDisc = item.discountCents;
     if (mode == 'rm') {
-      item.discountCents = clampDiscountCents(rmToCents(v), item.grossCents);
+      item.discountCents = clampDiscountCents(cents!, item.grossCents);
     } else {
       item.discountCents = percentDiscountCents(item.grossCents, v);
     }
@@ -317,11 +329,20 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
     );
+    final parsed = tryParseRmCents(ctrl.text);
+    ctrl.dispose();
     if (ok != true || !mounted) return;
+    if (parsed == null || parsed < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('折扣格式无效 / Invalid discount'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
     final oldOrder = widget.cart.orderDiscountCents;
-    widget.cart.orderDiscountCents = rmToCents(
-      double.tryParse(ctrl.text.trim()) ?? 0,
-    );
+    widget.cart.orderDiscountCents = parsed;
     await widget.repo.logAudit(
       username: widget.user.username,
       role: widget.user.isAdmin ? 'ADMIN' : 'STAFF',

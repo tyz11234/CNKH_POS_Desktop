@@ -273,188 +273,259 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
       text: existing == null ? '0' : existing.reorderLevel.toString(),
     );
     var imagePath = existing?.imagePath ?? '';
+    final stagedImages = <String>{};
+    var dialogOpen = true;
     var barcodeMode = existing == null
         ? 'auto'
         : (existing.barcode.trim().isEmpty ? 'auto' : 'manual');
 
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(existing == null ? '新增商品' : '编辑商品'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameZh,
-                  decoration: const InputDecoration(labelText: '中文名'),
-                ),
-                TextField(
-                  controller: nameEn,
-                  decoration: const InputDecoration(labelText: 'English'),
-                ),
-                TextField(
-                  controller: sku,
-                  decoration: const InputDecoration(labelText: 'SKU'),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '条码 / Barcode',
-                    style: Theme.of(ctx).textTheme.bodySmall,
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: Text(existing == null ? '新增商品' : '编辑商品'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameZh,
+                    decoration: const InputDecoration(labelText: '中文名'),
                   ),
-                ),
-                Row(
-                  children: [
-                    ChoiceChip(
-                      label: const Text('自动生成'),
-                      selected: barcodeMode == 'auto',
-                      onSelected: (_) => setLocal(() => barcodeMode = 'auto'),
+                  TextField(
+                    controller: nameEn,
+                    decoration: const InputDecoration(labelText: 'English'),
+                  ),
+                  TextField(
+                    controller: sku,
+                    decoration: const InputDecoration(labelText: 'SKU'),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '条码 / Barcode',
+                      style: Theme.of(ctx).textTheme.bodySmall,
                     ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('手动输入'),
-                      selected: barcodeMode == 'manual',
-                      onSelected: (_) => setLocal(() => barcodeMode = 'manual'),
+                  ),
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('自动生成'),
+                        selected: barcodeMode == 'auto',
+                        onSelected: (_) => setLocal(() => barcodeMode = 'auto'),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('手动输入'),
+                        selected: barcodeMode == 'manual',
+                        onSelected: (_) =>
+                            setLocal(() => barcodeMode = 'manual'),
+                      ),
+                    ],
+                  ),
+                  if (barcodeMode == 'manual')
+                    TextField(
+                      controller: barcode,
+                      decoration: const InputDecoration(
+                        labelText: 'Barcode / 条码',
+                      ),
+                    )
+                  else
+                    Text(
+                      existing?.barcode.trim().isNotEmpty == true
+                          ? '将保留或保存时自动生成（若空）\nKeep existing, or auto-generate if empty'
+                          : '保存时自动生成 EAN-13 条码 / Auto EAN-13 on save',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: CnkhColors.muted,
+                      ),
+                    ),
+                  TextField(
+                    controller: cost,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '进货价 RM',
+                      prefixText: 'RM ',
+                    ),
+                  ),
+                  TextField(
+                    controller: price,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '售价 RM',
+                      prefixText: 'RM ',
+                    ),
+                  ),
+                  TextField(
+                    controller: stock,
+                    decoration: const InputDecoration(labelText: '库存'),
+                  ),
+                  TextField(
+                    controller: reorder,
+                    decoration: const InputDecoration(
+                      labelText: '缺货阈值 / Reorder level',
+                    ),
+                  ),
+                  TextField(
+                    controller: unit,
+                    decoration: const InputDecoration(labelText: '单位'),
+                  ),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () async {
+                      await _pickCategory(cat);
+                      if (ctx.mounted && dialogOpen) setLocal(() {});
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '分类（仅可选）/ Category picker',
+                        suffixIcon: Icon(Icons.arrow_drop_down),
+                      ),
+                      child: Text(cat.text.isEmpty ? '未分类 / None' : cat.text),
+                    ),
+                  ),
+                  if (_imagesOn) ...[
+                    const SizedBox(height: 10),
+                    if (imagePath.isNotEmpty && File(imagePath).existsSync())
+                      SizedBox(
+                        height: 80,
+                        child: Image.file(File(imagePath), fit: BoxFit.contain),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        try {
+                          final picker = ImagePicker();
+                          final f = await picker.pickImage(
+                            source: ImageSource.gallery,
+                            imageQuality: 85,
+                          );
+                          if (f == null || !ctx.mounted || !dialogOpen) return;
+                          // A draft image must never overwrite the revision
+                          // already referenced by a persisted product.
+                          final saved = await _imgStore.saveFromFile(
+                            'draft-${AppDatabase.newId()}',
+                            f.path,
+                          );
+                          if (saved == null) throw StateError('选择的图片不存在');
+                          if (!ctx.mounted || !dialogOpen) {
+                            await File(saved).delete();
+                            return;
+                          }
+                          stagedImages.add(saved);
+                          setLocal(() => imagePath = saved);
+                        } catch (e) {
+                          if (!ctx.mounted) return;
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text('图片导入失败：$e'),
+                              backgroundColor: CnkhColors.danger,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.image_outlined),
+                      label: const Text('选择商品图片 / Pick image'),
                     ),
                   ],
-                ),
-                if (barcodeMode == 'manual')
-                  TextField(
-                    controller: barcode,
-                    decoration: const InputDecoration(
-                      labelText: 'Barcode / 条码',
-                    ),
-                  )
-                else
-                  Text(
-                    existing?.barcode.trim().isNotEmpty == true
-                        ? '将保留或保存时自动生成（若空）\nKeep existing, or auto-generate if empty'
-                        : '保存时自动生成 EAN-13 条码 / Auto EAN-13 on save',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: CnkhColors.muted,
-                    ),
-                  ),
-                TextField(
-                  controller: cost,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: '进货价 RM',
-                    prefixText: 'RM ',
-                  ),
-                ),
-                TextField(
-                  controller: price,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: '售价 RM',
-                    prefixText: 'RM ',
-                  ),
-                ),
-                TextField(
-                  controller: stock,
-                  decoration: const InputDecoration(labelText: '库存'),
-                ),
-                TextField(
-                  controller: reorder,
-                  decoration: const InputDecoration(
-                    labelText: '缺货阈值 / Reorder level',
-                  ),
-                ),
-                TextField(
-                  controller: unit,
-                  decoration: const InputDecoration(labelText: '单位'),
-                ),
-                const SizedBox(height: 6),
-                InkWell(
-                  onTap: () async {
-                    await _pickCategory(cat);
-                    setLocal(() {});
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: '分类（仅可选）/ Category picker',
-                      suffixIcon: Icon(Icons.arrow_drop_down),
-                    ),
-                    child: Text(cat.text.isEmpty ? '未分类 / None' : cat.text),
-                  ),
-                ),
-                if (_imagesOn) ...[
-                  const SizedBox(height: 10),
-                  if (imagePath.isNotEmpty && File(imagePath).existsSync())
-                    SizedBox(
-                      height: 80,
-                      child: Image.file(File(imagePath), fit: BoxFit.contain),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final picker = ImagePicker();
-                      final f = await picker.pickImage(
-                        source: ImageSource.gallery,
-                        imageQuality: 85,
-                      );
-                      if (f == null) return;
-                      final id = existing?.id ?? AppDatabase.newId();
-                      final saved = await _imgStore.saveFromFile(id, f.path);
-                      if (saved != null) {
-                        setLocal(() => imagePath = saved);
-                      }
-                    },
-                    icon: const Icon(Icons.image_outlined),
-                    label: const Text('选择商品图片 / Pick image'),
-                  ),
                 ],
-              ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('保存'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('保存'),
-            ),
-          ],
         ),
-      ),
-    );
-    if (ok != true) return;
+      );
+      dialogOpen = false;
+      if (ok != true) return;
 
-    var code = barcode.text.trim();
-    if (barcodeMode == 'auto' && code.isEmpty) {
-      code = await _labels.autoGenerateBarcode();
-    }
+      final priceCents = tryParseRmCents(price.text);
+      final costCents = tryParseRmCents(cost.text);
+      final quantity = double.tryParse(stock.text.trim());
+      final threshold = double.tryParse(reorder.text.trim());
+      if (priceCents == null ||
+          priceCents < 0 ||
+          costCents == null ||
+          costCents < 0 ||
+          quantity == null ||
+          !quantity.isFinite ||
+          threshold == null ||
+          !threshold.isFinite) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('金额或库存格式无效 / Invalid amount or stock'),
+              backgroundColor: CnkhColors.danger,
+            ),
+          );
+        }
+        return;
+      }
 
-    final id = existing?.id ?? AppDatabase.newId();
-    final p = Product(
-      id: id,
-      nameZh: nameZh.text.trim(),
-      nameEn: nameEn.text.trim(),
-      sku: sku.text.trim(),
-      barcode: code,
-      priceCents: rmToCents(double.tryParse(price.text.trim()) ?? 0),
-      costCents: rmToCents(double.tryParse(cost.text.trim()) ?? 0),
-      stock: double.tryParse(stock.text.trim()) ?? 0,
-      unit: unit.text.trim().isEmpty ? 'pcs' : unit.text.trim(),
-      category: cat.text.trim(),
-      imagePath: imagePath,
-      reorderLevel: double.tryParse(reorder.text.trim()) ?? 0,
-    );
-    try {
-      await widget.repo.upsertProduct(p, original: existing);
-      await _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      var code = barcode.text.trim();
+      if (barcodeMode == 'auto' && code.isEmpty) {
+        code = await _labels.autoGenerateBarcode();
+      }
+
+      final id = existing?.id ?? AppDatabase.newId();
+      final p = Product(
+        id: id,
+        nameZh: nameZh.text.trim(),
+        nameEn: nameEn.text.trim(),
+        sku: sku.text.trim(),
+        barcode: code,
+        priceCents: priceCents,
+        costCents: costCents,
+        stock: quantity,
+        unit: unit.text.trim().isEmpty ? 'pcs' : unit.text.trim(),
+        category: cat.text.trim(),
+        imagePath: imagePath,
+        reorderLevel: threshold,
+      );
+      try {
+        await widget.repo.upsertProduct(p, original: existing);
+        stagedImages.remove(imagePath);
+        if (!mounted) return;
+        await _load();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      dialogOpen = false;
+      for (final path in stagedImages) {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      }
+      for (final controller in [
+        nameZh,
+        nameEn,
+        sku,
+        barcode,
+        price,
+        cost,
+        stock,
+        unit,
+        cat,
+        reorder,
+      ]) {
+        controller.dispose();
+      }
     }
   }
 
