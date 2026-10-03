@@ -1,6 +1,6 @@
-# Feature Inventory — Audit Cycle 1, Round 5
+# Feature Inventory — Audit Cycle 1, Round 6
 
-审核基线：Mobile `c73e5f515b7a8179c6d82efef3ac2fd139b5d4a7` / Desktop `cec6ae88ea1baa4580063eaa7cf48aeb33fce2bc`，Round 1–5 基于审计前源码 `1.10.8+36`；Final Release Regression 基于 `1.10.9+37` 候选（未发布），SQLite schema v10。当前工作区包含本 Cycle 未提交修复。Round 5 重扫确认 42 个功能组、69/74 个 Dart 源文件、26/24 张运行表；生命周期、权限、输入、MyInvois、构建和发布流程的功能入口与主要测试映射均已检查。Feature group 依当前 `lib/`、路由入口、设置读写、数据库 schema、LAN host/client 和测试目录归并；新增正式功能应加入本表与 [`FEATURE_TEST_MATRIX.md`](FEATURE_TEST_MATRIX.md)。
+审核基线：Mobile `c73e5f515b7a8179c6d82efef3ac2fd139b5d4a7` / Desktop `cec6ae88ea1baa4580063eaa7cf48aeb33fce2bc`，起始版本 `1.10.8+36`；Round 6 与 Final Release Regression 验证合并候选 `1.10.9+37`，SQLite schema v10。Round 6 完成后 Mobile/ Desktop 源码分别合并为 `b121cd40019213273fd7d47db5cf1f93549bab7e` / `bd75dfc381b8be4aa791a42524a40a291e692f1c`。六轮重扫确认 42 个功能组、69/74 个 Dart 源文件、26/24 张运行表；lifecycle、权限、输入、MyInvois、构建和发布流程的功能入口与主要测试映射均已检查。Feature group 依当前 `lib/`、路由入口、设置读写、数据库 schema、LAN host/client 和测试目录归并；新增正式功能应加入本表与 [`FEATURE_TEST_MATRIX.md`](FEATURE_TEST_MATRIX.md)。
 
 ## 扫描范围
 
@@ -80,6 +80,6 @@ Mobile 页面入口由 `main.dart`、`screens/login_screen.dart`、`cart_screen.
 
 Mobile：`.github/workflows/mobile-ci.yml`（pub get、analyze、全量 test、固定 Desktop 截图、APK 签名/版本/权限/资源核验与 Release）；`pair-regression.yml`；`layout-validation.yml`。Desktop：`windows-release.yml`（analyze、全量 test、截图、Windows build/ZIP/资源检查）；`pair-regression.yml`；`training-validation.yml`。双端集成包在 `CNKH_POS_Desktop/integration/`，使用本地 sibling source path，含两份 POS pairing HTTP 测试和 offline cancel 回归。
 
-本轮 Linux 环境可执行 Dart/Flutter、SQLite FFI、localhost HTTP 和 ZIP 校验；没有 Android SDK / Windows host，因此不能从当前修改构建 APK 或 Windows EXE。已下载的上一版正式资产只用于发布完整性核验，不代表本轮源码构建。
+本地 Linux 环境可执行 Dart/Flutter、SQLite FFI、localhost HTTP 和 ZIP 校验，但没有 Android SDK / Windows host。GitHub Actions 已从审核源码完成 Windows 1.10.9+37 Release build 与 ZIP 发布；Mobile 最新可下载 APK 仍为 1.10.7+35，因无法验证匹配签名而没有发布新 APK。
 
-版本显示新增依赖 `package_info_plus 8.3.1`：Android 使用应用包元数据接口；Windows/Linux 使用 Dart 平台实现。其读取版本/Build Number，不要求新增应用权限，不调用外部服务；方法通道由测试 mock 验证。Android/Windows 原生构建仍受本轮目标平台工具缺失限制。
+版本显示新增依赖 `package_info_plus 8.3.1`：Android 使用应用包元数据接口；Windows/Linux 使用 Dart 平台实现。其读取版本/Build Number，不要求新增应用权限，不调用外部服务；方法通道由测试 mock 验证。Windows 原生构建与包资源校验已由 GitHub Actions 执行；Mobile APK 的正式签名兼容仍是发布阻塞。

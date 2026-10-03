@@ -1,56 +1,37 @@
 # Feature Test Matrix — Audit Cycle 1
 
-Audit Round 1–5 基线：Mobile `c73e5f515b7a8179c6d82efef3ac2fd139b5d4a7` / Desktop `cec6ae88ea1baa4580063eaa7cf48aeb33fce2bc`，两端版本 `1.10.8+36`。发布候选版本统一为 `1.10.9+37`，Final Release Regression 已执行。库存、同步、数据库和权限范围见 [`FEATURE_INVENTORY.md`](FEATURE_INVENTORY.md)。
+审计基线：Mobile `c73e5f515b7a8179c6d82efef3ac2fd139b5d4a7` / Desktop `cec6ae88ea1baa4580063eaa7cf48aeb33fce2bc`；版本 `1.10.9+37`，schema v10。源代码合并 SHA：Mobile `b121cd40019213273fd7d47db5cf1f93549bab7e`，Desktop `bd75dfc381b8be4aa791a42524a40a291e692f1c`。库存、同步、数据库和权限范围见 [`FEATURE_INVENTORY.md`](FEATURE_INVENTORY.md)。
 
 ## Audit Round 记录
 
-| Round | 新发现可复现 Bug | 处理 | 双端全量测试 | 跨端集成 | 结论 |
+| Round | 新发现可复现产品 Bug | 处理 | 双端全量测试 | 跨端集成 | 结论 |
 |---|---:|---|---|---|---|
-| 1 | 3 | 修复 About 版本来源、Mobile 图片保存异步异常处理、两仓库配对 CI 旧 commit 引用，并添加回归测试 | Mobile 147/147；Desktop 151/151 | 29/29 | 修复后通过 |
-| 2 | 0 | 无代码变更 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
-| 3 | 0 | 无代码变更 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
-| 4 | 0 | LAN v1 认证、payload、Outbox ACK/重试、重复投递和配对引用复查 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
-| 5 | 0 | Flutter lifecycle、角色权限、敏感凭据、MyInvois API/重试、输入边界和完整功能复查 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
+| 1 | 3 | 修复 About 版本来源、Mobile 图片保存异步异常、旧配对 CI SHA，并添加回归测试 | Mobile 147/147；Desktop 151/151 | 29/29 | 修复后通过 |
+| 2 | 0 | 完整功能、数据库、权限、同步与打包复查 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
+| 3 | 0 | schema v10、迁移、约束、Outbox、恢复与回滚 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
+| 4 | 0 | LAN v1 认证、payload、ACK/重试、重复投递和配对兼容 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
+| 5 | 0 | lifecycle、权限、凭据、MyInvois、输入边界和完整功能复查 | Mobile 147/147；Desktop 151/151 | 29/29 | Clean |
+| 6 | 0 | Windows supplier regression 等待异步 repository/dropdown 状态；全功能 Final Regression | Mobile 147/147；Desktop 151/151 | 29/29 | Clean；目标 Windows 测试通过 |
 
-Round 1–5 均运行双端 analyze、全量单元/widget/regression、跨端集成 analyze/HTTP 回归和培训截图/显示验证。两端 analyze 均为 0 errors；Mobile 有 41 条、Desktop 有 46 条非致命 info/warning。Round 4 与 Round 5 的当前 Mobile/Desktop 培训截图、固定 Desktop 培训截图捕获，以及双端培训视图测试均通过。Round 5 后达到“至少 5 轮、最后连续 2 轮 Clean”；之后又在候选版执行 Final Release Regression。
+Round 5、6 是最后连续两轮 Clean。Round 6 的 Windows CI 曾暴露 supplier 选择测试使用固定延时的问题；修正测试同步逻辑后，目标测试 2/2 及完整 Desktop suite 151/151 通过，没有发现产品缺陷。六轮均覆盖双端分析、全量测试、跨端回归、数据库/API/权限与构建发布检查。
 
-## 本轮运行结果
-
-| 检查 | 结果 | 证据 / 边界 |
-|---|---|---|
-| Mobile analyze | PASS | `flutter analyze --no-fatal-infos --no-fatal-warnings`，0 errors；41 条 info/warning 非致命诊断 |
-| Desktop analyze | PASS | 同 CI 命令，0 errors；46 条 info/warning 非致命诊断 |
-| Mobile unit/widget/regression | PASS | `flutter test`，147 项通过 |
-| Desktop unit/widget/regression | PASS | `flutter test`，151 项通过 |
-| Desktop ↔ Mobile integration analyze | PASS | `integration/` 同 CI 命令，无 issues |
-| Desktop ↔ Mobile HTTP integration | PASS | `integration/test regression`，29 项通过，真实 localhost HTTP / WebSocket 与重试流程 |
-| Mobile training capture + view | PASS | 当前 Mobile 11 张实际页面截图生成；资源/箭头测试通过 |
-| Desktop training capture + view | PASS | 当前 Desktop 11 张实际页面截图生成；视图/箭头测试通过 |
-| 固定 Desktop 截图源 | PASS | 工作流 SHA `02e3574b16d45bf0e13f89f5f1d1b42f50bfa3f3` 的测试、pubspec、字体文件与归档内容 SHA 一致；截图生成通过 |
-| 已发布 APK 完整性 | PASS | 下载后 SHA-256、ZIP 容器和 12 组培训 PNG/JSON 尺寸及箭头坐标有效；它是 1.10.7+35，不与当前 1.10.8 源码逐字节比较 |
-| 已发布 Windows ZIP 完整性 | PASS | 下载后 SHA-256、ZIP 校验、EXE/DLL/runtime/字体/培训文件存在；本机 Linux 截图像素与 Windows Release 像素不同，无法用 `verify_training_bundle.py` 做逐字节源码比较 |
-| 当前 Mobile Release build | BLOCKED | 无 Android SDK；同一旧 Debug 签名私钥也不在仓库，不能发布可覆盖安装 APK |
-| 当前 Windows Release build | BLOCKED | Flutter Windows 构建只支持 Windows host；当前执行器为 Debian Linux |
-
-本轮功能矩阵共 **42 组**：Shared 19、Mobile 10、Desktop 13。源文件/入口/测试映射已为 42/42 组建立；35/42 组有本地自动回归并通过；7/42 组的完整实体设备、生产服务或目标平台验收受限，详见下表和“未完成端到端项”。这不是“所有真实设备操作已验收”的结论。
-
-## Final Release Regression — 1.10.9+37 候选
+## Final Release Regression — 1.10.9+37
 
 | 检查 | 结果 | 证据 / 边界 |
 |---|---|---|
-| Mobile analyze / 全量测试 | PASS | 0 errors，41 条非致命 info/warning；147/147 测试通过 |
-| Desktop analyze / 全量测试 | PASS | 0 errors，46 条非致命 info/warning；151/151 测试通过 |
-| 跨端集成 analyze / HTTP 回归 | PASS | analyze 无 issues；localhost HTTP/WebSocket、离线与重试 29/29 通过 |
-| 当前 Mobile 截图捕获 / 显示 | PASS | 11 个 Mobile 页面截图生成；资源/箭头 view test 通过 |
-| 当前 Desktop 截图捕获 / 显示 | PASS | 11 个 Desktop 页面截图生成；view test 通过 |
-| 固定 Desktop CI 截图源 | PASS | 工作流锁定 SHA `02e3574b16d45bf0e13f89f5f1d1b42f50bfa3f3` 捕获通过；5 组配套资源进入 Mobile 验证 |
-| 版本一致性 | PASS | 两端 pubspec 为 `1.10.9+37`；Android 版本读取 Flutter versionCode/versionName，Windows runner 读取 Flutter 版本宏；About 元数据回归通过 |
-| Mobile Release APK | BLOCKED | `flutter build apk --release` 因无 Android SDK 失败；匹配当前 Debug APK 的签名私钥也不在仓库 |
-| Windows Release 包 | BLOCKED | `flutter build windows --release` 被 Linux host 限制拒绝 |
-| 已下载历史发布资产 | PASS | Mobile `v1.10.7-mobile` 115,187,111 bytes，SHA-256 `ba6e763059eebcee46ef8d55962546f92e3f4332391da82fedc81fb204e6e3ad`；Desktop `v1.10.8` 17,511,169 bytes，SHA-256 `f114693cb0633b6ab46a0d5e7ae32885be4bcc0780971c3ce8fe603fc3fc73c6`。只代表既有包完整性，不是候选产物 |
-| GitHub push / tag / Release | BLOCKED | `gh auth status` 显示当前注入 token 无效；未提交、推送或发布候选版 |
+| Mobile analyze / 全量测试 | PASS | 0 errors；147/147；主线 CI [37129727944](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37129727944) |
+| Desktop analyze / 全量测试 | PASS | 0 errors；151/151；Windows Release [37130267034](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37130267034) |
+| 固定配对 SHA 的跨端 integration | PASS | localhost HTTP/WebSocket、离线与重试 29/29；[run 37129727823](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37129727823) |
+| Mobile / Desktop 截图与显示资源 | PASS | Mobile 主线 CI 和 Desktop 培训 run [37130266986](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37130266986) |
+| 版本一致性 | PASS | 两端 pubspec `1.10.9+37`；About 读取 package Version/Build；Windows EXE 资源含 `1.10.9+37` |
+| Mobile PR Release build | PASS (validation only) | [run 37128270811](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37128270811) 用 PR 临时证书构建；不是正式签名或可发布 APK |
+| Mobile 1.10.9+37 APK / tag | BLOCKED | 最新 1.10.7+35 APK 使用 Android Debug 证书，SHA-256 `51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`；没有已验证的匹配私钥，故未创建新 APK/Release |
+| Desktop Release | PASS / PUBLISHED | tag `v1.10.9`；[Release](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.9)；Windows Release run [37130267034](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37130267034) |
+| Windows ZIP 重新下载校验 | PASS | 17,516,801 bytes；SHA-256 `5b02d3ce4eb00e57796dc5fd3360d48d6acb1abcb493d2fbed6d23d39848870f`；ZIP、EXE、Flutter runtime、data、11 组培训 PNG/JSON 通过 |
+| 当前 Mobile APK 完整性 | PASS | v1.10.7-mobile，115,187,111 bytes，SHA-256 `ba6e763059eebcee46ef8d55962546f92e3f4332391da82fedc81fb204e6e3ad`；只代表旧包 |
+| 实体设备 / MyInvois | PARTIAL | 未运行 Android 实体升级、Windows GUI/打印机、门店 Wi-Fi、真实 MyInvois sandbox/production |
 
-Final Release Regression 的自动化部分与版本检查通过；完整 Release 仍因 Android SDK/签名密钥、Windows 构建 host 和 GitHub 写权限未满足而阻塞。
+本轮功能矩阵覆盖 **42 组**（Shared 19、Mobile 10、Desktop 13）：**36/42** 有直接自动回归通过；**6/42** 仍需实体设备、真实服务或 Windows GUI 启动验收。Mobile APK 签名限制与 Windows 实体启动边界均单独记录，不将 PR 临时签名 APK 当作正式产物。
 
 ## Shared Feature Inventory / Regression
 
@@ -106,8 +87,8 @@ Final Release Regression 的自动化部分与版本检查通过；完整 Releas
 | D09 | Host 配对 QR、过期码与撤销后重新配对 | `lan_pairing_host_test`, `pairing_token_rotation_test`, integration pairing cases | PASS：解析/HTTP 模拟；未用真实扫码设备 |
 | D10 | Desktop 管理商品/实体/库存/审计分页与排序 | `desktop_pagination_test`, `product_edit_safety_test`, `profit_math_test` | PASS |
 | D11 | 桌面热敏打印设备连接和纸宽打印验收 | `bluetooth_receipt_output_test` 字节级/MethodChannel 断言 | PARTIAL：无真实 Windows/蓝牙打印硬件 |
-| D12 | 当前源码 Windows EXE 构建、运行时打包及启动 | 已下载并检查正式 ZIP；`flutter build windows --release` 因 Linux host 拒绝 | PARTIAL：当前源码无法在该 OS 构建或启动 |
-| D13 | Desktop 培训画面、图片/JSON 元数据与 Windows 包对照 | capture/view 测试通过；已发布 ZIP 文件与结构完整 | PARTIAL：Windows 渲染图与 Linux 重捕获不是逐字节相同，须在 Windows Release runner 核验 |
+| D12 | Windows EXE Release build、runtime 文件、ZIP 和资源检查 | Windows Release run 37130267034 构建；重新下载 ZIP、checksum、EXE/DLL/runtime/data 通过 | PARTIAL：Linux 无法启动 Windows GUI，需目标电脑首启验收 |
+| D13 | Desktop 培训画面、PNG/JSON 元数据及 Windows 包资源 | run 37130266986 截图/视图验证通过；正式 ZIP 含 11 组 PNG/JSON，bundle verifier 通过 | PASS：发布包资源检查由 Windows runner 完成 |
 
 ## 未完成端到端项
 
@@ -117,8 +98,7 @@ Final Release Regression 的自动化部分与版本检查通过；完整 Releas
 | S16 | localhost HTTP/WebSocket 并不覆盖跨 Wi-Fi、Windows 防火墙、IP 改变和真实断线 | 无两台真实设备/门店 LAN | 29 个双端 localhost integration cases + token/auth/retry tests | 在同一 Wi-Fi 实测断网/重连、Host 地址变化、过期 Token 与重启 |
 | S18 / D07 | Sandbox/Production 法定提交、证书信任、Portal 状态及真实取消不可用模拟服务代替 | 未提供外部税务凭据和授权测试证书 | 固定 HTTP 服务覆盖 OAuth、签名、拒绝、超时、未知结果和纠错；不发送真实税务提交 | 有凭据后在 Sandbox 验证；独立核验签名与官方要求后再 Production |
 | D11 | 真实 USB/Bluetooth 打印、纸宽、切纸与驱动行为未接入硬件 | 无 Windows 打印机/驱动 | ESC/POS 文本/栅格字节与通道错误测试 | Windows 实机分别验收 58/80mm 和 Bluetooth 输出 |
-| D12 | 无法从当前环境产出或运行这一轮的 Windows 二进制；当前改动也未进入已发布 ZIP | Flutter Windows target 只支持 Windows host | 上一版 Release ZIP 下载、SHA、ZIP 完整性、EXE/DLL/assets presence 已检查 | 用 Windows Release workflow 从审核后的提交构建并启动验收 |
-| D13 | Windows runner 产出的像素与 Linux renderer 不同，`verify_training_bundle.py` 的逐字节比较在 Linux 不适用 | 无 Windows runner 本地环境 | 当前两端截图生成/箭头 tests 通过；正式 ZIP 包含 11 组 desktop 培训图片 | Windows workflow 对本轮产物执行原有 bundle verifier |
-| Android Release / install upgrade | APK 无法构建，且旧安装包 Debug 私钥无法从本仓库恢复 | 缺 Android SDK 与匹配签名 key | 旧 APK 下载 hash/ZIP 完整性/12 组图片与元数据结构通过；未冒充当前源码 APK | 找回签名 key 后用 Android CI 构建、签名、覆盖升级并核验数据保留 |
+| D12 | Windows package 首次启动和交互 | Windows Release build、ZIP 和内容校验通过 | 在目标 Windows 桌面会话启动一次，验证首次运行 |
+| Android Release / install upgrade | 新 APK 的签名无法验证为与当前包一致，故未发布；旧包仍可下载 | 当前 1.10.7+35 APK SHA-256 / ZIP 完整性及 Debug 证书指纹 `51d08c3a…` 已验证；PR Release APK 使用临时证书，不能代替正式包 | 恢复或验证匹配旧 APK 的签名私钥后，再构建、签名、覆盖升级并检查本地数据保留 |
 
-完整通过数按上表功能行计算：**35/42** 为直接自动回归通过，**7/42** 为部分或目标平台/外部端到端阻塞。已执行真实功能级 localhost HTTP 集成；没有执行当前源码 APK/Windows Release 构建、实体设备、真实门店网络、实体打印或 MyInvois 真实提交。
+完整通过数按上表功能行计算：**36/42** 为直接自动回归通过，**6/42** 为部分或目标平台/外部端到端阻塞。Windows Release build 已通过并重新下载验证；没有执行 Mobile 签名兼容 APK、实体 Android 升级、Windows GUI 首启、门店网络、实体打印或 MyInvois 真实提交。
