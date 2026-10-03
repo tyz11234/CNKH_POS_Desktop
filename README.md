@@ -2,28 +2,25 @@
 
 用于 Windows 电脑的门店收银与管理系统。Desktop 是店内局域网权威主机，与 [CNKH POS Mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK) 配套使用；核心收银、库存与店内同步不依赖云服务器。
 
-技术栈保持 **Flutter / Dart / SQLite**，本次修复没有重写现有架构或改变稳定的收银 UI 逻辑。
+技术栈为 **Flutter / Dart / SQLite**，保持现有 POS/LAN 架构与收银 UI。
 
-> README 最后更新：**2026-10-03**。默认源码与发布分支：`main`。
+> README 最后更新：**2026-10-03**。默认源码与发布分支：main。
 
-## 2026-10-03 · 1.10.7+35：F01–F11 修复发布
+## 2026-10-03 · 1.10.8+36：收银、恢复与分页可靠性修复
 
-本轮从两端 **1.10.6+34** 基线复核 F01–F11，保持现有 POS/LAN 架构、页面布局、离线销售和 `cnkh-sync:v1`。修复包括首次配对商品身份 ACK、软删除重建、税务提交/作废协调、初始库存基线、收据缓存归属、OCR 草稿行 ID、原子进货、具备凭据的最后管理员保护、中文栅格小票、重置后税务号码和事务日结。
+本版修复客户电话误带入下一笔销售、备份恢复数据库完整性校验、挂单重复提交、商品与库存页面分页排序、税务作废待复核、购物车资料刷新、新供应商选择、Windows 剪贴板失败回退，以及恢复期间后台数据库/LAN 请求协调。LAN 协议仍为 cnkh-sync:v1，数据库仍为 schema v10。
 
-本版 main 发布 CI 实际通过：Mobile 完整测试 **130 项**、Desktop **132 项**；使用配套新版源码的真实 HTTP **29 项**通过。Android Release APK 与 Windows x64 Release 构建、培训资源检查均成功。两端 analyze 使用 `--no-fatal-infos --no-fatal-warnings`，Mobile **0 errors / 5 warnings / 37 infos**，Desktop **0 errors / 6 warnings / 38 infos**。[Mobile 发布 CI](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961364)、[Windows 发布 CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37029953298)、[双端 HTTP](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37029961222)。实体打印、门店旧库/网络、相机 OCR 和真实 MyInvois 尚未验收。
+Mobile 完整测试 **145 项通过**，Desktop **149 项通过**。当前 README 下载区仍列出已验证的 1.10.7+35；1.10.8+36 Windows Release 工作流会在 main 更新后重新测试、构建和上传 ZIP 与 SHA-256。
 
-两端修复已合并 main，并发布 1.10.7+35。逐项根因、实际入口回归、兼容性和未验收范围见 [ELEVEN_BUG_VERIFICATION.md](ELEVEN_BUG_VERIFICATION.md)；以下历史版本的 CI 不替代本次回归。
+详见 [1.10.8+36 变更记录](CHANGELOG.md) 与 [Release Notes](RELEASE_NOTES.md)。
 
-## 当前源码与发布版本
+## 当前源码与发布包
 
-| 项目 | 版本 |
-| --- | --- |
-| Desktop `main` 与 Windows Release | **1.10.7+35**（`v1.10.7`） |
-| Mobile `main` 与 Android Release | **1.10.7+35**（`v1.10.7-mobile`） |
-| LAN 协议 | `cnkh-sync:v1` |
-| 本地数据库 | **schema v10**，自动增量升级旧数据库 |
-
-Desktop 与 Mobile **1.10.7+35** 已通过 Release CI 构建并发布，Windows ZIP、Android APK 和 SHA-256 校验文件可在 Releases 下载。
+| 项目 | 当前源码 | 最新可下载包 |
+| --- | --- | --- |
+| Desktop main | **1.10.8+36** | Windows ZIP **1.10.7+35**（1.10.8+36 发布构建进行中） |
+| 配套 Mobile main | **1.10.8+36** | Android APK **1.10.7+35**（签名兼容性限制） |
+| LAN 协议 | cnkh-sync:v1 | schema v10，增量升级旧数据库 |
 
 ## 下载与更新
 
