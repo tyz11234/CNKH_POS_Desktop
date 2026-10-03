@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../app_version.dart';
 import '../models/app_user.dart';
 import '../services/pos_repository.dart';
 import '../app_release_notes.dart';
@@ -45,12 +46,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _btEnabled = false;
   bool _imagesEnabled = false;
   String _cacheDir = '';
+  late final Future<String> _appVersionLabel;
 
   bool get canEdit => widget.user.canEditQr;
 
   @override
   void initState() {
     super.initState();
+    _appVersionLabel = loadAppVersionLabel();
     _reload();
   }
 
@@ -590,25 +593,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         Card(
-          child: ListTile(
-            leading: const Icon(Icons.info_outline, color: CnkhColors.primary),
-            title: const Text('关于 / About'),
-            subtitle: const Text('黄金发宝号 POS Desktop $appVersionLabel'),
-            onTap: () => showAboutDialog(
-              context: context,
-              applicationName: '黄金发宝号 POS Desktop',
-              applicationVersion: appVersionLabel,
-              applicationLegalese: '黄金发宝号 POS Desktop · Flutter',
-              children: [
-                const Text('本次更新 / This update'),
-                const SizedBox(height: 8),
-                for (final note in appReleaseNotes)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text('• $note'),
-                  ),
-              ],
-            ),
+          child: FutureBuilder<String>(
+            future: _appVersionLabel,
+            builder: (context, snapshot) {
+              final versionLabel = snapshot.data;
+              return ListTile(
+                leading: const Icon(
+                  Icons.info_outline,
+                  color: CnkhColors.primary,
+                ),
+                title: const Text('关于 / About'),
+                subtitle: Text(
+                  snapshot.hasError
+                      ? '黄金发宝号 POS Desktop · 无法读取版本'
+                      : versionLabel == null
+                      ? '黄金发宝号 POS Desktop · 正在读取版本…'
+                      : '黄金发宝号 POS Desktop $versionLabel',
+                ),
+                onTap: versionLabel == null
+                    ? null
+                    : () => showAboutDialog(
+                        context: context,
+                        applicationName: '黄金发宝号 POS Desktop',
+                        applicationVersion: versionLabel,
+                        applicationLegalese: '黄金发宝号 POS Desktop · Flutter',
+                        children: [
+                          const Text('本次更新 / This update'),
+                          const SizedBox(height: 8),
+                          for (final note in appReleaseNotes)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text('• $note'),
+                            ),
+                        ],
+                      ),
+              );
+            },
           ),
         ),
       ],

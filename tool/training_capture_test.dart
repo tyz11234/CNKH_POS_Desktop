@@ -22,6 +22,7 @@ import 'package:cnkh_pos_desktop/screens/admin/admin_hub.dart';
 import 'package:cnkh_pos_desktop/screens/admin/backup_restore_page.dart';
 import 'package:cnkh_pos_desktop/screens/einvoice_setup_screen.dart';
 import 'package:cnkh_pos_desktop/theme/cnkh_theme.dart';
+import '../test/package_info_test_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ void main() {
   const user=AppUser(username:'admin',role:AppRole.admin,displayName:'Training');
   const product=Product(id:'training-product',sku:'TRAINING',barcode:'955123000002',nameZh:'培训商品',nameEn:'Training Product',priceCents:1250,stock:20);
   setUp(() async {
+    await mockPackageInfoForTests();
     SharedPreferences.setMockInitialValues({});
     temp=await Directory.systemTemp.createTemp('cnkh-training-');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_)async=>temp.path);

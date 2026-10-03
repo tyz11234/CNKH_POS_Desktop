@@ -1,10 +1,10 @@
 # CNKH LAN Sync v1
 
-> 当前已发布组合：**Desktop 1.10.6+34 + Mobile 1.10.6+34**
+> 当前源码候选组合：**Desktop 1.10.9+37 + Mobile 1.10.9+37**，尚未发布。当前可下载 Desktop 为 **1.10.8+36**、Mobile APK 为 **1.10.7+35**；Mobile 新 APK 缺少与旧 APK 相同的 Android 签名私钥。
 >
-> 数据库 **schema v10**；两端完整测试、19 项 HTTP 回归及正式 Release 构建已通过，见 [FIX_VERIFICATION.md](FIX_VERIFICATION.md)。
+> 数据库 **schema v10**；协议保持 `cnkh-sync:v1`。最新双端源码和下载版本见 [README.md](README.md)。
 >
-> 最后更新：**2026-10-01**
+> 最后更新：**2026-10-03**
 
 CNKH POS 使用 **local-first / no-cloud** 架构。Desktop 是店内局域网权威主机，Mobile 通过同一个 Wi-Fi / LAN 与 Desktop 直接同步。
 
@@ -59,14 +59,24 @@ Mobile 不把 WebSocket 当成唯一数据来源；断线、重连或事件遗�
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/v1/health` | 主机健康检查与协议信息 |
-| GET | `/api/v1/products?since=` | 商品 / 库存同步 |
-| GET | `/api/v1/customers?since=` | 客户同步 |
-| GET | `/api/v1/categories?since=` | 分类同步 |
-| GET | `/api/v1/purchases?since=` | 进货历史同步 |
-| GET | `/api/v1/sales?since=` | 销售同步 |
-| POST | `/api/v1/sales` | Mobile 上传本地 / 离线销售 |
-| POST | `/api/v1/notify` | 同步事件通知 |
-| GET | `/api/v1/events/poll` | 事件轮询 |
+| GET | `/api/v1/products?since=` | 商品目录、库存和权威基线 |
+| GET | `/api/v1/customers?since=` | 客户增量对账 |
+| GET | `/api/v1/suppliers?since=` | 供应商增量对账 |
+| GET | `/api/v1/categories?since=` | 分类增量对账 |
+| POST | `/api/v1/categories` | Mobile 分类新增/更新 |
+| GET | `/api/v1/purchases?since=` | Desktop 进货历史及游标 |
+| GET | `/api/v1/sales?since=` | 销售增量对账 |
+| POST | `/api/v1/sales` | Mobile 上传本机/离线销售 |
+| GET | `/api/v1/stock-moves?since=` | 稳定库存流水，支持安全撤销判断 |
+| POST | `/api/v1/mutations` | 幂等操作批次、逐项 ACK 与结构化拒绝 |
+| GET | `/api/v1/product_images/{id}` | 已认证的商品图片读取 |
+| POST | `/api/v1/barcode_queue` | 标签打印队列及幂等操作 |
+| GET | `/api/v1/einvoices?after=` | 最新 e-Invoice 状态镜像；支持 `status_version=2` |
+| GET | `/api/v1/events/poll?after=` | WebSocket 不可用时的变更事件轮询 |
+| POST | `/api/v1/notify` | 设备主动发布本地变更提示 |
+| GET | `/api/v1/ws` | WebSocket 实时变更事件 |
+
+HTTP 使用 `X-CNKH-Token`。Host 先认证，再分派 endpoint；失效或撤销的 Token 不能读取健康状态或业务数据。
 
 部分管理流程还会使用分类 / 条码队列等内部 API。
 

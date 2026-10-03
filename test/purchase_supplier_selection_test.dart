@@ -84,6 +84,31 @@ void main() {
     (widget) => widget is TextField && widget.decoration?.labelText == '名称 *',
   );
 
+  Future<void> waitForSelectedSupplier(
+    WidgetTester tester,
+    String name,
+  ) async {
+    for (var attempt = 0; attempt < 80; attempt++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+      final dropdown = tester.widget<DropdownButton<String>>(
+        find.byType(DropdownButton<String>).first,
+      );
+      final selectedId = dropdown.value;
+      if (selectedId == null) continue;
+      final suppliers = await tester.runAsync(() => repo.listSuppliers());
+      if (suppliers?.any(
+            (supplier) => supplier.id == selectedId && supplier.name == name,
+          ) ==
+          true) {
+        return;
+      }
+    }
+    fail('Supplier "$name" was not selected within 8 seconds');
+  }
+
   testWidgets(
     'ordinary supplier creation selects the instance from the refreshed list',
     (tester) async {
@@ -92,7 +117,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(supplierNameField(), '普通新供应商');
       await tester.tap(find.text('保存'));
-      await flush(tester);
+      await waitForSelectedSupplier(tester, '普通新供应商');
       await tester.pumpAndSettle();
 
       final id = await selectedSupplierId(tester);
@@ -121,7 +146,7 @@ void main() {
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('新建并选用'));
-      await flush(tester);
+      await waitForSelectedSupplier(tester, '二维码新供应商');
       await tester.pumpAndSettle();
       expect(find.text('二维码含供应商'), findsNothing);
 

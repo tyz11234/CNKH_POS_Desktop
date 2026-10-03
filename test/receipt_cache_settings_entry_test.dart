@@ -9,6 +9,7 @@ import 'package:cnkh_pos_desktop/services/pos_repository.dart';
 import 'package:cnkh_pos_desktop/services/e_receipt.dart';
 import 'package:cnkh_pos_desktop/services/qr_storage.dart';
 import 'package:cnkh_pos_desktop/screens/settings_screen.dart';
+import 'package_info_test_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ void main() {
   late File owned;
   late File contract;
   setUp(() async {
+    await mockPackageInfoForTests();
     SharedPreferences.setMockInitialValues({});
     temp = await Directory.systemTemp.createTemp('cnkh-cache-settings-');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
