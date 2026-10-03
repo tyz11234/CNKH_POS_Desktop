@@ -16,8 +16,9 @@ std::wstring Utf8ToWide(const std::string& utf8) {
   if (utf8.empty()) return std::wstring();
   int n = ::MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
   if (n <= 0) return std::wstring();
-  std::wstring out(static_cast<size_t>(n - 1), L'\0');
+  std::wstring out(static_cast<size_t>(n), L'\0');
   ::MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, out.data(), n);
+  out.resize(static_cast<size_t>(n - 1));
   return out;
 }
 
@@ -61,11 +62,23 @@ bool CopyFilePathToClipboard(const std::wstring& path) {
   // second NUL already zeroed by GHND
   ::GlobalUnlock(hmem);
 
-  if (!::OpenClipboard(nullptr)) {
+  bool opened = false;
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    if (::OpenClipboard(nullptr)) {
+      opened = true;
+      break;
+    }
+    ::Sleep(20);
+  }
+  if (!opened) {
     ::GlobalFree(hmem);
     return false;
   }
-  ::EmptyClipboard();
+  if (!::EmptyClipboard()) {
+    ::CloseClipboard();
+    ::GlobalFree(hmem);
+    return false;
+  }
   if (!::SetClipboardData(CF_HDROP, hmem)) {
     ::CloseClipboard();
     ::GlobalFree(hmem);
@@ -91,11 +104,17 @@ bool LaunchWhatsAppSend(const std::string& phone, const std::string& text) {
 bool SharePdf(const std::string& path, const std::string& text,
               const std::string& phone) {
   std::wstring wpath = Utf8ToWide(path);
-  if (wpath.empty() || ::GetFileAttributesW(wpath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+  const DWORD attributes = wpath.empty()
+      ? INVALID_FILE_ATTRIBUTES
+      : ::GetFileAttributesW(wpath.c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES ||
+      (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
     return false;
   }
   // Put PDF on clipboard so user can Ctrl+V into the WhatsApp chat.
-  CopyFilePathToClipboard(wpath);
+  if (!CopyFilePathToClipboard(wpath)) {
+    return false;
+  }
   // Open WhatsApp Desktop chat with caption prefilled.
   if (!LaunchWhatsAppSend(phone, text)) {
     return false;

@@ -10,9 +10,11 @@ import '../models/product.dart';
 import 'lan_sync.dart' show kPairingPrefix;
 import 'pos_repository.dart';
 import 'lan_mutations.dart';
+import 'einvoice/sale_submission_guard.dart';
 import 'lan_product_identity.dart';
 import 'sale_reversal.dart';
 import 'sync_store.dart';
+import 'desktop_database_maintenance.dart';
 
 class LanPairingOffer {
   const LanPairingOffer({
@@ -36,13 +38,7 @@ String buildPairingPayload({
 }) {
   final now = DateTime.now().toUtc();
   final expiry = (expiresAt ?? now.add(const Duration(minutes: 7))).toUtc();
-  return '$kPairingPrefix${jsonEncode(<String, Object?>{
-    'baseUrl': baseUrl,
-    'token': token,
-    'name': name,
-    'iat': now.millisecondsSinceEpoch ~/ 1000,
-    'exp': expiry.millisecondsSinceEpoch ~/ 1000,
-  })}';
+  return '$kPairingPrefix${jsonEncode(<String, Object?>{'baseUrl': baseUrl, 'token': token, 'name': name, 'iat': now.millisecondsSinceEpoch ~/ 1000, 'exp': expiry.millisecondsSinceEpoch ~/ 1000})}';
 }
 
 /// Desktop is the authoritative LAN host for Mobile clients.
@@ -85,6 +81,8 @@ class LanPairingHost {
       StreamController<int>.broadcast(sync: true);
   int _eventSeq = 0;
   int _lastChangeSeq = 0;
+  int _activeRequests = 0;
+  Completer<void>? _requestsDrained;
 
   bool get isRunning => _server != null;
   int get port => _server?.port ?? configuredPort;
@@ -115,39 +113,47 @@ class LanPairingHost {
       );
       _server = server;
       _changePoll = Timer.periodic(const Duration(milliseconds: 500), (_) {
-        unawaited(_pollDatabaseChanges());
+        unawaited(DesktopDatabaseMaintenance.shared.run(_pollDatabaseChanges));
       });
       unawaited(
         server.forEach((request) async {
+          _activeRequests++;
           try {
-            await _handle(request);
-          } on FormatException catch (e) {
-            await _safeJson(
-              request.response,
-              HttpStatus.badRequest,
-              <String, Object?>{
-                'ok': false,
-                'error': 'invalid_request',
-                'message': e.message,
-              },
-            );
-          } catch (e) {
-            await _safeJson(
-              request.response,
-              HttpStatus.internalServerError,
-              <String, Object?>{
-                'ok': false,
-                'error': 'internal_error',
-                'message': '$e',
-              },
-            );
+            try {
+              await _handle(request);
+            } on FormatException catch (e) {
+              await _safeJson(
+                request.response,
+                HttpStatus.badRequest,
+                <String, Object?>{
+                  'ok': false,
+                  'error': 'invalid_request',
+                  'message': e.message,
+                },
+              );
+            } catch (e) {
+              await _safeJson(
+                request.response,
+                HttpStatus.internalServerError,
+                <String, Object?>{
+                  'ok': false,
+                  'error': 'internal_error',
+                  'message': '$e',
+                },
+              );
+            }
+          } finally {
+            _activeRequests--;
+            if (_activeRequests == 0) {
+              final drained = _requestsDrained;
+              _requestsDrained = null;
+              if (drained != null && !drained.isCompleted) drained.complete();
+            }
           }
         }),
       );
     } on SocketException catch (e) {
-      throw StateError(
-        '无法启动局域网同步服务 :$configuredPort。端口可能被占用或被系统阻止。$e',
-      );
+      throw StateError('无法启动局域网同步服务 :$configuredPort。端口可能被占用或被系统阻止。$e');
     }
   }
 
@@ -159,11 +165,7 @@ class LanPairingHost {
     }
     final baseUrl = 'http://$_localIp:$port';
     return LanPairingOffer(
-      payload: buildPairingPayload(
-        baseUrl: baseUrl,
-        token: _token,
-        name: name,
-      ),
+      payload: buildPairingPayload(baseUrl: baseUrl, token: _token, name: name),
       baseUrl: baseUrl,
       token: _token,
       name: name,
@@ -178,7 +180,10 @@ class LanPairingHost {
     _token = token;
     for (final socket in _sockets.toList()) {
       try {
-        await socket.close(WebSocketStatus.policyViolation, 'Pairing token rotated');
+        await socket.close(
+          WebSocketStatus.policyViolation,
+          'Pairing token rotated',
+        );
       } catch (_) {}
     }
     _sockets.clear();
@@ -213,6 +218,29 @@ class LanPairingHost {
     final server = _server;
     _server = null;
     if (server != null) await server.close(force: true);
+  }
+
+  /// Stops accepting LAN requests and waits for every active request to finish
+  /// before a restore can replace the database file.
+  Future<void> stopAndDrain() async {
+    try {
+      await _starting;
+    } catch (_) {}
+    _changePoll?.cancel();
+    _changePoll = null;
+    final server = _server;
+    _server = null;
+    if (server != null) await server.close(force: false);
+    for (final socket in _sockets.toList()) {
+      try {
+        await socket.close(WebSocketStatus.goingAway, 'Database maintenance');
+      } catch (_) {}
+    }
+    _sockets.clear();
+    _emitConnectionCount();
+    if (_activeRequests > 0) {
+      await (_requestsDrained ??= Completer<void>()).future;
+    }
   }
 
   Future<String> _ensureToken() async {
@@ -407,10 +435,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       _lastChangeSeq = maxSeq;
       _dataChanges.add(null);
       if (hasCatalog) {
-        _publish(<String, Object?>{
-          'type': 'catalog',
-          'data_cursor': maxSeq,
-        });
+        _publish(<String, Object?>{'type': 'catalog', 'data_cursor': maxSeq});
       }
       if (hasSale) {
         _publish(<String, Object?>{'type': 'sale', 'data_cursor': maxSeq});
@@ -500,8 +525,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     if (request.method == 'GET' && path == '/api/v1/einvoices') {
       final db = await _db.db;
       final after = request.uri.queryParameters['after'] ?? '';
-      final extendedStatuses = request.uri.queryParameters['status_version'] == '2';
-      final rows = await db.rawQuery('''SELECT d.id AS document_id, d.sale_id,
+      final extendedStatuses =
+          request.uri.queryParameters['status_version'] == '2';
+      final rows = await db.rawQuery(
+        '''SELECT d.id AS document_id, d.sale_id,
         COALESCE(m.client_sale_id,'') AS client_sale_id, d.invoice_no AS receipt_no,
         d.environment, CASE WHEN d.status='invalid' AND ?=0 THEN 'rejected' ELSE d.status END AS status,
         d.updated_at FROM e_invoice_documents d
@@ -509,8 +536,14 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         WHERE d.id>? AND NOT EXISTS(SELECT 1 FROM e_invoice_documents newer
           WHERE newer.sale_id=d.sale_id AND newer.environment=d.environment
             AND newer.attempt_no>d.attempt_no)
-        ORDER BY d.id LIMIT 200''', [extendedStatuses ? 1 : 0, after]);
-      await _json(request.response, HttpStatus.ok, {'items': rows, 'has_more': rows.length == 200, 'next': rows.isEmpty ? after : rows.last['document_id']});
+        ORDER BY d.id LIMIT 200''',
+        [extendedStatuses ? 1 : 0, after],
+      );
+      await _json(request.response, HttpStatus.ok, {
+        'items': rows,
+        'has_more': rows.length == 200,
+        'next': rows.isEmpty ? after : rows.last['document_id'],
+      });
       return;
     }
     if (request.method == 'GET' && path == '/api/v1/sales') {
@@ -541,7 +574,17 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           failed = op['id']?.toString();
           if (op['kind'] == 'purchase_reverse' &&
               (e is StateError || e is FormatException || e is ArgumentError)) {
-            rejection = {'id': failed, 'kind': 'purchase_reverse', 'code': 'purchase_reverse_rejected'};
+            rejection = {
+              'id': failed,
+              'kind': 'purchase_reverse',
+              'code': 'purchase_reverse_rejected',
+            };
+          } else if (op['kind'] == 'sale_void' && e is SaleVoidRejected) {
+            rejection = {
+              'id': failed,
+              'kind': 'sale_void',
+              'code': 'sale_void_requires_review',
+            };
           }
           break;
         }
@@ -861,7 +904,9 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       return;
     }
     final bytes = await file.readAsBytes();
-    final name = file.uri.pathSegments.isEmpty ? '' : file.uri.pathSegments.last;
+    final name = file.uri.pathSegments.isEmpty
+        ? ''
+        : file.uri.pathSegments.last;
     final dot = name.lastIndexOf('.');
     final ext = dot >= 0 && dot < name.length - 1
         ? name.substring(dot + 1).toLowerCase()
@@ -1193,7 +1238,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'subtotal_cents': m['subtotal_cents'],
       'discount_cents':
           ((m['item_discount_cents'] as int?) ?? 0) +
-              ((m['order_discount_cents'] as int?) ?? 0),
+          ((m['order_discount_cents'] as int?) ?? 0),
       'order_discount_cents': m['order_discount_cents'],
       'total_cents': m['total_cents'],
       'paid_cents': m['paid_cents'],
@@ -1250,7 +1295,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
               'inserted': false,
               'receipt':
                   mapped.first['canonical_receipt']?.toString() ??
-                      originalReceipt,
+                  originalReceipt,
             };
           }
         }
@@ -1317,7 +1362,11 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         final requiredQty = <String, double>{};
         for (final raw in (sale['lines'] as List? ?? [])) {
           final line = Map<String, Object?>.from(raw as Map);
-          final product = await resolveLanSaleProduct(txn, line, allowDeleted: incomingVoided);
+          final product = await resolveLanSaleProduct(
+            txn,
+            line,
+            allowDeleted: incomingVoided,
+          );
           final pid = product['id'] as String;
           final qty = _asDouble(line['qty'] ?? line['quantity']);
           if (!qty.isFinite || qty <= 0) {
@@ -1351,8 +1400,9 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
             whereArgs: [sale['customer_name'], sale['customer_phone'] ?? ''],
           );
         }
-        customerId =
-            customers.length == 1 ? customers.first['id'] as String : null;
+        customerId = customers.length == 1
+            ? customers.first['id'] as String
+            : null;
         if ((sale['payment_method']?.toString() ?? '').toUpperCase() ==
                 'CREDIT' &&
             customerId == null) {
@@ -1409,7 +1459,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           final line = Map<String, Object?>.from(rawLine);
           final productId =
               (line['productId'] ?? line['product_id'])?.toString().trim() ??
-                  '';
+              '';
           // The resolver already returned the authoritative Desktop ID. It
           // can itself begin with pc-; stripping it again loses the deduction.
           final qty = _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
@@ -1432,27 +1482,19 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         }
 
         if (clientSaleId.isNotEmpty) {
-          await txn.insert(
-            'lan_sync_mobile_sales',
-            <String, Object?>{
-              'client_sale_id': clientSaleId,
-              'sale_id': saleId,
-              'original_receipt': originalReceipt,
-              'canonical_receipt': canonicalReceipt,
-              'created_at': now,
-            },
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
+          await txn.insert('lan_sync_mobile_sales', <String, Object?>{
+            'client_sale_id': clientSaleId,
+            'sale_id': saleId,
+            'original_receipt': originalReceipt,
+            'canonical_receipt': canonicalReceipt,
+            'created_at': now,
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
         }
 
-        return <String, Object?>{
-          'inserted': true,
-          'receipt': canonicalReceipt,
-        };
+        return <String, Object?>{'inserted': true, 'receipt': canonicalReceipt};
       });
 
-      final canonicalReceipt =
-          result['receipt']?.toString() ?? originalReceipt;
+      final canonicalReceipt = result['receipt']?.toString() ?? originalReceipt;
       receipts.add(<String, Object?>{
         if (clientSaleId.isNotEmpty) 'client_sale_id': clientSaleId,
         'original_receipt': originalReceipt,
@@ -1479,28 +1521,37 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     Map<String, Object?> incoming,
   ) {
     if ((existing['sold_at']?.toString() ?? '') !=
-        (incoming['sold_at']?.toString() ?? '')) return false;
+        (incoming['sold_at']?.toString() ?? ''))
+      return false;
     if (_asInt(existing['total_cents']) != _asInt(incoming['total_cents'])) {
       return false;
     }
     if ((existing['payment_method']?.toString() ?? '') !=
-        (incoming['payment_method']?.toString() ?? '')) return false;
+        (incoming['payment_method']?.toString() ?? ''))
+      return false;
     if ((existing['cashier']?.toString() ?? '') !=
-        (incoming['cashier']?.toString() ?? '')) return false;
-    if (_asInt(existing['subtotal_cents']) != _asInt(incoming['subtotal_cents'])) {
+        (incoming['cashier']?.toString() ?? ''))
+      return false;
+    if (_asInt(existing['subtotal_cents']) !=
+        _asInt(incoming['subtotal_cents'])) {
       return false;
     }
     if (_asInt(existing['paid_cents']) !=
-        _asInt(incoming['paid_cents'], fallback: _asInt(incoming['total_cents']))) {
+        _asInt(
+          incoming['paid_cents'],
+          fallback: _asInt(incoming['total_cents']),
+        )) {
       return false;
     }
     if (_asInt(existing['change_cents']) != _asInt(incoming['change_cents'])) {
       return false;
     }
     if ((existing['customer_name']?.toString() ?? '') !=
-        (incoming['customer_name']?.toString() ?? '')) return false;
+        (incoming['customer_name']?.toString() ?? ''))
+      return false;
     if ((existing['customer_phone']?.toString() ?? '') !=
-        (incoming['customer_phone']?.toString() ?? '')) return false;
+        (incoming['customer_phone']?.toString() ?? ''))
+      return false;
 
     Object? existingLines;
     try {
@@ -1538,8 +1589,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
   }
 
   String _shortId(String value) {
-    final cleaned =
-        value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final cleaned = value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (cleaned.isEmpty) return 'MOBILE';
     return cleaned.length <= 6 ? cleaned : cleaned.substring(0, 6);
   }
@@ -1614,24 +1664,20 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       }
 
       final queueId = 'mobile-barcode-$operationId';
-      final rowId = await db.insert(
-        'barcode_print_queue',
-        <String, Object?>{
-          'id': queueId,
-          'product_id': productId,
-          'barcode': barcode,
-          'product_name': productName,
-          'sku': raw['sku']?.toString() ?? '',
-          'price_cents': _asInt(raw['price_cents']),
-          'copies': max(1, _asInt(raw['copies'], fallback: 1)),
-          'status': 'pending',
-          'created_at': raw['created_at']?.toString().trim().isNotEmpty == true
-              ? raw['created_at'].toString()
-              : DateTime.now().toIso8601String(),
-          'synced_at': null,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      final rowId = await db.insert('barcode_print_queue', <String, Object?>{
+        'id': queueId,
+        'product_id': productId,
+        'barcode': barcode,
+        'product_name': productName,
+        'sku': raw['sku']?.toString() ?? '',
+        'price_cents': _asInt(raw['price_cents']),
+        'copies': max(1, _asInt(raw['copies'], fallback: 1)),
+        'status': 'pending',
+        'created_at': raw['created_at']?.toString().trim().isNotEmpty == true
+            ? raw['created_at'].toString()
+            : DateTime.now().toIso8601String(),
+        'synced_at': null,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
       if (rowId == 0) {
         skipped++;
       } else {

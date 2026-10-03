@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../db/app_database.dart';
+
 const String kCnkhBackupMagic = 'CNKH_POS_DESKTOP_BACKUP';
 const int kCnkhBackupFormatVersion = 1;
 
@@ -31,12 +33,22 @@ class DesktopBackupService {
     this.databasePath,
     this.productImagesDirectory,
     this.closeDatabase,
+    this.migrateAndValidateDatabase,
+    this.reopenAndValidateDatabase,
     this.cleanupArtifact,
   });
 
   final String? databasePath;
   final String? productImagesDirectory;
   final Future<void> Function()? closeDatabase;
+
+  /// Applies the application's real sqflite migrations to a staged copy and
+  /// runs the schema/data queries needed by POS startup.
+  final Future<void> Function(String path)? migrateAndValidateDatabase;
+
+  /// Opens the restored production database through its owning repository.
+  final Future<void> Function()? reopenAndValidateDatabase;
+
   /// Optional filesystem adapter for removing restore artifacts. A cleanup
   /// failure must never undo an already validated database/image restore.
   final Future<void> Function(FileSystemEntity)? cleanupArtifact;
@@ -95,7 +107,10 @@ class DesktopBackupService {
     );
 
     if (await imagesDir.exists()) {
-      await for (final entity in imagesDir.list(recursive: true, followLinks: false)) {
+      await for (final entity in imagesDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
         final relative = p.relative(entity.path, from: imagesDir.path);
         final normalized = relative.replaceAll('\\', '/');
@@ -145,7 +160,10 @@ class DesktopBackupService {
       if (!await file.exists()) {
         return const BackupValidationResult(valid: false, message: '备份文件不存在');
       }
-      final decoded = ZipDecoder().decodeBytes(await file.readAsBytes(), verify: true);
+      final decoded = ZipDecoder().decodeBytes(
+        await file.readAsBytes(),
+        verify: true,
+      );
       final manifestFile = _entry(decoded, 'manifest.json');
       final dbEntry = _entry(decoded, 'database/cnkh_pos_desktop.db');
       if (manifestFile == null || dbEntry == null) {
@@ -156,14 +174,23 @@ class DesktopBackupService {
       }
       final manifestRaw = manifestFile.readBytes();
       if (manifestRaw == null) {
-        return const BackupValidationResult(valid: false, message: 'manifest 无法读取');
+        return const BackupValidationResult(
+          valid: false,
+          message: 'manifest 无法读取',
+        );
       }
       final manifest = jsonDecode(utf8.decode(manifestRaw));
       if (manifest is! Map) {
-        return const BackupValidationResult(valid: false, message: 'manifest 格式错误');
+        return const BackupValidationResult(
+          valid: false,
+          message: 'manifest 格式错误',
+        );
       }
       if (manifest['magic'] != kCnkhBackupMagic) {
-        return const BackupValidationResult(valid: false, message: '不是 CNKH POS 备份');
+        return const BackupValidationResult(
+          valid: false,
+          message: '不是 CNKH POS 备份',
+        );
       }
       if ((manifest['format_version'] as num?)?.toInt() !=
           kCnkhBackupFormatVersion) {
@@ -174,6 +201,17 @@ class DesktopBackupService {
         return const BackupValidationResult(valid: false, message: '数据库内容为空');
       }
       final dbValidation = await _validateDatabaseBytes(dbBytes);
+      final tempDir = await Directory.systemTemp.createTemp(
+        'cnkh_backup_migrate_',
+      );
+      try {
+        final staged = File(p.join(tempDir.path, 'backup.sqlite'));
+        await staged.writeAsBytes(dbBytes, flush: true);
+        await (migrateAndValidateDatabase ??
+            AppDatabase.migrateAndValidateBackupFile)(staged.path);
+      } finally {
+        if (await tempDir.exists()) await tempDir.delete(recursive: true);
+      }
       final imageCount = decoded.files
           .where((e) => e.isFile && e.name.startsWith('product_images/'))
           .length;
@@ -219,10 +257,15 @@ class DesktopBackupService {
       final stagedDb = File(p.join(stageDir.path, 'cnkh_pos_desktop.db'));
       await stagedDb.writeAsBytes(dbEntry.readBytes()!, flush: true);
       await _validateDatabaseFile(stagedDb.path);
+      final migrateAndValidate =
+          migrateAndValidateDatabase ??
+          AppDatabase.migrateAndValidateBackupFile;
+      await migrateAndValidate(stagedDb.path);
 
       final stagedImages = Directory(p.join(stageDir.path, 'product_images'));
       for (final entry in decoded.files) {
-        if (!entry.isFile || !entry.name.startsWith('product_images/')) continue;
+        if (!entry.isFile || !entry.name.startsWith('product_images/'))
+          continue;
         final relative = entry.name.substring('product_images/'.length);
         if (!_safeArchiveRelativePath(relative)) {
           throw StateError('备份包含不安全的图片路径');
@@ -236,6 +279,7 @@ class DesktopBackupService {
 
       await _rebaseProductImagePaths(stagedDb.path, stagedImages, imagesPath);
       await _validateDatabaseFile(stagedDb.path);
+      await migrateAndValidate(stagedDb.path);
       await closeDatabase?.call();
 
       if (await activeDb.exists()) {
@@ -257,6 +301,10 @@ class DesktopBackupService {
       // Validate the exact bytes now occupying the production path. Any failure
       // below must roll back both DB and images as one restore operation.
       await _validateDatabaseFile(activeDb.path);
+      final reopenAndValidate =
+          reopenAndValidateDatabase ??
+          () => AppDatabase.migrateAndValidateBackupFile(activeDb.path);
+      await reopenAndValidate();
 
       await _cleanup(rollbackDb);
       await _cleanup(rollbackImages);
@@ -287,23 +335,30 @@ class DesktopBackupService {
   ) async {
     final db = sqlite3.open(stagedDbPath);
     try {
-      if (!db.select('PRAGMA table_info(products)')
-          .any((column) => column['name'] == 'image_path')) return;
+      if (!db
+          .select('PRAGMA table_info(products)')
+          .any((column) => column['name'] == 'image_path'))
+        return;
       db.execute('BEGIN IMMEDIATE');
       try {
         final products = db.select(
-            "SELECT id, image_path FROM products WHERE COALESCE(image_path,'')<>''");
+          "SELECT id, image_path FROM products WHERE COALESCE(image_path,'')<>''",
+        );
         for (final row in products) {
           // Backups can move between Windows accounts or operating systems.
           final oldPath = (row['image_path'] as String).replaceAll('\\', '/');
           const marker = '/product_images/';
           final index = oldPath.lastIndexOf(marker);
-          final relative = index < 0 ? p.posix.basename(oldPath)
+          final relative = index < 0
+              ? p.posix.basename(oldPath)
               : oldPath.substring(index + marker.length);
           if (!_safeArchiveRelativePath(relative)) continue;
-          if (!await File(p.join(stagedImages.path, relative)).exists()) continue;
-          db.execute('UPDATE products SET image_path=? WHERE id=?',
-              [p.join(destinationImagesPath, relative), row['id']]);
+          if (!await File(p.join(stagedImages.path, relative)).exists())
+            continue;
+          db.execute('UPDATE products SET image_path=? WHERE id=?', [
+            p.join(destinationImagesPath, relative),
+            row['id'],
+          ]);
         }
         db.execute('COMMIT');
       } catch (_) {
@@ -331,11 +386,13 @@ class DesktopBackupService {
   }
 
   Future<BackupValidationResult> _validateDatabaseBytes(Uint8List bytes) async {
-    final tempDir = await Directory.systemTemp.createTemp('cnkh_backup_validate_');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'cnkh_backup_validate_',
+    );
     try {
       final file = File(p.join(tempDir.path, 'db.sqlite'));
       await file.writeAsBytes(bytes, flush: true);
-      return _validateDatabaseFile(file.path);
+      return await _validateDatabaseFile(file.path);
     } finally {
       if (await tempDir.exists()) await tempDir.delete(recursive: true);
     }
@@ -346,30 +403,19 @@ class DesktopBackupService {
     try {
       db = sqlite3.open(path, mode: OpenMode.readOnly);
       final integrity = db.select('PRAGMA integrity_check');
-      if (integrity.isEmpty || integrity.first.values.first.toString().toLowerCase() != 'ok') {
+      if (integrity.isEmpty ||
+          integrity.first.values.first.toString().toLowerCase() != 'ok') {
         throw StateError('SQLite integrity_check 失败');
-      }
-      const required = <String>{
-        'products',
-        'customers',
-        'suppliers',
-        'sales',
-        'purchases',
-        'stock_moves',
-        'settings',
-      };
-      final rows = db.select(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-      );
-      final names = <String>{for (final row in rows) row['name'].toString()};
-      final missing = required.difference(names);
-      if (missing.isNotEmpty) {
-        throw StateError('数据库缺少必要表：${missing.join(', ')}');
       }
       final versionRows = db.select('PRAGMA user_version');
       final userVersion = versionRows.isEmpty
           ? 0
           : (versionRows.first.values.first as num?)?.toInt() ?? 0;
+      if (userVersion > AppDatabase.schemaVersion) {
+        throw StateError(
+          '备份数据库版本 $userVersion 高于当前支持版本 ${AppDatabase.schemaVersion}',
+        );
+      }
       return BackupValidationResult(
         valid: true,
         message: 'OK',

@@ -19,6 +19,7 @@ class CheckoutScreen extends StatefulWidget {
   final QrStorage qrStorage;
   final PosRepository repo;
   final void Function(SaleRecord sale) onPaid;
+
   /// Complete cart ownership immediately after commit, even if this route leaves.
   final void Function(SaleRecord sale)? onCommitted;
   final VoidCallback onCancel;
@@ -47,6 +48,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _phoneCtrl = TextEditingController();
   List<Customer> _customers = [];
   Customer? _customer;
+  bool _phoneWasAutofilled = false;
   bool _busy = false;
   SaleRecord? _savedSale;
   int _outstandingCents = 0;
@@ -75,6 +77,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _cashCtrl.text = centsToRm(due).toStringAsFixed(2);
   }
 
+  void _selectCustomerPhone(Customer? customer) {
+    // Replace a previous directory autofill, including clearing it when the
+    // next customer has no number. A number the cashier typed stays a
+    // temporary checkout value and is not silently replaced.
+    if (!_phoneWasAutofilled && _phoneCtrl.text.trim().isNotEmpty) return;
+    final phone = customer?.phone.trim() ?? '';
+    _phoneWasAutofilled = phone.isNotEmpty;
+    _phoneCtrl.value = TextEditingValue(
+      text: phone,
+      selection: TextSelection.collapsed(offset: phone.length),
+    );
+  }
+
   @override
   void dispose() {
     _cashCtrl.dispose();
@@ -83,11 +98,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  int get _raw => _savedSale == null ? widget.cart.rawPayableCents : _savedSale!.totalCents - _savedSale!.roundingCents;
+  int get _raw => _savedSale == null
+      ? widget.cart.rawPayableCents
+      : _savedSale!.totalCents - _savedSale!.roundingCents;
   int get _due =>
-      _savedSale?.totalCents ?? widget.cart.payableCents(isCredit: _method == PayMethod.credit);
+      _savedSale?.totalCents ??
+      widget.cart.payableCents(isCredit: _method == PayMethod.credit);
   int get _rounding =>
-      _savedSale?.roundingCents ?? (_method == PayMethod.credit ? 0 : checkoutRoundingAdjustment(_raw));
+      _savedSale?.roundingCents ??
+      (_method == PayMethod.credit ? 0 : checkoutRoundingAdjustment(_raw));
 
   int _parseRm(String text) {
     final raw = text.trim().replaceAll(',', '');
@@ -97,44 +116,66 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   String _methodKey(PayMethod m) => switch (m) {
-        PayMethod.cash => 'CASH',
-        PayMethod.card => 'CARD',
-        PayMethod.duitnow => 'DUITNOW_QR',
-        PayMethod.credit => 'CREDIT',
-      };
+    PayMethod.cash => 'CASH',
+    PayMethod.card => 'CARD',
+    PayMethod.duitnow => 'DUITNOW_QR',
+    PayMethod.credit => 'CREDIT',
+  };
 
   String _methodLabel(PayMethod m) => switch (m) {
-        PayMethod.cash => '现金\nCash',
-        PayMethod.card => '卡\nCard',
-        PayMethod.duitnow => 'DuitNow',
-        PayMethod.credit => '赊账\nCredit',
-      };
+    PayMethod.cash => '现金\nCash',
+    PayMethod.card => '卡\nCard',
+    PayMethod.duitnow => 'DuitNow',
+    PayMethod.credit => '赊账\nCredit',
+  };
 
   Future<void> _confirm() async {
     if (_busy || _savedSale != null) return;
     FocusScope.of(context).unfocus();
     setState(() => _busy = true);
-    try{await _confirmOnce();}catch(e){if(mounted)_toast('$e',error:true);}
-    finally{if(mounted)setState(()=>_busy=false);}
+    try {
+      await _confirmOnce();
+    } catch (e) {
+      if (mounted) _toast('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
+
   Future<void> _confirmOnce() async {
     final policy = await widget.repo.stockPolicy();
+    if (!mounted) return;
     for (final item in widget.cart.items) {
-      final current=await widget.repo.getProduct(item.product.id);
-      if(current==null||current.isDeleted!=0){_toast('商品已删除，请重新选择',error:true);return;}
+      final current = await widget.repo.getProduct(item.product.id);
+      if (!mounted) return;
+      if (current == null || current.isDeleted != 0) {
+        _toast('商品已删除，请重新选择', error: true);
+        return;
+      }
       if (item.qty > current.stock) {
         if (policy == 'block') {
-          _toast('库存不足：${item.product.nameZh} (有 ${current.stock})', error: true);
+          _toast(
+            '库存不足：${item.product.nameZh} (有 ${current.stock})',
+            error: true,
+          );
           return;
         }
         final cont = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('库存不足 / Low stock'),
-            content: Text('${item.product.nameZh}\n需要 ${item.qty} · 库存 ${current.stock}'),
+            content: Text(
+              '${item.product.nameZh}\n需要 ${item.qty} · 库存 ${current.stock}',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('仍结账')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('仍结账'),
+              ),
             ],
           ),
         );
@@ -255,327 +296,353 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return PopScope(
       canPop: !_busy,
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('结账 / Checkout'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: _busy ? null : widget.onCancel,
+        appBar: AppBar(
+          title: const Text('结账 / Checkout'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: _busy ? null : widget.onCancel,
+          ),
         ),
-      ),
-      body: AbsorbPointer(
-        absorbing: _busy,
-        child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  color: CnkhColors.softBlue,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-                    child: Column(
+        body: AbsorbPointer(
+          absorbing: _busy,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      color: CnkhColors.softBlue,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+                        child: Column(
+                          children: [
+                            Text(
+                              '应付 / Due',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: CnkhColors.navy,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: MoneyText(
+                                amountCents: _due,
+                                fontSize: 40,
+                                hero: true,
+                              ),
+                            ),
+                            if (_rounding != 0) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                '舍入 / Rounding: ${formatRm(_rounding)}  (raw ${formatRm(_raw)})',
+                                style: const TextStyle(
+                                  color: CnkhColors.muted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            if (widget.cart.orderDiscountApplied > 0 ||
+                                widget.cart.itemDiscountsCents > 0) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                '折扣 / Discounts: −${formatRm(widget.cart.itemDiscountsCents + widget.cart.orderDiscountApplied)}',
+                                style: const TextStyle(
+                                  color: CnkhColors.success,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '付款方式 / Payment',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Text(
-                          '应付 / Due',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: CnkhColors.navy,
+                        for (var i = 0; i < PayMethod.values.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          _payChip(PayMethod.values[i]),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '客户 / Customer（赊账必选；电子收据可选）',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<Customer?>(
+                          isExpanded: true,
+                          value: _customer,
+                          hint: const Text('选择客户 / Select'),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('— 无 —'),
+                            ),
+                            ..._customers.map(
+                              (c) => DropdownMenuItem(
+                                value: c,
+                                child: Text(
+                                  '${c.name}  ${c.phone}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (c) async {
+                            _selectCustomerPhone(c);
+                            setState(() {
+                              _customer = c;
+                              _outstandingCents = 0;
+                            });
+                            if (c != null) {
+                              final customerId = c.id;
+                              final o = await widget.repo
+                                  .customerOutstandingCents(customerId);
+                              if (mounted && _customer?.id == customerId) {
+                                setState(() => _outstandingCents = o);
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    if (_customer != null && _outstandingCents > 0) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: CnkhColors.danger),
+                        ),
+                        child: Text(
+                          '⚠ 赊账未结 / Outstanding: ${formatRmPlain(_outstandingCents)}',
+                          style: const TextStyle(
+                            color: CnkhColors.danger,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      onChanged: (_) => _phoneWasAutofilled = false,
+                      decoration: const InputDecoration(
+                        labelText: '手机号 / Phone（电子收据可选）',
+                        hintText: '01x-xxx xxxx',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (_method == PayMethod.duitnow)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: DuitNowQrPanel(
+                            imagePath: _qrPath,
+                            amountCents: _due,
+                            fullscreenFriendly: true,
+                            onPickImage: () => _toast(
+                              '请到设置导入 QR（仅管理员）/ Import QR in Settings (Admin)',
+                            ),
+                            onTapExpand: _qrPath == null
+                                ? null
+                                : () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => DuitNowQrFullscreen(
+                                          imagePath: _qrPath!,
+                                          amountCents: _due,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                          ),
+                        ),
+                      )
+                    else if (_method == PayMethod.cash) ...[
+                      TextField(
+                        controller: _cashCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: '收取现金 / Cash tendered',
+                          prefixText: 'RM ',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                        decoration: BoxDecoration(
+                          color: change >= 0
+                              ? const Color(0xFFE8F8EE)
+                              : const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: change >= 0
+                                ? CnkhColors.success
+                                : CnkhColors.danger,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              change >= 0
+                                  ? '找零 / Change'
+                                  : '金额不足 / Insufficient',
+                              style: TextStyle(
+                                color: change >= 0
+                                    ? CnkhColors.successDeep
+                                    : CnkhColors.danger,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                formatRm(change < 0 ? 0 : change),
+                                style: TextStyle(
+                                  color: change >= 0
+                                      ? CnkhColors.success
+                                      : CnkhColors.danger,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 32,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (_method == PayMethod.card)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text(
+                            '请刷卡后确认 / Complete card payment then confirm.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      Text(
+                        '定金 / Deposit',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _depositCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: '定金金额 / Deposit amount',
+                          prefixText: 'RM ',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final m in [
+                            PayMethod.cash,
+                            PayMethod.card,
+                            PayMethod.duitnow,
+                          ])
+                            FilterChip(
+                              label: Text(_methodKey(m)),
+                              selected: _deposit == m,
+                              selectedColor: CnkhColors.navy,
+                              checkmarkColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: _deposit == m
+                                    ? Colors.white
+                                    : CnkhColors.navy,
                                 fontWeight: FontWeight.w700,
                               ),
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: MoneyText(
-                              amountCents: _due, fontSize: 40, hero: true),
-                        ),
-                        if (_rounding != 0) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            '舍入 / Rounding: ${formatRm(_rounding)}  (raw ${formatRm(_raw)})',
-                            style: const TextStyle(
-                                color: CnkhColors.muted, fontSize: 12),
-                          ),
+                              onSelected: (_) => setState(() => _deposit = m),
+                            ),
                         ],
-                        if (widget.cart.orderDiscountApplied > 0 ||
-                            widget.cart.itemDiscountsCents > 0) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '折扣 / Discounts: −${formatRm(widget.cart.itemDiscountsCents + widget.cart.orderDiscountApplied)}',
-                            style: const TextStyle(
-                                color: CnkhColors.success, fontSize: 12),
-                          ),
-                        ],
+                      ),
+                      if (_deposit == PayMethod.duitnow &&
+                          _parseRm(_depositCtrl.text) > 0) ...[
+                        const SizedBox(height: 12),
+                        DuitNowQrPanel(
+                          imagePath: _qrPath,
+                          amountCents: _parseRm(_depositCtrl.text),
+                        ),
                       ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text('付款方式 / Payment',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    for (var i = 0; i < PayMethod.values.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 8),
-                      _payChip(PayMethod.values[i]),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: CnkhColors.softBlue,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: CnkhColors.border),
+                        ),
+                        child: Text(
+                          '赊账余额 / Outstanding: ${formatRm((_raw - _parseRm(_depositCtrl.text)).clamp(0, _raw))}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: CnkhColors.navy,
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 14),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: '客户 / Customer（赊账必选；电子收据可选）',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<Customer?>(
-                      isExpanded: true,
-                      value: _customer,
-                      hint: const Text('选择客户 / Select'),
-                      items: [
-                        const DropdownMenuItem(
-                            value: null, child: Text('— 无 —')),
-                        ..._customers.map(
-                          (c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(
-                              '${c.name}  ${c.phone}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: (c) async {
-                        setState(() {
-                          _customer = c;
-                          _outstandingCents = 0;
-                          if (c != null && c.phone.trim().isNotEmpty) {
-                            _phoneCtrl.text = c.phone;
-                          }
-                        });
-                        if (c != null) {
-                          final o =
-                              await widget.repo.customerOutstandingCents(c.id);
-                          if (mounted) setState(() => _outstandingCents = o);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                if (_customer != null && _outstandingCents > 0) ...[
-                  const SizedBox(height: 8),
-                  Container(
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: SizedBox(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFEBEE),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: CnkhColors.danger),
-                    ),
-                    child: Text(
-                      '⚠ 赊账未结 / Outstanding: ${formatRmPlain(_outstandingCents)}',
-                      style: const TextStyle(
-                        color: CnkhColors.danger,
-                        fontWeight: FontWeight.w800,
+                    height: 56,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: CnkhColors.success,
                       ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: '手机号 / Phone（电子收据可选）',
-                    hintText: '01x-xxx xxxx',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (_method == PayMethod.duitnow)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: DuitNowQrPanel(
-                        imagePath: _qrPath,
-                        amountCents: _due,
-                        fullscreenFriendly: true,
-                        onPickImage: () => _toast(
-                            '请到设置导入 QR（仅管理员）/ Import QR in Settings (Admin)'),
-                        onTapExpand: _qrPath == null
-                            ? null
-                            : () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => DuitNowQrFullscreen(
-                                      imagePath: _qrPath!,
-                                      amountCents: _due,
-                                    ),
-                                  ),
-                                );
-                              },
-                      ),
-                    ),
-                  )
-                else if (_method == PayMethod.cash) ...[
-                  TextField(
-                    controller: _cashCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(
-                        fontSize: 28, fontWeight: FontWeight.w800),
-                    decoration: const InputDecoration(
-                      labelText: '收取现金 / Cash tendered',
-                      prefixText: 'RM ',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                    decoration: BoxDecoration(
-                      color: change >= 0
-                          ? const Color(0xFFE8F8EE)
-                          : const Color(0xFFFFEBEE),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: change >= 0
-                            ? CnkhColors.success
-                            : CnkhColors.danger,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          change >= 0 ? '找零 / Change' : '金额不足 / Insufficient',
-                          style: TextStyle(
-                            color: change >= 0
-                                ? CnkhColors.successDeep
-                                : CnkhColors.danger,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            formatRm(change < 0 ? 0 : change),
-                            style: TextStyle(
-                              color: change >= 0
-                                  ? CnkhColors.success
-                                  : CnkhColors.danger,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 32,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (_method == PayMethod.card)
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
+                      onPressed: _busy ? null : _confirm,
                       child: Text(
-                        '请刷卡后确认 / Complete card payment then confirm.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                else ...[
-                  Text('定金 / Deposit',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _depositCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: '定金金额 / Deposit amount',
-                      prefixText: 'RM ',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final m in [
-                        PayMethod.cash,
-                        PayMethod.card,
-                        PayMethod.duitnow
-                      ])
-                        FilterChip(
-                          label: Text(_methodKey(m)),
-                          selected: _deposit == m,
-                          selectedColor: CnkhColors.navy,
-                          checkmarkColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: _deposit == m
-                                ? Colors.white
-                                : CnkhColors.navy,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          onSelected: (_) => setState(() => _deposit = m),
+                        _busy ? '保存中…' : '确认收款 / Confirm',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 17,
                         ),
-                    ],
-                  ),
-                  if (_deposit == PayMethod.duitnow &&
-                      _parseRm(_depositCtrl.text) > 0) ...[
-                    const SizedBox(height: 12),
-                    DuitNowQrPanel(
-                      imagePath: _qrPath,
-                      amountCents: _parseRm(_depositCtrl.text),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: CnkhColors.softBlue,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: CnkhColors.border),
-                    ),
-                    child: Text(
-                      '赊账余额 / Outstanding: ${formatRm((_raw - _parseRm(_depositCtrl.text)).clamp(0, _raw))}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: CnkhColors.navy,
                       ),
                     ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                      backgroundColor: CnkhColors.success),
-                  onPressed: _busy ? null : _confirm,
-                  child: Text(
-                    _busy ? '保存中…' : '确认收款 / Confirm',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 17),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }

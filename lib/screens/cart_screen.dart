@@ -18,8 +18,11 @@ class CartScreen extends StatefulWidget {
   final VoidCallback onChanged;
   final VoidCallback onCheckout;
   final Future<void> Function() onHold;
+  final bool isHolding;
+  final int refreshToken;
   final Future<void> Function() onResume;
   final void Function(LanSyncConfig config)? onPairing;
+
   /// Desktop: product grid LEFT, cart+checkout RIGHT.
   final bool desktopTwoPane;
 
@@ -31,6 +34,8 @@ class CartScreen extends StatefulWidget {
     required this.onChanged,
     required this.onCheckout,
     required this.onHold,
+    this.isHolding = false,
+    this.refreshToken = 0,
     required this.onResume,
     this.onPairing,
     this.desktopTwoPane = false,
@@ -46,6 +51,10 @@ class _CartScreenState extends State<CartScreen> {
   List<Category> _categories = [];
   String _category = ''; // empty = 全部
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  int _searchGeneration = 0;
+  static const int _productPageSize = 80;
   bool _imagesOn = false;
 
   @override
@@ -62,20 +71,81 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant CartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refreshDirectory();
+    }
+  }
+
+  Future<void> _refreshDirectory() async {
+    final results = await Future.wait<Object>([
+      widget.repo.listCategories(),
+      widget.repo.productImagesEnabled(),
+    ]);
+    if (!mounted) return;
+    final categories = results[0] as List<Category>;
+    final imagesOn = results[1] as bool;
+    final categoryStillExists =
+        _category.isEmpty ||
+        categories.any((category) => category.name == _category);
+    setState(() {
+      _categories = categories;
+      _imagesOn = imagesOn;
+      if (!categoryStillExists) _category = '';
+    });
+    // CartItem.product is a checkout-time price snapshot. Refresh the catalog
+    // grid without repricing cart lines or resetting their manual discounts.
+    await _reload(_search.text);
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();
   }
 
   Future<void> _reload(String q) async {
+    final generation = ++_searchGeneration;
+    setState(() {
+      _loading = true;
+      _loadingMore = false;
+      _results = [];
+      _hasMore = false;
+    });
     final list = await widget.repo.searchProducts(
       q,
+      limit: _productPageSize,
       category: _category.isEmpty ? null : _category,
     );
-    if (!mounted) return;
+    if (!mounted || generation != _searchGeneration) {
+      return;
+    }
     setState(() {
       _results = list;
+      _hasMore = list.length == _productPageSize;
       _loading = false;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _loading) return;
+    final generation = _searchGeneration;
+    setState(() => _loadingMore = true);
+    final next = await widget.repo.searchProducts(
+      _search.text,
+      limit: _productPageSize,
+      offset: _results.length,
+      category: _category.isEmpty ? null : _category,
+    );
+    if (!mounted || generation != _searchGeneration) {
+      return;
+    }
+    setState(() {
+      final known = _results.map((product) => product.id).toSet();
+      _results.addAll(next.where((product) => known.add(product.id)));
+      _hasMore = next.length == _productPageSize;
+      _loadingMore = false;
     });
   }
 
@@ -101,8 +171,14 @@ class _CartScreenState extends State<CartScreen> {
           title: const Text('库存不足 / Low stock'),
           content: Text('${p.nameZh}\n需要 $nextQty · 库存 $stock\n仍要加购？'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('继续')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('继续'),
+            ),
           ],
         ),
       );
@@ -110,8 +186,10 @@ class _CartScreenState extends State<CartScreen> {
     }
     if (existing != null) {
       existing.qty += addQty;
-      existing.discountCents =
-          clampDiscountCents(existing.discountCents, existing.grossCents);
+      existing.discountCents = clampDiscountCents(
+        existing.discountCents,
+        existing.grossCents,
+      );
     } else {
       widget.cart.items.add(CartItem(product: p, qty: addQty));
     }
@@ -124,8 +202,10 @@ class _CartScreenState extends State<CartScreen> {
     if (item.qty <= 0) {
       widget.cart.items.remove(item);
     } else {
-      item.discountCents =
-          clampDiscountCents(item.discountCents, item.grossCents);
+      item.discountCents = clampDiscountCents(
+        item.discountCents,
+        item.grossCents,
+      );
     }
     widget.onChanged();
   }
@@ -178,8 +258,14 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确定'),
+          ),
         ],
       ),
     );
@@ -220,15 +306,22 @@ class _CartScreenState extends State<CartScreen> {
           decoration: const InputDecoration(prefixText: 'RM '),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确定'),
+          ),
         ],
       ),
     );
     if (ok != true || !mounted) return;
     final oldOrder = widget.cart.orderDiscountCents;
-    widget.cart.orderDiscountCents =
-        rmToCents(double.tryParse(ctrl.text.trim()) ?? 0);
+    widget.cart.orderDiscountCents = rmToCents(
+      double.tryParse(ctrl.text.trim()) ?? 0,
+    );
     await widget.repo.logAudit(
       username: widget.user.username,
       role: widget.user.isAdmin ? 'ADMIN' : 'STAFF',
@@ -266,10 +359,7 @@ class _CartScreenState extends State<CartScreen> {
         children: [
           Expanded(flex: 3, child: _buildProductPane(context)),
           const VerticalDivider(width: 1),
-          SizedBox(
-            width: 420,
-            child: _buildCartPane(context, cart, due),
-          ),
+          SizedBox(width: 420, child: _buildCartPane(context, cart, due)),
         ],
       );
     }
@@ -284,7 +374,10 @@ class _CartScreenState extends State<CartScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('收银台 / POS', style: Theme.of(context).textTheme.headlineMedium),
+                  Text(
+                    '收银台 / POS',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
                   const SizedBox(height: 6),
                   _searchField(),
                   const SizedBox(height: 6),
@@ -294,11 +387,15 @@ class _CartScreenState extends State<CartScreen> {
                     width: double.infinity,
                     height: 44,
                     child: FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: CnkhColors.navy),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: CnkhColors.navy,
+                      ),
                       onPressed: _openScanner,
                       icon: const Icon(Icons.qr_code_scanner),
-                      label: const Text('扫码加购 / Scan barcode',
-                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      label: const Text(
+                        '扫码加购 / Scan barcode',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -313,11 +410,26 @@ class _CartScreenState extends State<CartScreen> {
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       scrollDirection: Axis.horizontal,
-                      itemCount: _results.length.clamp(0, 40),
+                      itemCount: _results.length + (_hasMore ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (context, i) {
+                        if (i == _results.length) {
+                          return SizedBox(
+                            width: 104,
+                            child: OutlinedButton(
+                              onPressed: _loadingMore ? null : _loadMore,
+                              child: Text(_loadingMore ? '加载中…' : '更多商品'),
+                            ),
+                          );
+                        }
                         final p = _results[i];
-                        return _ProductChip(product: p, showImage: _imagesOn, onTap: () { _add(p); });
+                        return _ProductChip(
+                          product: p,
+                          showImage: _imagesOn,
+                          onTap: () {
+                            _add(p);
+                          },
+                        );
                       },
                     ),
             ),
@@ -325,8 +437,10 @@ class _CartScreenState extends State<CartScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
                 children: [
-                  Text('购物车 (${cart.itemCount})',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    '购物车 (${cart.itemCount})',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const Spacer(),
                   TextButton(
                     onPressed: cart.items.isEmpty ? null : _editOrderDiscount,
@@ -397,7 +511,9 @@ class _CartScreenState extends State<CartScreen> {
       children: [
         Flexible(
           child: OutlinedButton.icon(
-            onPressed: cart.items.isEmpty ? null : widget.onHold,
+            onPressed: cart.items.isEmpty || widget.isHolding
+                ? null
+                : widget.onHold,
             icon: const Icon(Icons.pause_circle_outline, size: 18),
             label: const Text('挂单'),
           ),
@@ -427,9 +543,11 @@ class _CartScreenState extends State<CartScreen> {
   Widget _cartList(CartState cart) {
     if (cart.items.isEmpty) {
       return const Center(
-        child: Text('购物车为空\n搜索并点选商品',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: CnkhColors.muted)),
+        child: Text(
+          '购物车为空\n搜索并点选商品',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: CnkhColors.muted),
+        ),
       );
     }
     return ListView.separated(
@@ -468,13 +586,20 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     Text(
                       '合计 / Total · ${cart.itemCount} 件',
-                      style: const TextStyle(color: CnkhColors.muted, fontSize: 12),
+                      style: const TextStyle(
+                        color: CnkhColors.muted,
+                        fontSize: 12,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
-                      child: MoneyText(amountCents: due, fontSize: 26, hero: true),
+                      child: MoneyText(
+                        amountCents: due,
+                        fontSize: 26,
+                        hero: true,
+                      ),
                     ),
                     if (cart.itemDiscountsCents + cart.orderDiscountApplied > 0)
                       Text(
@@ -499,9 +624,14 @@ class _CartScreenState extends State<CartScreen> {
                       disabledBackgroundColor: CnkhColors.border,
                     ),
                     onPressed: cart.items.isEmpty ? null : widget.onCheckout,
-                    child: const Text('结账\nCheckout',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(height: 1.15, fontWeight: FontWeight.w900)),
+                    child: const Text(
+                      '结账\nCheckout',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        height: 1.15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -521,7 +651,10 @@ class _CartScreenState extends State<CartScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('商品 / Products', style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                '商品 / Products',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -530,7 +663,9 @@ class _CartScreenState extends State<CartScreen> {
                   SizedBox(
                     height: 48,
                     child: FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: CnkhColors.navy),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: CnkhColors.navy,
+                      ),
                       onPressed: _openScanner,
                       icon: const Icon(Icons.qr_code_scanner),
                       label: const Text('扫码'),
@@ -554,13 +689,29 @@ class _CartScreenState extends State<CartScreen> {
                     crossAxisSpacing: 10,
                     childAspectRatio: 0.95,
                   ),
-                  itemCount: _results.length,
+                  itemCount: _results.length + (_hasMore ? 1 : 0),
                   itemBuilder: (context, i) {
+                    if (i == _results.length) {
+                      return OutlinedButton.icon(
+                        onPressed: _loadingMore ? null : _loadMore,
+                        icon: _loadingMore
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.expand_more),
+                        label: Text(_loadingMore ? '加载中…' : '加载更多商品'),
+                      );
+                    }
                     final p = _results[i];
                     return _ProductChip(
                       product: p,
                       showImage: _imagesOn,
-                      onTap: () { _add(p); },
+                      onTap: () {
+                        _add(p);
+                      },
                     );
                   },
                 ),
@@ -579,10 +730,12 @@ class _CartScreenState extends State<CartScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
               children: [
-                Text('购物车 (${cart.itemCount})',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        )),
+                Text(
+                  '购物车 (${cart.itemCount})',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
                 const Spacer(),
                 TextButton(
                   onPressed: cart.items.isEmpty ? null : _editOrderDiscount,
@@ -621,8 +774,13 @@ class _CartScreenState extends State<CartScreen> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Text('应付 / Due',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const Text(
+                      '应付 / Due',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
                     const Spacer(),
                     MoneyText(amountCents: due, fontSize: 28, hero: true),
                   ],
@@ -636,8 +794,13 @@ class _CartScreenState extends State<CartScreen> {
                       disabledBackgroundColor: CnkhColors.border,
                     ),
                     onPressed: cart.items.isEmpty ? null : widget.onCheckout,
-                    child: const Text('结账 / Checkout',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    child: const Text(
+                      '结账 / Checkout',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -653,7 +816,10 @@ class _CartScreenState extends State<CartScreen> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(color: CnkhColors.muted, fontSize: 13)),
+          Text(
+            label,
+            style: const TextStyle(color: CnkhColors.muted, fontSize: 13),
+          ),
           const Spacer(),
           Text(
             value,
@@ -667,17 +833,21 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
   }
-
 }
 
 class _ProductChip extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
   final bool showImage;
-  const _ProductChip({required this.product, required this.onTap, this.showImage = false});
+  const _ProductChip({
+    required this.product,
+    required this.onTap,
+    this.showImage = false,
+  });
   @override
   Widget build(BuildContext context) {
-    final hasImg = showImage &&
+    final hasImg =
+        showImage &&
         product.imagePath.isNotEmpty &&
         File(product.imagePath).existsSync();
     return Material(
@@ -699,23 +869,34 @@ class _ProductChip extends StatelessWidget {
               if (hasImg)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.file(File(product.imagePath),
-                      height: 36, width: double.infinity, fit: BoxFit.cover),
+                  child: Image.file(
+                    File(product.imagePath),
+                    height: 36,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-              Text(product.nameZh,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text(product.sku,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: CnkhColors.muted, fontSize: 11)),
+              Text(
+                product.nameZh,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              Text(
+                product.sku,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: CnkhColors.muted, fontSize: 11),
+              ),
               const Spacer(),
               Row(
                 children: [
                   Expanded(
-                      child: MoneyText(
-                          amountCents: product.priceCents, fontSize: 14)),
+                    child: MoneyText(
+                      amountCents: product.priceCents,
+                      fontSize: 14,
+                    ),
+                  ),
                   Container(
                     width: 28,
                     height: 28,
@@ -760,8 +941,10 @@ class _CartTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.product.nameZh,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    item.product.nameZh,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   Text(
                     item.lineDiscountCents > 0
                         ? '${formatRm(item.grossCents)} → ${formatRm(item.lineTotalCents)} (−${formatRm(item.lineDiscountCents)})'
@@ -775,19 +958,28 @@ class _CartTile extends StatelessWidget {
                       minimumSize: const Size(0, 28),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text('行折扣 / Discount',
-                        style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '行折扣 / Discount',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ],
               ),
             ),
-            IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline, color: CnkhColors.danger)),
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.delete_outline, color: CnkhColors.danger),
+            ),
             _QtyBtn(icon: Icons.remove, onTap: onMinus),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('${item.qty}',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800)),
+              child: Text(
+                '${item.qty}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
             _QtyBtn(icon: Icons.add, onTap: onPlus),
           ],
@@ -810,7 +1002,10 @@ class _QtyBtn extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: SizedBox(
-            width: 40, height: 40, child: Icon(icon, color: CnkhColors.navy)),
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: CnkhColors.navy),
+        ),
       ),
     );
   }

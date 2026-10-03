@@ -12,6 +12,8 @@ import 'screens/settings_screen.dart';
 import 'screens/training_page.dart';
 import 'screens/barcode_scan_screen.dart';
 import 'services/pos_repository.dart';
+import 'services/held_cart_coordinator.dart';
+import 'services/desktop_database_maintenance.dart';
 import 'services/qr_storage.dart';
 import 'services/bluetooth_printer.dart';
 import 'services/lan_pairing_host.dart';
@@ -42,6 +44,7 @@ class _DesktopShellState extends State<DesktopShell> {
   int _index = 0;
   int _dataEpoch = 0;
   final CartState _cart = CartState();
+  final HeldCartCoordinator _holdCart = HeldCartCoordinator();
   late final LanPairingHost _host;
   StreamSubscription<int>? _hostSub;
   StreamSubscription<void>? _hostDataSub;
@@ -55,17 +58,20 @@ class _DesktopShellState extends State<DesktopShell> {
   void initState() {
     super.initState();
     _host = LanPairingHost.shared(widget.repo);
-    _hostDataSub=_host.dataChanges.listen((_)=>_bumpData());
+    _hostDataSub = _host.dataChanges.listen((_) => _bumpData());
     _connectedClients = _host.connectedClients;
     _hostSub = _host.connectionCounts.listen((count) {
       if (!mounted) return;
       setState(() => _connectedClients = count);
     });
     unawaited(
-      _host.start().then((_) {
-        if (!mounted) return;
-        setState(() => _connectedClients = _host.connectedClients);
-      }).catchError((_) {}),
+      _host
+          .start()
+          .then((_) {
+            if (!mounted) return;
+            setState(() => _connectedClients = _host.connectedClients);
+          })
+          .catchError((_) {}),
     );
     _refreshOverdueHolds();
     _holdPoll = Timer.periodic(const Duration(seconds: 60), (_) {
@@ -75,13 +81,15 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   Future<void> _refreshOverdueHolds() async {
-    final mins = await widget.repo.holdTimeoutMinutes();
-    final list = await widget.repo.listOverdueHeld(
-      cashier: widget.user.username,
-      timeoutMinutes: mins,
-    );
-    if (!mounted) return;
-    setState(() => _overdueHolds = list.length);
+    await DesktopDatabaseMaintenance.shared.run(() async {
+      final mins = await widget.repo.holdTimeoutMinutes();
+      final list = await widget.repo.listOverdueHeld(
+        cashier: widget.user.username,
+        timeoutMinutes: mins,
+      );
+      if (!mounted) return;
+      setState(() => _overdueHolds = list.length);
+    });
   }
 
   @override
@@ -102,10 +110,7 @@ class _DesktopShellState extends State<DesktopShell> {
   Future<void> _pairByQr() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => BarcodeScanScreen(
-          repo: widget.repo,
-          pairingOnly: true,
-        ),
+        builder: (_) => BarcodeScanScreen(repo: widget.repo, pairingOnly: true),
       ),
     );
   }
@@ -124,17 +129,13 @@ class _DesktopShellState extends State<DesktopShell> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('对账失败: $e'),
-          backgroundColor: CnkhColors.danger,
-        ),
+        SnackBar(content: Text('对账失败: $e'), backgroundColor: CnkhColors.danger),
       );
     }
   }
 
-  Color get _statusDotColor => _connectedClients > 0
-      ? const Color(0xFF69F0AE)
-      : const Color(0xFF9E9E9E);
+  Color get _statusDotColor =>
+      _connectedClients > 0 ? const Color(0xFF69F0AE) : const Color(0xFF9E9E9E);
 
   void _bumpData() {
     if (!mounted) return;
@@ -143,20 +144,42 @@ class _DesktopShellState extends State<DesktopShell> {
 
   List<_RailItem> get _items {
     final list = <_RailItem>[
-      _RailItem('pos', '收银 POS', Icons.point_of_sale, Icons.point_of_sale_outlined),
+      _RailItem(
+        'pos',
+        '收银 POS',
+        Icons.point_of_sale,
+        Icons.point_of_sale_outlined,
+      ),
       _RailItem('today', '今日', Icons.receipt_long, Icons.receipt_long_outlined),
     ];
     if (widget.user.isAdmin) {
       list.addAll([
-        _RailItem('products', '商品', Icons.inventory_2, Icons.inventory_2_outlined),
+        _RailItem(
+          'products',
+          '商品',
+          Icons.inventory_2,
+          Icons.inventory_2_outlined,
+        ),
         _RailItem('customers', '客户', Icons.people, Icons.people_outline),
-        _RailItem('purchases', '进货', Icons.shopping_bag, Icons.shopping_bag_outlined),
+        _RailItem(
+          'purchases',
+          '进货',
+          Icons.shopping_bag,
+          Icons.shopping_bag_outlined,
+        ),
         _RailItem('reports', '报表', Icons.bar_chart, Icons.bar_chart_outlined),
-        _RailItem('admin', '管理', Icons.admin_panel_settings, Icons.admin_panel_settings_outlined),
+        _RailItem(
+          'admin',
+          '管理',
+          Icons.admin_panel_settings,
+          Icons.admin_panel_settings_outlined,
+        ),
         _RailItem('maintenance', '维护', Icons.build, Icons.build_outlined),
       ]);
     }
-    list.add(_RailItem('settings', '设置', Icons.settings, Icons.settings_outlined));
+    list.add(
+      _RailItem('settings', '设置', Icons.settings, Icons.settings_outlined),
+    );
     return list;
   }
 
@@ -191,7 +214,9 @@ class _DesktopShellState extends State<DesktopShell> {
                 if (!await bt.enabled()) return;
                 final msg = await bt.tryPrintSale(sale);
                 if (!mounted || msg == 'bt_off' || msg == 'ok') return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(msg)));
               } catch (_) {}
             }();
             await showSaleSuccessSheet(context, sale: sale, repo: widget.repo);
@@ -202,18 +227,25 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   Future<void> _hold() async {
+    if (_holdCart.isBusy) return;
+    setState(() {});
     try {
-      final held = await widget.repo.holdCart(
+      final result = await _holdCart.hold(
+        repo: widget.repo,
         cart: _cart,
         cashier: widget.user.username,
       );
-      setState(() {
-        _cart.items.clear();
-        _cart.orderDiscountCents = 0;
-      });
+      if (result == null) return;
       if (!mounted) return;
+      setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已挂单 ${held.holdNo}')),
+        SnackBar(
+          content: Text(
+            result.cartCleared
+                ? '已挂单 ${result.order.holdNo}'
+                : '已挂单 ${result.order.holdNo}；购物车在保存期间有变动，已保留当前内容',
+          ),
+        ),
       );
       await _refreshOverdueHolds();
     } catch (e) {
@@ -221,6 +253,8 @@ class _DesktopShellState extends State<DesktopShell> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$e'), backgroundColor: CnkhColors.danger),
       );
+    } finally {
+      if (mounted) setState(() {});
     }
   }
 
@@ -229,74 +263,92 @@ class _DesktopShellState extends State<DesktopShell> {
     if (_resuming) return;
     setState(() => _resuming = true);
     try {
-    if (_cart.items.isNotEmpty) throw StateError('请先挂单或清空当前购物车，再取单');
-    final list = await widget.repo.listHeld(cashier: widget.user.username);
-    if (!mounted) return;
-    if (list.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无挂单 / No held orders')),
-      );
-      return;
-    }
-    final timeout = await widget.repo.holdTimeoutMinutes();
-    final cutoff = DateTime.now().subtract(Duration(minutes: timeout));
-    final selected = await showDialog<HeldOrder>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(_overdueHolds > 0
-            ? '取单 / Resume（超时 $_overdueHolds）'
-            : '取单 / Resume'),
-        children: [
-          for (final h in list)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, h),
-              child: Text(
-                '${h.holdNo} · ${h.heldAt.substring(0, 16).replaceFirst('T', ' ')}'
-                '${(DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true) ? '  ⚠超时' : ''}',
-                style: TextStyle(
-                  color: (DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true)
-                      ? const Color(0xFFB26A00)
-                      : null,
-                  fontWeight: (DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true)
-                      ? FontWeight.w800
-                      : FontWeight.w500,
+      if (_cart.items.isNotEmpty) throw StateError('请先挂单或清空当前购物车，再取单');
+      final list = await widget.repo.listHeld(cashier: widget.user.username);
+      if (!mounted) return;
+      if (list.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无挂单 / No held orders')));
+        return;
+      }
+      final timeout = await widget.repo.holdTimeoutMinutes();
+      if (!mounted) return;
+      final cutoff = DateTime.now().subtract(Duration(minutes: timeout));
+      final selected = await showDialog<HeldOrder>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(
+            _overdueHolds > 0
+                ? '取单 / Resume（超时 $_overdueHolds）'
+                : '取单 / Resume',
+          ),
+          children: [
+            for (final h in list)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, h),
+                child: Text(
+                  '${h.holdNo} · ${h.heldAt.substring(0, 16).replaceFirst('T', ' ')}'
+                  '${(DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true) ? '  ⚠超时' : ''}',
+                  style: TextStyle(
+                    color:
+                        (DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true)
+                        ? const Color(0xFFB26A00)
+                        : null,
+                    fontWeight:
+                        (DateTime.tryParse(h.heldAt)?.isBefore(cutoff) == true)
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
-    );
-    if (selected == null) return;
-    if (!mounted) return;
-    final restored = await widget.repo.resumeHeld(selected, currentCart: _cart);
-    if (!mounted) return;
-    setState(() {
-      _cart.items.addAll(restored.items);
-      _cart.orderDiscountCents = restored.orderDiscountCents;
-    });
-    await _refreshOverdueHolds();
+          ],
+        ),
+      );
+      if (selected == null) return;
+      if (!mounted) return;
+      final restored = await widget.repo.resumeHeld(
+        selected,
+        currentCart: _cart,
+      );
+      if (!mounted) return;
+      setState(() {
+        _cart.items.addAll(restored.items);
+        _cart.orderDiscountCents = restored.orderDiscountCents;
+      });
+      await _refreshOverdueHolds();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    } finally { if (mounted) setState(() => _resuming = false); }
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _resuming = false);
+    }
   }
 
   Widget _pageFor(String id) {
     switch (id) {
       case 'pos':
-        return AbsorbPointer(absorbing: _resuming, child: CartScreen(
-          cart: _cart,
-          user: widget.user,
-          repo: widget.repo,
-          desktopTwoPane: true,
-          onChanged: () => setState(() {}),
-          onCheckout: _checkout,
-          onHold: _hold,
-          onResume: _resume,
-          onPairing: (cfg) {
-            Navigator.of(context).pop();
-            _applyPairing(cfg);
-          },
-        ));
+        return AbsorbPointer(
+          absorbing: _resuming,
+          child: CartScreen(
+            cart: _cart,
+            user: widget.user,
+            repo: widget.repo,
+            desktopTwoPane: true,
+            onChanged: () => setState(() {}),
+            onCheckout: _checkout,
+            onHold: _hold,
+            isHolding: _holdCart.isBusy,
+            refreshToken: _dataEpoch,
+            onResume: _resume,
+            onPairing: (cfg) {
+              Navigator.of(context).pop();
+              _applyPairing(cfg);
+            },
+          ),
+        );
       case 'today':
         return SalesListScreen(
           repo: widget.repo,
@@ -356,7 +408,8 @@ class _DesktopShellState extends State<DesktopShell> {
                 children: [
                   IconButton(
                     tooltip: _railExtended ? '收起' : '展开',
-                    onPressed: () => setState(() => _railExtended = !_railExtended),
+                    onPressed: () =>
+                        setState(() => _railExtended = !_railExtended),
                     icon: Icon(_railExtended ? Icons.menu_open : Icons.menu),
                   ),
                   if (_railExtended) ...[
@@ -389,7 +442,10 @@ class _DesktopShellState extends State<DesktopShell> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: widget.user.isAdmin
                               ? const Color(0xFF2E7D32)
@@ -482,7 +538,10 @@ class _DesktopShellState extends State<DesktopShell> {
                               IconButton(
                                 tooltip: '扫码配对 / LAN pair',
                                 onPressed: _pairByQr,
-                                icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+                                icon: const Icon(
+                                  Icons.qr_code_scanner,
+                                  color: Colors.white,
+                                ),
                               ),
                               Positioned(
                                 right: 8,
@@ -531,7 +590,10 @@ class _DesktopShellState extends State<DesktopShell> {
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.school_outlined, color: Colors.white),
+                            icon: const Icon(
+                              Icons.school_outlined,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(width: 8),
                         ],

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:path_provider/path_provider.dart';
@@ -42,6 +42,10 @@ String normalizeMyPhone(String raw) {
   return digits;
 }
 
+/// Saved sales own the recipient snapshot used by PDF sharing.
+String eReceiptRecipientPhone(SaleRecord sale) =>
+    (sale.customerPhone ?? '').trim();
+
 /// Thermal / preview text via [ReceiptTemplate] (single source of truth).
 String buildPrintReceiptText({
   required String receiptNo,
@@ -61,7 +65,8 @@ String buildPrintReceiptText({
   String notes = '',
   ReceiptTemplate? template,
 }) {
-  final effective = template ??
+  final effective =
+      template ??
       ReceiptTemplate(
         storeName: storeName,
         address: address,
@@ -88,7 +93,8 @@ String buildPrintReceiptTextFromSale(
   String storeName = kStoreName,
   ReceiptTemplate? template,
 }) {
-  final effective = template ??
+  final effective =
+      template ??
       ReceiptTemplate(storeName: storeName.isEmpty ? kStoreName : storeName);
   return effective.renderFromSale(sale);
 }
@@ -168,25 +174,23 @@ Future<File> writeReceiptPdfTemp(
   final text = effective.renderFromSale(sale);
   final font = await _loadReceiptPdfFont();
   final doc = pw.Document();
-  // 80mm thermal-ish page width — Noto Sans SC embeds CJK (Courier cannot)
+  // 80mm thermal-ish page width — Noto Sans SC embeds CJK (Courier cannot).
+  // MultiPage keeps long receipts printable instead of clipping at a fixed
+  // maximum page height.
   const pageWidth = 80.0 * PdfPageFormat.mm;
   final lines = text.split('\n');
-  final pageHeight = (lines.length * 12.0 + 40).clamp(200.0, 2000.0);
-  final style = pw.TextStyle(
-    font: font,
-    fontSize: 7.5,
-    lineSpacing: 1.2,
-  );
+  final style = pw.TextStyle(font: font, fontSize: 7.5, lineSpacing: 1.2);
   doc.addPage(
-    pw.Page(
-      pageFormat: PdfPageFormat(pageWidth, pageHeight, marginAll: 4 * PdfPageFormat.mm),
-      build: (ctx) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          for (final line in lines)
-            pw.Text(line, style: style),
-        ],
+    pw.MultiPage(
+      pageFormat: PdfPageFormat(
+        pageWidth,
+        200.0 * PdfPageFormat.mm,
+        marginAll: 4 * PdfPageFormat.mm,
       ),
+      maxPages: 1000,
+      // Return breakable receipt rows directly; a Column around all rows is
+      // one indivisible child and still overflows under MultiPage.
+      build: (ctx) => [for (final line in lines) pw.Text(line, style: style)],
     ),
   );
   final dir = await getTemporaryDirectory();
@@ -256,11 +260,14 @@ Future<String> defaultEReceiptCachePath() async {
 Future<Directory> eReceiptCacheDir({PosRepository? repo}) async {
   String custom = '';
   try {
-    custom = (await (repo ?? PosRepository()).getSetting(kEReceiptCacheDirKey)).trim();
+    custom = (await (repo ?? PosRepository()).getSetting(
+      kEReceiptCacheDirKey,
+    )).trim();
   } catch (_) {}
   final path = custom.isNotEmpty ? custom : await defaultEReceiptCachePath();
   final dir = Directory(p.join(path, OwnedReceiptCache.folder));
-  if (await FileSystemEntity.type(dir.path, followLinks: false) == FileSystemEntityType.link) {
+  if (await FileSystemEntity.type(dir.path, followLinks: false) ==
+      FileSystemEntityType.link) {
     throw StateError('收据缓存目录不能是链接');
   }
   if (!await dir.exists()) {
@@ -270,7 +277,10 @@ Future<Directory> eReceiptCacheDir({PosRepository? repo}) async {
 }
 
 /// Delete cached PDFs older than [kEReceiptCacheTtl]. Returns deleted count.
-Future<int> purgeEReceiptCache({Duration ttl = kEReceiptCacheTtl, PosRepository? repo}) async {
+Future<int> purgeEReceiptCache({
+  Duration ttl = kEReceiptCacheTtl,
+  PosRepository? repo,
+}) async {
   final dir = await eReceiptCacheDir(repo: repo);
   return OwnedReceiptCache(dir).clear(before: DateTime.now().subtract(ttl));
 }
@@ -322,6 +332,7 @@ Future<String> shareEReceiptPdf({
   String storeName = kStoreName,
   ReceiptTemplate? template,
   PosRepository? repo,
+  @visibleForTesting bool forceWindowsShareChannel = false,
 }) async {
   final digits = normalizeMyPhone(phoneRaw);
   if (digits.isEmpty) throw ArgumentError('invalid phone');
@@ -333,11 +344,12 @@ Future<String> shareEReceiptPdf({
   );
   final caption = shortWhatsAppCaption(sale, storeName: storeName);
 
-  final useNativeChannel = !kIsWeb &&
-      (Platform.isAndroid || Platform.isWindows || Platform.isLinux);
+  final useNativeChannel =
+      forceWindowsShareChannel ||
+      !kIsWeb && (Platform.isAndroid || Platform.isWindows || Platform.isLinux);
   if (useNativeChannel) {
     try {
-      if (Platform.isLinux) {
+      if (Platform.isLinux && !forceWindowsShareChannel) {
         // Best-effort: open WhatsApp protocol; PDF path shown in caption hint.
         final uri =
             'whatsapp://send?phone=$digits&text=${Uri.encodeComponent(caption)}';
@@ -354,7 +366,7 @@ Future<String> shareEReceiptPdf({
           'phone': digits,
         });
         if (ok == true) {
-          if (Platform.isWindows) {
+          if (Platform.isWindows || forceWindowsShareChannel) {
             return '已打开 WhatsApp，PDF 已复制到剪贴板 — 在聊天中按 Ctrl+V 粘贴附件。'
                 '文件已缓存 7 天。\n'
                 'Opened WhatsApp; PDF on clipboard — press Ctrl+V in chat to attach. '

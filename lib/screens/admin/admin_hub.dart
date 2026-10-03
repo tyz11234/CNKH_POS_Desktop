@@ -30,14 +30,26 @@ class AdminHub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiles = <_Tile>[
-      _Tile('主页 Dashboard', Icons.dashboard_outlined,
-          () => _open(context, DashboardPage(repo: repo))),
-      _Tile('商品 Products', Icons.inventory_2_outlined,
-          () => _open(context, ProductsAdminPage(repo: repo, user: user))),
-      _Tile('分类 Categories', Icons.category_outlined,
-          () => _open(context, CategoriesAdminPage(repo: repo))),
-      _Tile('条码队列 Barcode Queue', Icons.qr_code_2,
-          () => _open(context, BarcodeQueuePage(repo: repo))),
+      _Tile(
+        '主页 Dashboard',
+        Icons.dashboard_outlined,
+        () => _open(context, DashboardPage(repo: repo)),
+      ),
+      _Tile(
+        '商品 Products',
+        Icons.inventory_2_outlined,
+        () => _open(context, ProductsAdminPage(repo: repo, user: user)),
+      ),
+      _Tile(
+        '分类 Categories',
+        Icons.category_outlined,
+        () => _open(context, CategoriesAdminPage(repo: repo)),
+      ),
+      _Tile(
+        '条码队列 Barcode Queue',
+        Icons.qr_code_2,
+        () => _open(context, BarcodeQueuePage(repo: repo)),
+      ),
       _Tile(
         '销售 Sales',
         Icons.receipt_long,
@@ -49,26 +61,56 @@ class AdminHub extends StatelessWidget {
           ),
         ),
       ),
-      _Tile('客户 Customers', Icons.people_outline,
-          () => _open(context, EntitiesPage(repo: repo, kind: 'customers'))),
-      _Tile('供应商 Suppliers', Icons.local_shipping_outlined,
-          () => _open(context, EntitiesPage(repo: repo, kind: 'suppliers'))),
-      _Tile('进货 Purchases', Icons.shopping_bag_outlined,
-          () => _open(context, PurchasesPage(repo: repo, user: user))),
-      _Tile('盘点 Stocktake', Icons.fact_check_outlined,
-          () => _open(context, StocktakePage(repo: repo, user: user))),
-      _Tile('员工 Users', Icons.badge_outlined,
-          () => _open(context, UsersPage(repo: repo))),
-      _Tile('报表 Reports', Icons.bar_chart,
-          () => _open(context, ReportsPage(repo: repo))),
-      _Tile('日结 Daily Close', Icons.point_of_sale,
-          () => _open(context, DailyClosePage(repo: repo, user: user))),
-      _Tile('备份与恢复 Backup', Icons.backup_outlined,
-          () => _open(context, BackupRestorePage(repo: repo))),
-      _Tile('维护 Maintenance', Icons.build_outlined,
-          () => _open(context, MaintenancePage(repo: repo))),
-      _Tile('折扣审计 Audit', Icons.history,
-          () => _open(context, AuditLogPage(repo: repo))),
+      _Tile(
+        '客户 Customers',
+        Icons.people_outline,
+        () => _open(context, EntitiesPage(repo: repo, kind: 'customers')),
+      ),
+      _Tile(
+        '供应商 Suppliers',
+        Icons.local_shipping_outlined,
+        () => _open(context, EntitiesPage(repo: repo, kind: 'suppliers')),
+      ),
+      _Tile(
+        '进货 Purchases',
+        Icons.shopping_bag_outlined,
+        () => _open(context, PurchasesPage(repo: repo, user: user)),
+      ),
+      _Tile(
+        '盘点 Stocktake',
+        Icons.fact_check_outlined,
+        () => _open(context, StocktakePage(repo: repo, user: user)),
+      ),
+      _Tile(
+        '员工 Users',
+        Icons.badge_outlined,
+        () => _open(context, UsersPage(repo: repo)),
+      ),
+      _Tile(
+        '报表 Reports',
+        Icons.bar_chart,
+        () => _open(context, ReportsPage(repo: repo)),
+      ),
+      _Tile(
+        '日结 Daily Close',
+        Icons.point_of_sale,
+        () => _open(context, DailyClosePage(repo: repo, user: user)),
+      ),
+      _Tile(
+        '备份与恢复 Backup',
+        Icons.backup_outlined,
+        () => _open(context, BackupRestorePage(repo: repo)),
+      ),
+      _Tile(
+        '维护 Maintenance',
+        Icons.build_outlined,
+        () => _open(context, MaintenancePage(repo: repo)),
+      ),
+      _Tile(
+        '折扣审计 Audit',
+        Icons.history,
+        () => _open(context, AuditLogPage(repo: repo)),
+      ),
     ];
 
     return ListView(
@@ -115,7 +157,9 @@ class AdminHub extends StatelessWidget {
   }
 
   void _open(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)).then((_) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)).then((
+      _,
+    ) {
       onDataChanged?.call();
     });
   }
@@ -201,7 +245,10 @@ class _DashboardPageState extends State<DashboardPage> {
             ? MoneyText(amountCents: value, fontSize: 18)
             : Text(
                 '$value',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
               ),
       ),
     );
@@ -216,7 +263,8 @@ class EntitiesPage extends StatelessWidget {
   const EntitiesPage({super.key, required this.repo, required this.kind});
 
   @override
-  Widget build(BuildContext context) => EntitiesAdminPage(repo: repo, kind: kind);
+  Widget build(BuildContext context) =>
+      EntitiesAdminPage(repo: repo, kind: kind);
 }
 
 class PurchasesPage extends StatefulWidget {
@@ -244,10 +292,8 @@ class _PurchasesPageState extends State<PurchasesPage> {
   Future<void> _openCreate() async {
     final ok = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => PurchaseCreateScreen(
-          repo: widget.repo,
-          user: widget.user,
-        ),
+        builder: (_) =>
+            PurchaseCreateScreen(repo: widget.repo, user: widget.user),
       ),
     );
     if (ok == true) await _load();
@@ -258,10 +304,7 @@ class _PurchasesPageState extends State<PurchasesPage> {
     if (id.isEmpty) return;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => PurchaseDetailPage(
-          repo: widget.repo,
-          purchaseId: id,
-        ),
+        builder: (_) => PurchaseDetailPage(repo: widget.repo, purchaseId: id),
       ),
     );
     if (mounted) await _load();
@@ -313,7 +356,9 @@ class _PurchasesPageState extends State<PurchasesPage> {
                     itemBuilder: (context, i) {
                       final r = _rows[i];
                       return ListTile(
-                        title: Text('${r['purchase_no']} · ${r['supplier_name']}'),
+                        title: Text(
+                          '${r['purchase_no']} · ${r['supplier_name']}',
+                        ),
                         subtitle: Text('${r['purchased_at']}'),
                         onTap: () => _openDetail(r),
                         trailing: Row(
@@ -347,12 +392,56 @@ class StocktakePage extends StatefulWidget {
 
 class _StocktakePageState extends State<StocktakePage> {
   List<Product> _items = [];
+  final TextEditingController _query = TextEditingController();
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  int _loadGeneration = 0;
+  static const int _pageSize = 100;
+
   @override
   void initState() {
     super.initState();
-    widget.repo.searchProducts('', limit: 100).then((v) {
-      if (mounted) setState(() => _items = v);
+    _query.addListener(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool reset = true}) async {
+    final generation = ++_loadGeneration;
+    if (reset) {
+      setState(() {
+        _items = [];
+        _hasMore = false;
+        _loadingMore = false;
+      });
+    }
+    final list = await widget.repo.searchProducts(
+      _query.text,
+      limit: _pageSize,
+      offset: reset ? 0 : _items.length,
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() {
+      if (reset) {
+        _items = list;
+      } else {
+        final known = _items.map((product) => product.id).toSet();
+        _items.addAll(list.where((product) => known.add(product.id)));
+      }
+      _hasMore = list.length == _pageSize;
+      _loadingMore = false;
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    await _load(reset: false);
   }
 
   Future<void> _adjust(Product p) async {
@@ -385,25 +474,55 @@ class _StocktakePageState extends State<StocktakePage> {
       operator: widget.user.username,
       reason: 'stocktake',
     );
-    final list = await widget.repo.searchProducts('', limit: 100);
-    if (mounted) setState(() => _items = list);
+    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     return _ScaffoldPage(
       title: '盘点 / Stocktake',
-      body: ListView.builder(
-        itemCount: _items.length,
-        itemBuilder: (context, i) {
-          final p = _items[i];
-          return ListTile(
-            title: Text(p.nameZh),
-            subtitle: Text('账面 ${p.stock} ${p.unit}'),
-            trailing: const Icon(Icons.edit),
-            onTap: () => _adjust(p),
-          );
-        },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _query,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: '搜索商品 / SKU / 条码',
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _items.length + (_hasMore ? 1 : 0),
+              itemBuilder: (context, i) {
+                if (i == _items.length) {
+                  return Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: OutlinedButton.icon(
+                      onPressed: _loadingMore ? null : _loadMore,
+                      icon: _loadingMore
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.expand_more),
+                      label: Text(_loadingMore ? '加载中…' : '加载更多商品'),
+                    ),
+                  );
+                }
+                final p = _items[i];
+                return ListTile(
+                  title: Text(p.nameZh),
+                  subtitle: Text('账面 ${p.stock} ${p.unit}'),
+                  trailing: const Icon(Icons.edit),
+                  onTap: () => _adjust(p),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -513,8 +632,9 @@ class _ReportsPageState extends State<ReportsPage> {
   Widget build(BuildContext context) {
     final pay = _pay;
     final profit = _profit;
-    final rangeLabel =
-        _startDay == _endDay ? _startDay : '$_startDay ~ $_endDay';
+    final rangeLabel = _startDay == _endDay
+        ? _startDay
+        : '$_startDay ~ $_endDay';
     return _ScaffoldPage(
       title: '报表 / Reports',
       actions: [
@@ -591,7 +711,10 @@ class _ReportsPageState extends State<ReportsPage> {
                   Card(
                     child: ListTile(
                       title: Text(k),
-                      trailing: MoneyText(amountCents: pay[k] ?? 0, fontSize: 16),
+                      trailing: MoneyText(
+                        amountCents: pay[k] ?? 0,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
               ],
@@ -604,7 +727,12 @@ class DailyClosePage extends StatefulWidget {
   final PosRepository repo;
   final AppUser user;
   final DateTime Function()? clock;
-  const DailyClosePage({super.key, required this.repo, required this.user, this.clock});
+  const DailyClosePage({
+    super.key,
+    required this.repo,
+    required this.user,
+    this.clock,
+  });
   @override
   State<DailyClosePage> createState() => _DailyClosePageState();
 }
@@ -625,7 +753,9 @@ class _DailyClosePageState extends State<DailyClosePage> {
   }
 
   Future<void> _load() async {
-    _businessDate = (widget.clock ?? DateTime.now)().toIso8601String().substring(0, 10);
+    _businessDate = (widget.clock ?? DateTime.now)()
+        .toIso8601String()
+        .substring(0, 10);
     final dash = await widget.repo.dashboardToday(businessDate: _businessDate);
     _systemCash = dash['cash'] ?? 0;
     _history = await widget.repo.listClosings();
@@ -636,20 +766,23 @@ class _DailyClosePageState extends State<DailyClosePage> {
     if (_saving || _businessDate.isEmpty) return;
     setState(() => _saving = true);
     try {
-    await widget.repo.saveDailyClosing(
-      businessDate: _businessDate,
-      openingCashCents: rmToCents(double.tryParse(_open.text) ?? 0),
-      countedCashCents: rmToCents(double.tryParse(_count.text) ?? 0),
-      closedBy: widget.user.username,
-      notes: _notes.text.trim(),
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('日结已保存 / Closing saved')),
-    );
-    await _load();
+      await widget.repo.saveDailyClosing(
+        businessDate: _businessDate,
+        openingCashCents: rmToCents(double.tryParse(_open.text) ?? 0),
+        countedCashCents: rmToCents(double.tryParse(_count.text) ?? 0),
+        closedBy: widget.user.username,
+        notes: _notes.text.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('日结已保存 / Closing saved')));
+      await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -683,7 +816,10 @@ class _DailyClosePageState extends State<DailyClosePage> {
             decoration: const InputDecoration(labelText: '备注'),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: _saving ? null : _save, child: const Text('保存日结')),
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            child: const Text('保存日结'),
+          ),
           const Divider(height: 32),
           const Text(
             '历史 / History',
@@ -821,9 +957,9 @@ class MaintenancePage extends StatelessWidget {
               if (ok == true) {
                 await repo.clearDemoData();
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已清除演示交易')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('已清除演示交易')));
                 }
               }
             },
@@ -865,6 +1001,10 @@ class _AuditLogPageState extends State<AuditLogPage> {
   String _userFilter = '';
   List<AuditEntry> _rows = [];
   bool _loading = true;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  int _loadGeneration = 0;
+  static const int _pageSize = 200;
 
   @override
   void initState() {
@@ -872,16 +1012,40 @@ class _AuditLogPageState extends State<AuditLogPage> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool reset = true}) async {
+    final generation = ++_loadGeneration;
+    if (reset) {
+      setState(() {
+        _rows = [];
+        _loading = true;
+        _loadingMore = false;
+        _hasMore = false;
+      });
+    }
     final list = await widget.repo.listAudit(
       todayOnly: _todayOnly,
       username: _userFilter.trim().isEmpty ? null : _userFilter.trim(),
+      limit: _pageSize,
+      offset: reset ? 0 : _rows.length,
     );
-    if (!mounted) return;
+    if (!mounted || generation != _loadGeneration) return;
     setState(() {
-      _rows = list;
+      if (reset) {
+        _rows = list;
+      } else {
+        final known = _rows.map((row) => row.id).toSet();
+        _rows.addAll(list.where((row) => known.add(row.id)));
+      }
+      _hasMore = list.length == _pageSize;
+      _loadingMore = false;
       _loading = false;
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _loading) return;
+    setState(() => _loadingMore = true);
+    await _load(reset: false);
   }
 
   @override
@@ -922,30 +1086,48 @@ class _AuditLogPageState extends State<AuditLogPage> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _rows.isEmpty
-                    ? const Center(child: Text('暂无审计记录'))
-                    : ListView.separated(
-                        itemCount: _rows.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (ctx, i) {
-                          final a = _rows[i];
-                          final time = a.occurredAt.replaceFirst('T', ' ');
-                          final displayTime =
-                              time.length >= 19 ? time.substring(0, 19) : time;
-                          return ListTile(
-                            dense: true,
-                            title: Text(
-                              '${a.action} · ${a.productName ?? a.context}',
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            subtitle: Text(
-                              '$displayTime\n'
-                              '${a.username} (${a.role})  ${a.oldValue} → ${a.newValue}'
-                              '${a.reason.isEmpty ? '' : ' · ${a.reason}'}',
-                            ),
-                            isThreeLine: true,
-                          );
-                        },
-                      ),
+                ? const Center(child: Text('暂无审计记录'))
+                : ListView.separated(
+                    itemCount: _rows.length + (_hasMore ? 1 : 0),
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (ctx, i) {
+                      if (i == _rows.length) {
+                        return Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: OutlinedButton.icon(
+                            onPressed: _loadingMore ? null : _loadMore,
+                            icon: _loadingMore
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.expand_more),
+                            label: Text(_loadingMore ? '加载中…' : '加载更多记录'),
+                          ),
+                        );
+                      }
+                      final a = _rows[i];
+                      final time = a.occurredAt.replaceFirst('T', ' ');
+                      final displayTime = time.length >= 19
+                          ? time.substring(0, 19)
+                          : time;
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          '${a.action} · ${a.productName ?? a.context}',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          '$displayTime\n'
+                          '${a.username} (${a.role})  ${a.oldValue} → ${a.newValue}'
+                          '${a.reason.isEmpty ? '' : ' · ${a.reason}'}',
+                        ),
+                        isThreeLine: true,
+                      );
+                    },
+                  ),
           ),
         ],
       ),

@@ -199,6 +199,7 @@ class PosRepository {
   Future<List<Product>> searchProducts(
     String query, {
     int limit = 80,
+    int offset = 0,
     String? category,
   }) async {
     final d = await _db.db;
@@ -211,30 +212,23 @@ class PosRepository {
         'products',
         where: 'is_deleted=0$catClause',
         whereArgs: catArgs.isEmpty ? null : catArgs,
-        orderBy: 'category, name_zh',
+        orderBy: 'category COLLATE NOCASE, name_zh COLLATE NOCASE, id',
         limit: limit,
+        offset: offset,
       );
       return rows.map(Product.fromMap).toList();
     }
     final like = '%$q%';
-    final rows = await d.query(
-      'products',
-      where:
-          'is_deleted=0 AND (name_zh LIKE ? OR name_en LIKE ? OR sku LIKE ? OR barcode LIKE ? OR category LIKE ?)$catClause',
-      whereArgs: [like, like, like, like, like, ...catArgs],
-      orderBy: 'name_zh',
-      limit: limit,
+    final rows = await d.rawQuery(
+      '''SELECT * FROM products
+         WHERE is_deleted=0
+           AND (name_zh LIKE ? OR name_en LIKE ? OR sku LIKE ? OR barcode LIKE ? OR category LIKE ?)$catClause
+         ORDER BY CASE WHEN barcode=? THEN 0 ELSE 1 END,
+                  name_zh COLLATE NOCASE, id
+         LIMIT ? OFFSET ?''',
+      [like, like, like, like, like, ...catArgs, q, limit, offset],
     );
-    // Exact barcode first
-    final sortedRows = rows.toList();
-    sortedRows.sort((a, b) {
-      final ab = (a['barcode'] as String?) ?? '';
-      final bb = (b['barcode'] as String?) ?? '';
-      if (ab == q) return -1;
-      if (bb == q) return 1;
-      return 0;
-    });
-    return sortedRows.map(Product.fromMap).toList();
+    return rows.map(Product.fromMap).toList();
   }
 
   Future<Product?> findByBarcodeOrSku(String code) async {
@@ -269,7 +263,12 @@ class PosRepository {
   Future<void> upsertProduct(Product p, {Product? original}) async {
     if (p.priceCents < 0 || p.costCents < 0 || !p.stock.isFinite)
       throw ArgumentError('商品资料无效');
-    await _saveEntity('product', 'products', p.toMap(), original: original?.toMap());
+    await _saveEntity(
+      'product',
+      'products',
+      p.toMap(),
+      original: original?.toMap(),
+    );
   }
 
   Future<void> softDeleteProduct(String id) async {
@@ -342,7 +341,8 @@ class PosRepository {
       final id = row['id'] as String;
       final old = await txn.query(table, where: 'id=?', whereArgs: [id]);
       if (original != null) {
-        if (original['id'] != id || old.isEmpty ||
+        if (original['id'] != id ||
+            old.isEmpty ||
             (old.first['is_deleted'] == 1 && original['is_deleted'] != 1)) {
           throw StateError('商品已删除或变更，请刷新后重试');
         }
@@ -357,7 +357,8 @@ class PosRepository {
         }
         row = merged;
       }
-      if (entity == 'product' && old.isNotEmpty &&
+      if (entity == 'product' &&
+          old.isNotEmpty &&
           row['stock'] != old.first['stock']) {
         await txn.insert('stock_moves', {
           'id': AppDatabase.newId(),
@@ -566,9 +567,7 @@ class PosRepository {
     required String cashier,
   }) async {
     if (cart.items.isEmpty) throw StateError('empty cart');
-    final d = await _db.db;
-    final holdNo = await _db.nextHoldNo();
-    final id = AppDatabase.newId();
+    // Build the immutable payload before the first SQLite await.
     final payload = {
       'orderDiscountCents': cart.orderDiscountCents,
       'items': [
@@ -580,6 +579,9 @@ class PosRepository {
           },
       ],
     };
+    final d = await _db.db;
+    final holdNo = await _db.nextHoldNo();
+    final id = AppDatabase.newId();
     final row = {
       'id': id,
       'hold_no': holdNo,
@@ -604,8 +606,10 @@ class PosRepository {
 
   Future<CartState> resumeHeld(HeldOrder held, {CartState? currentCart}) async {
     void requireEmptyCart() {
-      if (currentCart?.items.isNotEmpty == true) throw StateError('请先挂单或清空当前购物车，再取单');
+      if (currentCart?.items.isNotEmpty == true)
+        throw StateError('请先挂单或清空当前购物车，再取单');
     }
+
     requireEmptyCart();
     final payload = jsonDecode(held.payloadJson) as Map<String, dynamic>;
     final cart = CartState(
@@ -625,7 +629,11 @@ class PosRepository {
     }
     final d = await _db.db;
     requireEmptyCart();
-    final removed = await d.delete('held_orders', where: 'id=?', whereArgs: [held.id]);
+    final removed = await d.delete(
+      'held_orders',
+      where: 'id=?',
+      whereArgs: [held.id],
+    );
     if (removed != 1) throw StateError('挂单已被取出，请刷新');
     return cart;
   }
@@ -655,13 +663,24 @@ class PosRepository {
     final id = purchaseId ?? AppDatabase.newId();
     final now = DateTime.now().toIso8601String();
     await d.transaction((txn) async {
-      final existing = await txn.query('purchases', where: 'id=?', whereArgs: [id]);
+      final existing = await txn.query(
+        'purchases',
+        where: 'id=?',
+        whereArgs: [id],
+      );
       if (existing.isNotEmpty) {
         final saved = existing.single;
         final stored = (jsonDecode(saved['lines_json'] as String) as List)
-            .map((raw) => Map<String, Object?>.from(raw as Map)..remove('desktopBeforeCostCents')).toList();
-        if (saved['supplier_id'] != supplierId || saved['supplier_name'] != supplierName ||
-            saved['total_cents'] != totalCents || saved['notes'] != notes ||
+            .map(
+              (raw) =>
+                  Map<String, Object?>.from(raw as Map)
+                    ..remove('desktopBeforeCostCents'),
+            )
+            .toList();
+        if (saved['supplier_id'] != supplierId ||
+            saved['supplier_name'] != supplierName ||
+            saved['total_cents'] != totalCents ||
+            saved['notes'] != notes ||
             jsonEncode(stored) != jsonEncode(lines)) {
           throw StateError('同一进货请求内容已改变，原进货保留');
         }
@@ -671,13 +690,20 @@ class PosRepository {
       for (final product in newProducts) {
         for (final code in ['sku', 'barcode']) {
           final value = product.toMap()[code]?.toString() ?? '';
-          if (value.isNotEmpty && (await txn.query('products', columns: ['id'],
-              where: '$code=? AND is_deleted=0', whereArgs: [value])).isNotEmpty) {
+          if (value.isNotEmpty &&
+              (await txn.query(
+                'products',
+                columns: ['id'],
+                where: '$code=? AND is_deleted=0',
+                whereArgs: [value],
+              )).isNotEmpty) {
             throw StateError('新商品 $code 已存在，请重新匹配');
           }
         }
         await txn.insert('products', product.toMap());
-        await queueMutation(txn, 'product_upsert', product.id, {'row': product.toMap()});
+        await queueMutation(txn, 'product_upsert', product.id, {
+          'row': product.toMap(),
+        });
       }
       final remoteLines = <Map<String, Object?>>[];
       final storedLines = <Map<String, Object?>>[];
@@ -756,9 +782,13 @@ class PosRepository {
   }
 
   Future<Map<String, int>> dashboardToday({String? businessDate}) async {
-    final sales = businessDate == null ? await salesToday() :
-        (await (await _db.db).query('sales', where: 'voided=0 AND substr(sold_at,1,10)=?',
-            whereArgs: [businessDate])).map(SaleRecord.fromMap).toList();
+    final sales = businessDate == null
+        ? await salesToday()
+        : (await (await _db.db).query(
+            'sales',
+            where: 'voided=0 AND substr(sold_at,1,10)=?',
+            whereArgs: [businessDate],
+          )).map(SaleRecord.fromMap).toList();
     var salesTotal = 0;
     var cash = 0;
     var card = 0;
@@ -871,7 +901,8 @@ class PosRepository {
     final d = await _db.db;
     await d.transaction((txn) async {
       final now = _clock();
-      await saveAuthoritativeDailyClosing(txn,
+      await saveAuthoritativeDailyClosing(
+        txn,
         businessDate: businessDate ?? now.toIso8601String().substring(0, 10),
         closedAt: now,
         openingCashCents: openingCashCents,
@@ -945,6 +976,7 @@ class PosRepository {
     String? username,
     bool todayOnly = false,
     int limit = 200,
+    int offset = 0,
   }) async {
     final d = await _db.db;
     final where = <String>[];
@@ -962,8 +994,9 @@ class PosRepository {
       'audit_logs',
       where: where.isEmpty ? null : where.join(' AND '),
       whereArgs: where.isEmpty ? null : args,
-      orderBy: 'occurred_at DESC',
+      orderBy: 'occurred_at DESC, id DESC',
       limit: limit,
+      offset: offset,
     );
     return rows.map(AuditEntry.fromMap).toList();
   }
@@ -993,7 +1026,7 @@ class PosRepository {
         ? (existing.first['id'] as String)
         : (c.id.isEmpty ? AppDatabase.newId() : c.id);
     final cat = Category(id: id, name: name, isDeleted: 0, updatedAt: now);
-    await _saveEntity('category','categories',cat.toMap());
+    await _saveEntity('category', 'categories', cat.toMap());
     return cat;
   }
 
@@ -1006,8 +1039,11 @@ class PosRepository {
     final oldName = rows.first['name'] as String;
     final now = DateTime.now().toIso8601String();
     await d.transaction((txn) async {
-      final remote=await remoteEntityId(txn,'category',id);
-      await queueMutation(txn,'category_upsert',id,{'row':{...rows.first,'id':remote,'name':name,'updated_at':now},'before':{...rows.first,'id':remote}});
+      final remote = await remoteEntityId(txn, 'category', id);
+      await queueMutation(txn, 'category_upsert', id, {
+        'row': {...rows.first, 'id': remote, 'name': name, 'updated_at': now},
+        'before': {...rows.first, 'id': remote},
+      });
       await txn.update(
         'categories',
         {'name': name, 'updated_at': now, 'is_deleted': 0},
@@ -1030,15 +1066,23 @@ class PosRepository {
     final name = rows.first['name'] as String;
     var cleared = 0;
     await d.transaction((txn) async {
-      final remote=await remoteEntityId(txn,'category',id);
-      await queueMutation(txn,'category_upsert',id,{'row':{...rows.first,'id':remote,'is_deleted':1},'before':{...rows.first,'id':remote}});
+      final remote = await remoteEntityId(txn, 'category', id);
+      await queueMutation(txn, 'category_upsert', id, {
+        'row': {...rows.first, 'id': remote, 'is_deleted': 1},
+        'before': {...rows.first, 'id': remote},
+      });
       cleared = await txn.update(
         'products',
         {'category': ''},
         where: 'category=? AND is_deleted=0',
         whereArgs: [name],
       );
-      await txn.update('categories', {'is_deleted':1}, where:'id=?',whereArgs:[id]);
+      await txn.update(
+        'categories',
+        {'is_deleted': 1},
+        where: 'id=?',
+        whereArgs: [id],
+      );
     });
     return cleared;
   }

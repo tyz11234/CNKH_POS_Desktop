@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../models/app_user.dart';
 import '../services/pos_repository.dart';
+import '../app_release_notes.dart';
 import '../services/qr_storage.dart';
 import '../services/lan_sync.dart';
 import '../services/e_receipt.dart';
@@ -58,10 +59,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final host = await widget.repo.getSetting('lan_sync_host');
     final token = await widget.repo.getSetting('lan_sync_token');
     final last = await widget.repo.getSetting('lan_sync_last_full');
-    final stock = await widget.repo.getSetting('stock_policy', fallback: 'warn');
-    final holdMin = await widget.repo.getSetting('hold_timeout_minutes', fallback: '30');
-    final scanFb = await widget.repo.getSetting('scan_feedback', fallback: 'beep');
-    final thr = await widget.repo.getSetting('low_stock_threshold', fallback: '10');
+    final stock = await widget.repo.getSetting(
+      'stock_policy',
+      fallback: 'warn',
+    );
+    final holdMin = await widget.repo.getSetting(
+      'hold_timeout_minutes',
+      fallback: '30',
+    );
+    final scanFb = await widget.repo.getSetting(
+      'scan_feedback',
+      fallback: 'beep',
+    );
+    final thr = await widget.repo.getSetting(
+      'low_stock_threshold',
+      fallback: '10',
+    );
     final bt = await widget.repo.btPrinterEnabled();
     final imgs = await widget.repo.productImagesEnabled();
     final cacheDir = await widget.repo.getSetting(kEReceiptCacheDirKey);
@@ -73,7 +86,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _lastSync = last;
       _stockPolicy = stock == 'block' ? 'block' : 'warn';
       _holdTimeout.text = holdMin;
-      _scanFeedback = (scanFb == 'vibrate' || scanFb == 'mute') ? scanFb : 'beep';
+      _scanFeedback = (scanFb == 'vibrate' || scanFb == 'mute')
+          ? scanFb
+          : 'beep';
       _lowStock.text = thr;
       _btEnabled = bt;
       _imagesEnabled = imgs;
@@ -86,14 +101,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!canEdit) return;
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 95);
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 95,
+      );
       if (file == null) return;
       final saved = await widget.qrStorage.saveFromPicker(file.path);
       if (!mounted) return;
       setState(() => _path = saved);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存本机 DuitNow QR')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已保存本机 DuitNow QR')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -119,9 +137,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   LanSyncConfig get _cfg => LanSyncConfig(
-        baseUrl: _syncHost.text.trim(),
-        token: _syncToken.text.trim(),
-      );
+    baseUrl: _syncHost.text.trim(),
+    token: _syncToken.text.trim(),
+  );
 
   Future<void> _saveSyncCfg() async {
     await widget.repo.setSetting('lan_sync_host', _syncHost.text.trim());
@@ -168,7 +186,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       children: [
-        Text('设置 / Settings', style: Theme.of(context).textTheme.headlineMedium),
+        Text(
+          '设置 / Settings',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
         const SizedBox(height: 4),
         Text(
           canEdit ? '管理员可改收款码、小票格式与店名' : '员工只读 · Staff view-only',
@@ -176,7 +197,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 16),
         ReceiptTemplateEditor(repo: widget.repo, canEdit: canEdit),
-        Card(child: ListTile(leading: const Icon(Icons.receipt_long_outlined), title: const Text('e-Invoice Setup'), subtitle: const Text('MyInvois 设置与提交记录'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EInvoiceSetupScreen(repo: widget.repo))))),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('e-Invoice Setup'),
+            subtitle: const Text('MyInvois 设置与提交记录'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => EInvoiceSetupScreen(repo: widget.repo),
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -184,7 +217,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('DuitNow 收款码', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'DuitNow 收款码',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 Container(
                   height: 200,
@@ -197,8 +233,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
                       : has
-                          ? Image.file(File(_path!), fit: BoxFit.contain)
-                          : const Center(child: Text('暂无图片', style: TextStyle(color: CnkhColors.muted))),
+                      ? Image.file(File(_path!), fit: BoxFit.contain)
+                      : const Center(
+                          child: Text(
+                            '暂无图片',
+                            style: TextStyle(color: CnkhColors.muted),
+                          ),
+                        ),
                 ),
                 const SizedBox(height: 12),
                 if (canEdit) ...[
@@ -230,15 +271,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
-                        Card(
+        Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('运营设置 / Ops', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  '运营设置 / Ops',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 8),
-                Text('库存不足策略 / Stock gate', style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '库存不足策略 / Stock gate',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 Wrap(
                   spacing: 8,
                   children: [
@@ -248,7 +295,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onSelected: widget.user.canEditQr
                           ? (_) async {
                               setState(() => _stockPolicy = 'warn');
-                              await widget.repo.setSetting('stock_policy', 'warn');
+                              await widget.repo.setSetting(
+                                'stock_policy',
+                                'warn',
+                              );
                             }
                           : null,
                     ),
@@ -258,7 +308,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onSelected: widget.user.canEditQr
                           ? (_) async {
                               setState(() => _stockPolicy = 'block');
-                              await widget.repo.setSetting('stock_policy', 'block');
+                              await widget.repo.setSetting(
+                                'stock_policy',
+                                'block',
+                              );
                             }
                           : null,
                     ),
@@ -276,17 +329,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onEditingComplete: () async {
                     await widget.repo.setSetting(
                       'hold_timeout_minutes',
-                      _holdTimeout.text.trim().isEmpty ? '30' : _holdTimeout.text.trim(),
+                      _holdTimeout.text.trim().isEmpty
+                          ? '30'
+                          : _holdTimeout.text.trim(),
                     );
                   },
                 ),
 
                 const SizedBox(height: 12),
-                Text('扫码反馈 / Scan feedback', style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '扫码反馈 / Scan feedback',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 Wrap(
                   spacing: 8,
                   children: [
-                    for (final m in [('beep', '提示音'), ('vibrate', '震动'), ('mute', '静音')])
+                    for (final m in [
+                      ('beep', '提示音'),
+                      ('vibrate', '震动'),
+                      ('mute', '静音'),
+                    ])
                       ChoiceChip(
                         label: Text(m.$2),
                         selected: _scanFeedback == m.$1,
@@ -298,7 +360,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('缺货推送阈值 / Low-stock threshold', style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '缺货推送阈值 / Low-stock threshold',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 TextField(
                   controller: _lowStock,
                   enabled: canEdit,
@@ -307,7 +372,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onEditingComplete: () async {
                     await widget.repo.setSetting(
                       'low_stock_threshold',
-                      _lowStock.text.trim().isEmpty ? '10' : _lowStock.text.trim(),
+                      _lowStock.text.trim().isEmpty
+                          ? '10'
+                          : _lowStock.text.trim(),
                     );
                   },
                 ),
@@ -319,7 +386,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: canEdit
                       ? (v) async {
                           setState(() => _btEnabled = v);
-                          await widget.repo.setSetting('bt_printer_enabled', v ? '1' : '0');
+                          await widget.repo.setSetting(
+                            'bt_printer_enabled',
+                            v ? '1' : '0',
+                          );
                         }
                       : null,
                 ),
@@ -331,7 +401,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: canEdit
                       ? (v) async {
                           setState(() => _imagesEnabled = v);
-                          await widget.repo.setSetting('product_images_enabled', v ? '1' : '0');
+                          await widget.repo.setSetting(
+                            'product_images_enabled',
+                            v ? '1' : '0',
+                          );
                         }
                       : null,
                 ),
@@ -349,14 +422,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-Card(
+        Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('局域网同步 / LAN Sync',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  '局域网同步 / LAN Sync',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 4),
                 const Text(
                   '同一 Wi‑Fi 连接电脑同步服务（无云端）。PC Admin → Settings → LAN Sync。',
@@ -397,9 +472,9 @@ Card(
                       onPressed: _syncBusy
                           ? null
                           : () => _runSync((c) async {
-                                final h = await c.health(_cfg);
-                                return 'OK · ${h['service']} · ${h['time']}';
-                              }),
+                              final h = await c.health(_cfg);
+                              return 'OK · ${h['service']} · ${h['time']}';
+                            }),
                       child: const Text('测试连接'),
                     ),
                     FilledButton(
@@ -416,7 +491,8 @@ Card(
                     ),
                     FilledButton(
                       style: FilledButton.styleFrom(
-                          backgroundColor: CnkhColors.navy),
+                        backgroundColor: CnkhColors.navy,
+                      ),
                       onPressed: _syncBusy
                           ? null
                           : () => _runSync((c) => c.fullSync(_cfg)),
@@ -429,20 +505,27 @@ Card(
           ),
         ),
         const SizedBox(height: 16),
-const SizedBox(height: 12),
+        const SizedBox(height: 12),
         const Card(
           color: Color(0xFFFFF7E6),
           child: Padding(
             padding: EdgeInsets.all(12),
             child: Text(
               '旧 PySide 桌面 (-CNKH_POS_V5)：条码标签硬件打印、Windows 二进制备份/还原。\n本 Flutter 桌面端：本地 SQLite + LAN 客户端；可与旧 PC 服务端配对。',
-              style: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF7A5A10)),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: Color(0xFF7A5A10),
+              ),
             ),
           ),
         ),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.folder_outlined, color: CnkhColors.primary),
+            leading: const Icon(
+              Icons.folder_outlined,
+              color: CnkhColors.primary,
+            ),
             title: const Text('电子收据缓存路径 / Cache folder'),
             subtitle: Text(
               _cacheDir.isEmpty ? '默认：应用目录 /e_receipt_cache' : _cacheDir,
@@ -458,18 +541,21 @@ const SizedBox(height: 12),
                     );
                     if (picked == null) return;
                     await widget.repo.setSetting(kEReceiptCacheDirKey, picked);
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     setState(() => _cacheDir = picked);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('缓存路径已设为\n$picked')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('缓存路径已设为\n$picked')));
                   },
           ),
         ),
         const SizedBox(height: 8),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.picture_as_pdf_outlined, color: CnkhColors.primary),
+            leading: const Icon(
+              Icons.picture_as_pdf_outlined,
+              color: CnkhColors.primary,
+            ),
             title: const Text('电子收据缓存 / E-receipt cache'),
             subtitle: const Text('私有缓存最多保留 7 天；可一键清空'),
             trailing: const Icon(Icons.delete_outline),
@@ -482,17 +568,23 @@ const SizedBox(height: 12),
                   title: const Text('清空电子收据缓存？'),
                   content: Text('当前约 $n 个 PDF。清空后无法从本机重发旧缓存。'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('清空')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('取消'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('清空'),
+                    ),
                   ],
                 ),
               );
               if (ok != true) return;
               final deleted = await clearEReceiptCache(repo: widget.repo);
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已删除 $deleted 个缓存 PDF')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('已删除 $deleted 个缓存 PDF')));
             },
           ),
         ),
@@ -501,12 +593,21 @@ const SizedBox(height: 12),
           child: ListTile(
             leading: const Icon(Icons.info_outline, color: CnkhColors.primary),
             title: const Text('关于 / About'),
-            subtitle: const Text('黄金发宝号 POS Desktop 0.1.0 · full mobile parity'),
+            subtitle: const Text('黄金发宝号 POS Desktop $appVersionLabel'),
             onTap: () => showAboutDialog(
               context: context,
               applicationName: '黄金发宝号 POS Desktop',
-              applicationVersion: '0.1.0',
+              applicationVersion: appVersionLabel,
               applicationLegalese: '黄金发宝号 POS Desktop · Flutter',
+              children: [
+                const Text('本次更新 / This update'),
+                const SizedBox(height: 8),
+                for (final note in appReleaseNotes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('• $note'),
+                  ),
+              ],
             ),
           ),
         ),

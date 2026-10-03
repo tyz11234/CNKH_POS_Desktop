@@ -96,6 +96,13 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     await prefs.setString(_kLastSupplierId, s.id);
   }
 
+  Supplier? _supplierById(List<Supplier> suppliers, String id) {
+    for (final supplier in suppliers) {
+      if (supplier.id == id) return supplier;
+    }
+    return null;
+  }
+
   Future<void> _addOrEditSupplier({Supplier? existing}) async {
     final name = TextEditingController(text: existing?.name ?? '');
     final phone = TextEditingController(text: existing?.phone ?? '');
@@ -136,11 +143,13 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('保存')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -148,9 +157,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     final n = name.text.trim();
     if (n.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写供应商名称')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写供应商名称')));
       return;
     }
     final s = Supplier(
@@ -164,9 +173,10 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     await _rememberSupplier(s);
     final list = await widget.repo.listSuppliers();
     if (!mounted) return;
+    final selected = _supplierById(list, s.id);
     setState(() {
       _suppliers = list;
-      _supplier = s;
+      _supplier = selected;
     });
   }
 
@@ -180,8 +190,10 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
   int get _existCount =>
       _lines.where((l) => l.selected && !l.willCreate).length;
 
-  Future<void> _mergeLines(List<PurchaseDraftLine> incoming,
-      {bool replace = false}) async {
+  Future<void> _mergeLines(
+    List<PurchaseDraftLine> incoming, {
+    bool replace = false,
+  }) async {
     setState(() => _busy = true);
     try {
       final resolved = await _matcher.resolve(incoming);
@@ -198,8 +210,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                 return true;
               }
               final code = line.barcode.isNotEmpty ? line.barcode : line.sku;
-              if (code.isNotEmpty &&
-                  (e.barcode == code || e.sku == code)) {
+              if (code.isNotEmpty && (e.barcode == code || e.sku == code)) {
                 return true;
               }
               return normalizeProductName(e.name) ==
@@ -260,11 +271,13 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
           content: Text('条码/SKU：$code\n可新建草稿行，或跳过。'),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, 'skip'),
-                child: const Text('跳过')),
+              onPressed: () => Navigator.pop(ctx, 'skip'),
+              child: const Text('跳过'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'create'),
-                child: const Text('加入为新商品')),
+              onPressed: () => Navigator.pop(ctx, 'create'),
+              child: const Text('加入为新商品'),
+            ),
           ],
         ),
       );
@@ -317,11 +330,13 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
               content: Text('「${payload.supplierName}」不在列表中，是否新建？'),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('否')),
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('否'),
+                ),
                 FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('新建并选用')),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('新建并选用'),
+                ),
               ],
             ),
           );
@@ -334,9 +349,10 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
             await _rememberSupplier(s);
             final list = await widget.repo.listSuppliers();
             if (mounted) {
+              final selected = _supplierById(list, s.id);
               setState(() {
                 _suppliers = list;
-                _supplier = s;
+                _supplier = selected;
               });
             }
           }
@@ -360,9 +376,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     if (!_cameraOk) {
       _barcodeFocus.requestFocus();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('桌面请用扫码枪/粘贴条码；或点「进货单二维码」粘贴内容'),
-        ),
+        const SnackBar(content: Text('桌面请用扫码枪/粘贴条码；或点「进货单二维码」粘贴内容')),
       );
       return;
     }
@@ -391,10 +405,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ),
       );
     } else {
-      raw = await _promptPaste(
-        title: '粘贴进货单二维码内容',
-        hint: 'CNKHPO1:{…} 或 JSON',
-      );
+      raw = await _promptPaste(title: '粘贴进货单二维码内容', hint: 'CNKHPO1:{…} 或 JSON');
     }
     if (raw == null || raw.trim().isEmpty) return;
     final payload = PurchaseInvoicePayload.tryParse(raw);
@@ -428,7 +439,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text),
             child: const Text('确定'),
@@ -448,9 +461,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('无法打开相机/相册：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('无法打开相机/相册：$e')));
       return;
     }
     if (file == null) return;
@@ -509,9 +522,15 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
   }
 
   Future<void> _manualAddLine() async {
-    final products = await widget.repo.searchProducts('', limit: 80);
+    const pageSize = 80;
+    final products = await widget.repo.searchProducts('', limit: pageSize);
     if (!mounted) return;
+    var visibleProducts = products;
+    var hasMore = products.length == pageSize;
+    var loadingMore = false;
+    var queryGeneration = 0;
     Product? picked;
+    final productQueryCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
     final costCtrl = TextEditingController();
     if (products.isNotEmpty) {
@@ -528,32 +547,103 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (products.isEmpty)
+                TextField(
+                  controller: productQueryCtrl,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: '搜索商品 / SKU / 条码',
+                  ),
+                  onChanged: (query) async {
+                    final generation = ++queryGeneration;
+                    final result = await widget.repo.searchProducts(
+                      query,
+                      limit: pageSize,
+                    );
+                    if (!ctx.mounted || generation != queryGeneration) return;
+                    setLocal(() {
+                      visibleProducts = result;
+                      hasMore = result.length == pageSize;
+                      loadingMore = false;
+                    });
+                  },
+                ),
+                if (visibleProducts.isEmpty && picked == null)
                   const Text('目录无商品，可用扫码「将新建」')
                 else
-                  DropdownButton<Product>(
+                  DropdownButton<String>(
                     isExpanded: true,
-                    value: picked,
+                    value: picked?.id,
                     items: [
-                      for (final p in products)
+                      if (picked != null &&
+                          !visibleProducts.any(
+                            (product) => product.id == picked!.id,
+                          ))
                         DropdownMenuItem(
-                          value: p,
+                          value: picked!.id,
+                          child: Text('${picked!.nameZh} (${picked!.sku})'),
+                        ),
+                      for (final p in visibleProducts)
+                        DropdownMenuItem(
+                          value: p.id,
                           child: Text('${p.nameZh} (${p.sku})'),
                         ),
                     ],
-                    onChanged: (v) => setLocal(() {
-                      picked = v;
-                      if (v != null) {
-                        costCtrl.text =
-                            centsToRm(v.costCents).toStringAsFixed(2);
+                    onChanged: (id) => setLocal(() {
+                      final selected = visibleProducts.where(
+                        (product) => product.id == id,
+                      );
+                      picked = selected.isEmpty
+                          ? (picked?.id == id ? picked : null)
+                          : selected.first;
+                      if (picked != null) {
+                        costCtrl.text = centsToRm(
+                          picked!.costCents,
+                        ).toStringAsFixed(2);
                       }
                     }),
+                  ),
+                if (hasMore)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: loadingMore
+                          ? null
+                          : () async {
+                              final generation = queryGeneration;
+                              setLocal(() => loadingMore = true);
+                              final next = await widget.repo.searchProducts(
+                                productQueryCtrl.text,
+                                limit: pageSize,
+                                offset: visibleProducts.length,
+                              );
+                              if (!ctx.mounted || generation != queryGeneration)
+                                return;
+                              setLocal(() {
+                                final ids = visibleProducts
+                                    .map((product) => product.id)
+                                    .toSet();
+                                visibleProducts.addAll(
+                                  next.where((product) => ids.add(product.id)),
+                                );
+                                hasMore = next.length == pageSize;
+                                loadingMore = false;
+                              });
+                            },
+                      icon: loadingMore
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.expand_more),
+                      label: Text(loadingMore ? '加载中…' : '加载更多商品'),
+                    ),
                   ),
                 TextField(
                   controller: qtyCtrl,
                   decoration: const InputDecoration(labelText: '数量'),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 TextField(
                   controller: costCtrl,
@@ -561,23 +651,29 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                     labelText: '进货价 RM',
                     prefixText: 'RM ',
                   ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('加入')),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('加入'),
+            ),
           ],
         ),
       ),
     );
+    productQueryCtrl.dispose();
+    qtyCtrl.dispose();
+    costCtrl.dispose();
     if (ok != true || picked == null) return;
     final q = double.tryParse(qtyCtrl.text.trim()) ?? 0;
     if (q <= 0) return;
@@ -602,9 +698,11 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     final name = TextEditingController(text: line.name);
     final qty = TextEditingController(text: line.qty.toString());
     final cost = TextEditingController(
-        text: centsToRm(line.unitCostCents).toStringAsFixed(2));
+      text: centsToRm(line.unitCostCents).toStringAsFixed(2),
+    );
     final sell = TextEditingController(
-        text: centsToRm(line.effectiveSellCents).toStringAsFixed(2));
+      text: centsToRm(line.effectiveSellCents).toStringAsFixed(2),
+    );
     final barcode = TextEditingController(text: line.barcode);
     final sku = TextEditingController(text: line.sku);
     final ok = await showDialog<bool>(
@@ -616,45 +714,57 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                  controller: name,
-                  decoration: const InputDecoration(labelText: '品名')),
+                controller: name,
+                decoration: const InputDecoration(labelText: '品名'),
+              ),
               TextField(
-                  controller: barcode,
-                  decoration: const InputDecoration(labelText: '条码')),
+                controller: barcode,
+                decoration: const InputDecoration(labelText: '条码'),
+              ),
               TextField(
-                  controller: sku,
-                  decoration: const InputDecoration(labelText: 'SKU')),
+                controller: sku,
+                decoration: const InputDecoration(labelText: 'SKU'),
+              ),
               TextField(
                 controller: qty,
                 decoration: const InputDecoration(labelText: '数量'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               TextField(
                 controller: cost,
                 decoration: const InputDecoration(
-                    labelText: '进货价 RM', prefixText: 'RM '),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                  labelText: '进货价 RM',
+                  prefixText: 'RM ',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               if (line.willCreate)
                 TextField(
                   controller: sell,
                   decoration: const InputDecoration(
-                      labelText: '售价 RM（新建商品）', prefixText: 'RM '),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                    labelText: '售价 RM（新建商品）',
+                    prefixText: 'RM ',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
             ],
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('保存')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -665,11 +775,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       line.barcode = barcode.text.trim();
       line.sku = sku.text.trim();
       line.qty = q <= 0 ? line.qty : q;
-      line.unitCostCents =
-          rmToCents(double.tryParse(cost.text.trim()) ?? 0);
+      line.unitCostCents = rmToCents(double.tryParse(cost.text.trim()) ?? 0);
       if (line.willCreate) {
-        line.sellPriceCents =
-            rmToCents(double.tryParse(sell.text.trim()) ?? 0);
+        line.sellPriceCents = rmToCents(double.tryParse(sell.text.trim()) ?? 0);
       }
     });
     // Re-resolve match after edits
@@ -688,7 +796,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭'),
+          ),
         ],
       ),
     );
@@ -696,16 +806,16 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
 
   Future<void> _commit() async {
     if (_supplier == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择或新增供应商')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请选择或新增供应商')));
       return;
     }
     final selected = _lines.where((l) => l.selected).toList();
     if (selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少勾选一行')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请至少勾选一行')));
       return;
     }
     final createN = selected.where((l) => l.willCreate).length;
@@ -723,11 +833,13 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('返回核对')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('返回核对'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('确认提交')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认提交'),
+          ),
         ],
       ),
     );
@@ -753,10 +865,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('进货失败：$e'),
-          backgroundColor: CnkhColors.danger,
-        ),
+        SnackBar(content: Text('进货失败：$e'), backgroundColor: CnkhColors.danger),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -800,7 +909,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                               child: SelectableText(
                                 _rawOcrText!,
                                 style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 12),
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
@@ -812,7 +923,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                           Text(
                             '明细 ${_lines.length} 行',
                             style: const TextStyle(
-                                fontWeight: FontWeight.w800, fontSize: 16),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
                           ),
                           const Spacer(),
                           Text(
@@ -834,7 +947,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                               '用「扫码进货」连续扫商品，或「进货单二维码 / 拍照识别」导入整单。\n'
                               '${PurchaseInvoiceOcr.capabilityNote}',
                               style: const TextStyle(
-                                  color: CnkhColors.muted, height: 1.4),
+                                color: CnkhColors.muted,
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         )
@@ -868,27 +983,33 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: _suppliers.isEmpty
-                  ? const Text('尚无供应商 — 请新增',
-                      style: TextStyle(fontWeight: FontWeight.w700))
+                  ? const Text(
+                      '尚无供应商 — 请新增',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    )
                   : DropdownButtonHideUnderline(
-                      child: DropdownButton<Supplier>(
+                      child: DropdownButton<String>(
                         isExpanded: true,
-                        value: _supplier,
+                        value: _supplier?.id,
                         hint: const Text('选择供应商'),
                         items: [
                           for (final s in _suppliers)
-                            DropdownMenuItem(
-                              value: s,
+                            DropdownMenuItem<String>(
+                              value: s.id,
                               child: Text(
-                                s.phone.isEmpty ? s.name : '${s.name} · ${s.phone}',
+                                s.phone.isEmpty
+                                    ? s.name
+                                    : '${s.name} · ${s.phone}',
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                         ],
-                        onChanged: (v) async {
-                          if (v == null) return;
-                          setState(() => _supplier = v);
-                          await _rememberSupplier(v);
+                        onChanged: (id) async {
+                          if (id == null) return;
+                          final selected = _supplierById(_suppliers, id);
+                          if (selected == null) return;
+                          setState(() => _supplier = selected);
+                          await _rememberSupplier(selected);
                         },
                       ),
                     ),
@@ -971,17 +1092,14 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       ),
       textInputAction: TextInputAction.done,
       onSubmitted: _onWedgeSubmit,
-      inputFormatters: [
-        FilteringTextInputFormatter.deny(RegExp(r'[\u0000]')),
-      ],
+      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u0000]'))],
     );
   }
 
   Widget _lineTile(int i) {
     final line = _lines[i];
     final tag = line.willCreate ? '将新建' : '已有商品';
-    final tagColor =
-        line.willCreate ? CnkhColors.warning : CnkhColors.success;
+    final tagColor = line.willCreate ? CnkhColors.warning : CnkhColors.success;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -1047,8 +1165,10 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('进货合计',
-                        style: TextStyle(color: CnkhColors.muted, fontSize: 12)),
+                    const Text(
+                      '进货合计',
+                      style: TextStyle(color: CnkhColors.muted, fontSize: 12),
+                    ),
                     MoneyText(amountCents: _totalCents, fontSize: 22),
                   ],
                 ),

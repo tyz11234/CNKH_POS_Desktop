@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../db/app_database.dart';
 import '../../services/desktop_backup.dart';
+import '../../services/desktop_database_maintenance.dart';
+import '../../services/lan_pairing_host.dart';
 import '../../services/pos_repository.dart';
 import '../../theme/cnkh_theme.dart';
 
@@ -19,6 +22,10 @@ class BackupRestorePage extends StatefulWidget {
 class _BackupRestorePageState extends State<BackupRestorePage> {
   late final DesktopBackupService _service = DesktopBackupService(
     closeDatabase: widget.repo.database.close,
+    reopenAndValidateDatabase: () async {
+      final db = await widget.repo.database.db;
+      await AppDatabase.validateRestoredDatabase(db);
+    },
   );
   bool _busy = false;
   String _lastPath = '';
@@ -61,7 +68,10 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('备份失败：$e'), backgroundColor: CnkhColors.danger),
+          SnackBar(
+            content: Text('备份失败：$e'),
+            backgroundColor: CnkhColors.danger,
+          ),
         );
       }
     } finally {
@@ -88,7 +98,8 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
         throw StateError(validation.message);
       }
       if (!mounted) return;
-      final confirmed = await showDialog<bool>(
+      final confirmed =
+          await showDialog<bool>(
             context: context,
             barrierDismissible: false,
             builder: (ctx) => AlertDialog(
@@ -103,13 +114,18 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                       '恢复会用备份中的业务数据替换当前本机数据。系统会先保留当前数据库作为回滚快照；恢复校验失败会自动回滚。',
                     ),
                     const SizedBox(height: 12),
-                    Text('备份时间：${validation.createdAt.isEmpty ? '未知' : validation.createdAt}'),
+                    Text(
+                      '备份时间：${validation.createdAt.isEmpty ? '未知' : validation.createdAt}',
+                    ),
                     Text('数据库版本：${validation.databaseUserVersion}'),
                     Text('商品图片：${validation.imageCount} 张'),
                     const SizedBox(height: 8),
                     Text(
                       path,
-                      style: const TextStyle(fontSize: 12, color: CnkhColors.muted),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: CnkhColors.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -129,19 +145,34 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
           false;
       if (!confirmed) return;
 
-      await _service.restoreBackup(path);
-      // Force a reopen now so SQLite migration/integrity errors surface before
-      // reporting success to the user.
-      await widget.repo.database.db;
+      final gate = DesktopDatabaseMaintenance.shared;
+      final host = LanPairingHost.shared(widget.repo);
+      final restartHost = host.isRunning;
+      await gate.pauseAndDrain();
+      try {
+        await host.stopAndDrain();
+        await _service.restoreBackup(path);
+      } finally {
+        try {
+          if (restartHost) await host.start();
+        } finally {
+          gate.resume();
+        }
+      }
+      // restoreBackup reopened and validated this repository before deleting
+      // its rollback database and image directory.
       if (!mounted) return;
       setState(() => _lastPath = path);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('恢复完成，当前数据库已重新打开并通过校验')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('恢复完成，当前数据库已重新打开并通过校验')));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('恢复失败：$e'), backgroundColor: CnkhColors.danger),
+          SnackBar(
+            content: Text('恢复失败：$e'),
+            backgroundColor: CnkhColors.danger,
+          ),
         );
       }
     } finally {
@@ -152,16 +183,15 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
   Future<void> _openLastLocation() async {
     if (_lastPath.isEmpty || !Platform.isWindows) return;
     try {
-      await Process.start(
-        'explorer.exe',
-        <String>['/select,', _lastPath],
-        mode: ProcessStartMode.detached,
-      );
+      await Process.start('explorer.exe', <String>[
+        '/select,',
+        _lastPath,
+      ], mode: ProcessStartMode.detached);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开文件位置：$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('无法打开文件位置：$e')));
       }
     }
   }
@@ -181,7 +211,10 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Windows 本机备份', style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        'Windows 本机备份',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         '备份包含 CNKH POS SQLite 业务数据库与商品图片。保存时可自行选择文件夹和文件名。',
@@ -203,7 +236,10 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('恢复本机数据', style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        '恢复本机数据',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         '系统会先验证备份格式与 SQLite integrity，再进行替换；任何恢复异常都会尝试恢复原数据库和商品图片。',

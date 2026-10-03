@@ -12,7 +12,7 @@ Future<void> sendEReceiptFlow(
   required SaleRecord sale,
   required PosRepository repo,
 }) async {
-  var phone = (sale.customerPhone ?? '').trim();
+  var phone = eReceiptRecipientPhone(sale);
   var name = (sale.customerName ?? '').trim();
 
   if (phone.isEmpty) {
@@ -42,8 +42,10 @@ Future<void> sendEReceiptFlow(
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('保存为客户 / Save as customer',
-                    style: TextStyle(fontSize: 12)),
+                title: const Text(
+                  '保存为客户 / Save as customer',
+                  style: TextStyle(fontSize: 12),
+                ),
                 value: saveCustomer,
                 onChanged: (v) => setLocal(() => saveCustomer = v ?? true),
               ),
@@ -51,11 +53,13 @@ Future<void> sendEReceiptFlow(
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('发送 PDF')),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('发送 PDF'),
+            ),
           ],
         ),
       ),
@@ -80,10 +84,13 @@ Future<void> sendEReceiptFlow(
   }
 
   final template = await ReceiptTemplate.load(repo);
-  final storeName =
-      template.storeName.isEmpty ? kStoreName : template.storeName;
-  final contactMsg =
-      await maybeEnsureContact(name: name.isEmpty ? phone : name, phoneRaw: phone);
+  final storeName = template.storeName.isEmpty
+      ? kStoreName
+      : template.storeName;
+  final contactMsg = await maybeEnsureContact(
+    name: name.isEmpty ? phone : name,
+    phoneRaw: phone,
+  );
   if (!context.mounted) return;
   try {
     final result = await shareEReceiptPdf(
@@ -122,26 +129,33 @@ Future<void> showSaleSuccessSheet(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('✓ 收款成功 / Paid',
-                style: Theme.of(ctx).textTheme.headlineMedium?.copyWith(
-                      color: CnkhColors.success,
-                    )),
+            Text(
+              '✓ 收款成功 / Paid',
+              style: Theme.of(
+                ctx,
+              ).textTheme.headlineMedium?.copyWith(color: CnkhColors.success),
+            ),
             const SizedBox(height: 8),
             Text('${sale.receiptNo}  ·  ${formatRmPlain(sale.totalCents)}'),
-            Text(sale.paymentMethod,
-                style: const TextStyle(color: CnkhColors.muted)),
+            Text(
+              sale.paymentMethod,
+              style: const TextStyle(color: CnkhColors.muted),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 52,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366)),
+                  backgroundColor: const Color(0xFF25D366),
+                ),
                 onPressed: () async {
                   await sendEReceiptFlow(ctx, sale: sale, repo: repo);
                 },
                 icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('电子收据 PDF / E-receipt',
-                    style: TextStyle(fontWeight: FontWeight.w900)),
+                label: const Text(
+                  '电子收据 PDF / E-receipt',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -160,7 +174,10 @@ Future<void> showSaleSuccessSheet(
                   );
                 } else {
                   ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text(msg), backgroundColor: CnkhColors.danger),
+                    SnackBar(
+                      content: Text(msg),
+                      backgroundColor: CnkhColors.danger,
+                    ),
                   );
                 }
               },

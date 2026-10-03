@@ -23,10 +23,15 @@ class ProductsAdminPage extends StatefulWidget {
 
 class _ProductsAdminPageState extends State<ProductsAdminPage> {
   List<Product> _items = [];
+  final Map<String, Product> _knownProductsById = {};
   final _q = TextEditingController();
   final _selected = <String>{};
   bool _selectMode = false;
   bool _imagesOn = false;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  int _loadGeneration = 0;
+  static const int _pageSize = 100;
   late final BarcodeLabelService _labels = BarcodeLabelService(widget.repo);
   final _imgStore = ProductImageStore();
 
@@ -46,13 +51,46 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final list = await widget.repo.searchProducts(_q.text, limit: 300);
-    if (mounted) setState(() => _items = list);
+  Future<void> _load({bool reset = true}) async {
+    final generation = ++_loadGeneration;
+    if (reset) {
+      setState(() {
+        _items = [];
+        _hasMore = false;
+        _loadingMore = false;
+      });
+    }
+    final list = await widget.repo.searchProducts(
+      _q.text,
+      limit: _pageSize,
+      offset: reset ? 0 : _items.length,
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() {
+      if (reset) {
+        _items = list;
+      } else {
+        final known = _items.map((product) => product.id).toSet();
+        _items.addAll(list.where((product) => known.add(product.id)));
+      }
+      for (final product in list) {
+        _knownProductsById[product.id] = product;
+      }
+      _hasMore = list.length == _pageSize;
+      _loadingMore = false;
+    });
   }
 
-  List<Product> get _selectedProducts =>
-      _items.where((p) => _selected.contains(p.id)).toList();
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    await _load(reset: false);
+  }
+
+  List<Product> get _selectedProducts => _selected
+      .map((id) => _knownProductsById[id])
+      .whereType<Product>()
+      .toList();
 
   Future<bool> _confirmDelete(String title, String message) async {
     if (!mounted) return false;
@@ -67,7 +105,9 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                 child: const Text('取消'),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: CnkhColors.danger),
+                style: FilledButton.styleFrom(
+                  backgroundColor: CnkhColors.danger,
+                ),
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Text('确认删除'),
               ),
@@ -104,7 +144,11 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(result.isSuccess ? '导出完成' : (result.files.isEmpty ? '导出失败' : '部分导出完成')),
+        title: Text(
+          result.isSuccess
+              ? '导出完成'
+              : (result.files.isEmpty ? '导出失败' : '部分导出完成'),
+        ),
         content: SelectableText(message),
         actions: [
           TextButton(
@@ -152,9 +196,9 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
     );
     if (folder == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消导出 / Export cancelled')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已取消导出 / Export cancelled')));
       return;
     }
     final result = await _labels.exportManyToDirectory(products, folder);
@@ -171,8 +215,10 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const ListTile(
-              title: Text('选择分类 / Pick category',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
+              title: Text(
+                '选择分类 / Pick category',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
             ListTile(
               title: const Text('（未分类 / None）'),
@@ -209,19 +255,23 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
     final sku = TextEditingController(text: existing?.sku ?? '');
     final barcode = TextEditingController(text: existing?.barcode ?? '');
     final price = TextEditingController(
-        text: existing == null
-            ? ''
-            : centsToRm(existing.priceCents).toStringAsFixed(2));
+      text: existing == null
+          ? ''
+          : centsToRm(existing.priceCents).toStringAsFixed(2),
+    );
     final cost = TextEditingController(
-        text: existing == null
-            ? '0.00'
-            : centsToRm(existing.costCents).toStringAsFixed(2));
-    final stock =
-        TextEditingController(text: existing?.stock.toString() ?? '0');
+      text: existing == null
+          ? '0.00'
+          : centsToRm(existing.costCents).toStringAsFixed(2),
+    );
+    final stock = TextEditingController(
+      text: existing?.stock.toString() ?? '0',
+    );
     final unit = TextEditingController(text: existing?.unit ?? 'pcs');
     final cat = TextEditingController(text: existing?.category ?? '');
     final reorder = TextEditingController(
-        text: existing == null ? '0' : existing.reorderLevel.toString());
+      text: existing == null ? '0' : existing.reorderLevel.toString(),
+    );
     var imagePath = existing?.imagePath ?? '';
     var barcodeMode = existing == null
         ? 'auto'
@@ -237,19 +287,24 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
-                    controller: nameZh,
-                    decoration: const InputDecoration(labelText: '中文名')),
+                  controller: nameZh,
+                  decoration: const InputDecoration(labelText: '中文名'),
+                ),
                 TextField(
-                    controller: nameEn,
-                    decoration: const InputDecoration(labelText: 'English')),
+                  controller: nameEn,
+                  decoration: const InputDecoration(labelText: 'English'),
+                ),
                 TextField(
-                    controller: sku,
-                    decoration: const InputDecoration(labelText: 'SKU')),
+                  controller: sku,
+                  decoration: const InputDecoration(labelText: 'SKU'),
+                ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('条码 / Barcode',
-                      style: Theme.of(ctx).textTheme.bodySmall),
+                  child: Text(
+                    '条码 / Barcode',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
                 ),
                 Row(
                   children: [
@@ -268,38 +323,55 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                 ),
                 if (barcodeMode == 'manual')
                   TextField(
-                      controller: barcode,
-                      decoration:
-                          const InputDecoration(labelText: 'Barcode / 条码'))
+                    controller: barcode,
+                    decoration: const InputDecoration(
+                      labelText: 'Barcode / 条码',
+                    ),
+                  )
                 else
                   Text(
                     existing?.barcode.trim().isNotEmpty == true
                         ? '将保留或保存时自动生成（若空）\nKeep existing, or auto-generate if empty'
                         : '保存时自动生成 EAN-13 条码 / Auto EAN-13 on save',
-                    style: const TextStyle(fontSize: 12, color: CnkhColors.muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: CnkhColors.muted,
+                    ),
                   ),
                 TextField(
-                    controller: cost,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                        labelText: '进货价 RM', prefixText: 'RM ')),
+                  controller: cost,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: '进货价 RM',
+                    prefixText: 'RM ',
+                  ),
+                ),
                 TextField(
-                    controller: price,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                        labelText: '售价 RM', prefixText: 'RM ')),
+                  controller: price,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: '售价 RM',
+                    prefixText: 'RM ',
+                  ),
+                ),
                 TextField(
-                    controller: stock,
-                    decoration: const InputDecoration(labelText: '库存')),
+                  controller: stock,
+                  decoration: const InputDecoration(labelText: '库存'),
+                ),
                 TextField(
-                    controller: reorder,
-                    decoration: const InputDecoration(
-                        labelText: '缺货阈值 / Reorder level')),
+                  controller: reorder,
+                  decoration: const InputDecoration(
+                    labelText: '缺货阈值 / Reorder level',
+                  ),
+                ),
                 TextField(
-                    controller: unit,
-                    decoration: const InputDecoration(labelText: '单位')),
+                  controller: unit,
+                  decoration: const InputDecoration(labelText: '单位'),
+                ),
                 const SizedBox(height: 6),
                 InkWell(
                   onTap: () async {
@@ -325,11 +397,12 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                     onPressed: () async {
                       final picker = ImagePicker();
                       final f = await picker.pickImage(
-                          source: ImageSource.gallery, imageQuality: 85);
+                        source: ImageSource.gallery,
+                        imageQuality: 85,
+                      );
                       if (f == null) return;
                       final id = existing?.id ?? AppDatabase.newId();
-                      final saved =
-                          await _imgStore.saveFromFile(id, f.path);
+                      final saved = await _imgStore.saveFromFile(id, f.path);
                       if (saved != null) {
                         setLocal(() => imagePath = saved);
                       }
@@ -343,11 +416,13 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('保存')),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('保存'),
+            ),
           ],
         ),
       ),
@@ -407,7 +482,10 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
               onTap: () => Navigator.pop(ctx, 'export'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: CnkhColors.danger),
+              leading: const Icon(
+                Icons.delete_outline,
+                color: CnkhColors.danger,
+              ),
               title: const Text('删除 / Delete'),
               onTap: () => Navigator.pop(ctx, 'del'),
             ),
@@ -436,9 +514,9 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
         await widget.repo.softDeleteProduct(p.id);
         await _load();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('商品已删除，历史记录已保留')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('商品已删除，历史记录已保留')));
       }
     } catch (e) {
       if (!mounted) return;
@@ -461,9 +539,9 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
       if (kind == 'queue') {
         await _labels.enqueueMany(sel);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已加入 ${sel.length} 项到打印队列')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已加入 ${sel.length} 项到打印队列')));
       } else if (kind == 'export') {
         await _exportProductsNative(sel);
       } else if (kind == 'delete') {
@@ -560,8 +638,9 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                 children: [
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed:
-                          _selected.isEmpty ? null : () => _batchAction('queue'),
+                      onPressed: _selected.isEmpty
+                          ? null
+                          : () => _batchAction('queue'),
                       icon: const Icon(Icons.print_outlined),
                       label: const Text('批量入队打印'),
                     ),
@@ -570,7 +649,8 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                   Expanded(
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
-                          backgroundColor: CnkhColors.navy),
+                        backgroundColor: CnkhColors.navy,
+                      ),
                       onPressed: _selected.isEmpty
                           ? null
                           : () => _batchAction('export'),
@@ -582,7 +662,8 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                   Expanded(
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
-                          backgroundColor: CnkhColors.danger),
+                        backgroundColor: CnkhColors.danger,
+                      ),
                       onPressed: _selected.isEmpty
                           ? null
                           : () => _batchAction('delete'),
@@ -595,8 +676,23 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
             ),
           Expanded(
             child: ListView.builder(
-              itemCount: _items.length,
+              itemCount: _items.length + (_hasMore ? 1 : 0),
               itemBuilder: (context, i) {
+                if (i == _items.length) {
+                  return Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: OutlinedButton.icon(
+                      onPressed: _loadingMore ? null : _loadMore,
+                      icon: _loadingMore
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.expand_more),
+                      label: Text(_loadingMore ? '加载中…' : '加载更多商品'),
+                    ),
+                  );
+                }
                 final p = _items[i];
                 final sel = _selected.contains(p.id);
                 return ListTile(
@@ -612,28 +708,36 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                           }),
                         )
                       : (_imagesOn &&
-                              p.imagePath.isNotEmpty &&
-                              File(p.imagePath).existsSync())
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(File(p.imagePath),
-                                  width: 48, height: 48, fit: BoxFit.cover),
-                            )
-                          : CircleAvatar(
-                              backgroundColor: CnkhColors.softBlue,
-                              child: Text(
-                                p.category.isEmpty
-                                    ? '?'
-                                    : p.category.substring(0, 1),
-                                style: const TextStyle(
-                                    color: CnkhColors.navy,
-                                    fontWeight: FontWeight.w800),
-                              ),
+                            p.imagePath.isNotEmpty &&
+                            File(p.imagePath).existsSync())
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(p.imagePath),
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : CircleAvatar(
+                          backgroundColor: CnkhColors.softBlue,
+                          child: Text(
+                            p.category.isEmpty
+                                ? '?'
+                                : p.category.substring(0, 1),
+                            style: const TextStyle(
+                              color: CnkhColors.navy,
+                              fontWeight: FontWeight.w800,
                             ),
-                  title: Text(p.nameZh,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                  title: Text(
+                    p.nameZh,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   subtitle: Text(
-                      '${p.sku} · ${p.barcode}\n${p.category.isEmpty ? "未分类" : p.category} · 库存 ${p.stock} ${p.unit}'),
+                    '${p.sku} · ${p.barcode}\n${p.category.isEmpty ? "未分类" : p.category} · 库存 ${p.stock} ${p.unit}',
+                  ),
                   isThreeLine: true,
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -642,12 +746,16 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
                       Text(
                         '售价 ${formatRm(p.priceCents)}',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 13),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
                       ),
                       Text(
                         '进货价 ${formatRm(p.costCents)}',
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade700),
+                          fontSize: 11,
+                          color: Colors.grey.shade700,
+                        ),
                       ),
                     ],
                   ),
@@ -715,11 +823,13 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('保存')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -742,20 +852,21 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
   }
 
   Future<void> _deleteCategory(Category category) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('删除分类'),
-            content: Text(
-              '确定删除「${category.name}」吗？\n该分类下的商品不会删除，只会改为未分类。',
-            ),
+            content: Text('确定删除「${category.name}」吗？\n该分类下的商品不会删除，只会改为未分类。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('取消'),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: CnkhColors.danger),
+                style: FilledButton.styleFrom(
+                  backgroundColor: CnkhColors.danger,
+                ),
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Text('确认删除'),
               ),
@@ -767,9 +878,9 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
     try {
       final n = await widget.repo.deleteCategory(category.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除；$n 个商品改为未分类')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已删除；$n 个商品改为未分类')));
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -785,7 +896,10 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
       appBar: AppBar(
         title: const Text('分类管理 / Categories'),
         actions: [
-          IconButton(onPressed: () => _addOrRename(), icon: const Icon(Icons.add)),
+          IconButton(
+            onPressed: () => _addOrRename(),
+            icon: const Icon(Icons.add),
+          ),
         ],
       ),
       body: ListView.builder(
@@ -793,14 +907,21 @@ class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
         itemBuilder: (context, i) {
           final c = _items[i];
           return ListTile(
-            title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            title: Text(
+              c.name,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             trailing: Wrap(
               children: [
                 IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _addOrRename(c)),
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => _addOrRename(c),
+                ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: CnkhColors.danger),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: CnkhColors.danger,
+                  ),
                   onPressed: () => _deleteCategory(c),
                 ),
               ],
@@ -847,9 +968,9 @@ class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
     );
     if (folder == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消导出 / Export cancelled')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已取消导出 / Export cancelled')));
       return;
     }
 
@@ -923,7 +1044,10 @@ class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('队列导出失败：$e'), backgroundColor: CnkhColors.danger),
+        SnackBar(
+          content: Text('队列导出失败：$e'),
+          backgroundColor: CnkhColors.danger,
+        ),
       );
     }
   }
@@ -949,16 +1073,20 @@ class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
               itemBuilder: (context, i) {
                 final r = _rows[i];
                 return ListTile(
-                  title: Text('${r['product_name']}',
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle:
-                      Text('${r['barcode']} · ×${r['copies']} · ${r['status']}'),
+                  title: Text(
+                    '${r['product_name']}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${r['barcode']} · ×${r['copies']} · ${r['status']}',
+                  ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () async {
                       try {
-                        await widget.repo
-                            .removeBarcodeQueueItem(r['id'] as String);
+                        await widget.repo.removeBarcodeQueueItem(
+                          r['id'] as String,
+                        );
                         await _load();
                       } catch (e) {
                         if (!mounted) return;
