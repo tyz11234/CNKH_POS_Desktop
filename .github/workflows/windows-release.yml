@@ -35,6 +35,9 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Install Poppler PDF tools
+        run: choco install poppler --yes --no-progress
+
       - name: Test
         run: flutter test
 

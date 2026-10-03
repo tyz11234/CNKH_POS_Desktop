@@ -60,11 +60,17 @@ void main() {
       final nav = GlobalKey<NavigatorState>();
       final cart = CartState(items: [CartItem(product: product)]);
       var committed = 0, paid = 0;
+      final commitFinished = Completer<void>();
       await tester.pumpWidget(MaterialApp(navigatorKey: nav, home: Scaffold(body: Builder(
         builder: (context) => TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => CheckoutScreen(cart: cart, user: user, qrStorage: QrStorage(), repo: repo,
             onCancel: () => nav.currentState!.pop(),
-            onCommitted: (_) { committed++; cart.items.clear(); cart.orderDiscountCents = 0; },
+            onCommitted: (_) {
+              committed++;
+              cart.items.clear();
+              cart.orderDiscountCents = 0;
+              if (!commitFinished.isCompleted) commitFinished.complete();
+            },
             onPaid: (_) { paid++; nav.currentState!.pop(); }))), child: const Text('Open'))))));
       await tester.tap(find.text('Open'));
       await flush(tester);
@@ -77,6 +83,7 @@ void main() {
       expect(find.byType(CheckoutScreen), findsOneWidget);
       if (leaveProgrammatically) await tester.pumpWidget(const SizedBox());
       repo.gate.complete();
+      await tester.runAsync(() => commitFinished.future.timeout(const Duration(seconds: 10)));
       await flush(tester);
       expect(committed, 1);
       expect(cart.items, isEmpty);
