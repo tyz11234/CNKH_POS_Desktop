@@ -1,3 +1,18 @@
+<!-- CNKH_AUDIT_CYCLE_2_BEGIN -->
+# Bug Audit — Audit Cycle 2 当前进度
+
+本周期已完成 **1/10 轮**完整 Audit；已确认 **9 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
+
+当前功能分组 **42**（Shared 19 / Mobile 10 / Desktop 13）；**36/42** 有直接自动测试映射，**6/42** 保留目标设备/真实服务边界。本周期 PASS 只引用已完成轮次，未完成轮次不计为 Clean。
+
+详细缺陷、每轮来源 hash / 命令 / 时间戳与域报告：[`AUDIT_CYCLE_2.md`](AUDIT_CYCLE_2.md)。
+
+两项旧 Windows 测试同步故障单独记为测试修复，不计新产品 Bug；新候选 Windows CI 尚待实际运行结果。
+
+<!-- CNKH_AUDIT_CYCLE_2_END -->
+
+> 以下为 Audit Cycle 1 历史记录；当前周期状态以上方 Cycle 2 为准。
+
 # Bug Audit — Audit Cycle 1
 
 ## 当前进度

@@ -1,3 +1,20 @@
+<!-- CNKH_AUDIT_CYCLE_2_BEGIN -->
+# Feature Test Matrix — Audit Cycle 2 当前结果
+
+本周期已完成 **1/10 轮**完整 Audit；已确认 **9 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
+
+当前功能分组 **42**（Shared 19 / Mobile 10 / Desktop 13）；**36/42** 有直接自动测试映射，**6/42** 保留目标设备/真实服务边界。本周期 PASS 只引用已完成轮次，未完成轮次不计为 Clean。
+
+详细缺陷、每轮来源 hash / 命令 / 时间戳与域报告：[`AUDIT_CYCLE_2.md`](AUDIT_CYCLE_2.md)。
+
+新增永久映射：S03 金额/客户电话；S05 作废错误及日期边界；S06/M08 商品图片草稿；D04 采购异价行；D01 非法 LAN 金额；S15 QR 文件导入；M10/D13 培训来源/内容；D12 与 Android workflow 不可变 Release/tag Gate。具体测试名与证据见当前周期报告。
+
+未完成轮次、正式 Mobile 同签名安装、Windows GUI/实体打印、真实门店 LAN 和 MyInvois 不记 PASS。Cycle 1 下表是历史结果，当前结论以上方已完成轮次为准。
+
+<!-- CNKH_AUDIT_CYCLE_2_END -->
+
+> 以下为 Audit Cycle 1 历史记录；当前周期状态以上方 Cycle 2 为准。
+
 # Feature Test Matrix — Audit Cycle 1
 
 审计基线：Mobile `c73e5f515b7a8179c6d82efef3ac2fd139b5d4a7` / Desktop `cec6ae88ea1baa4580063eaa7cf48aeb33fce2bc`；版本 `1.10.9+37`，schema v10。源代码合并 SHA：Mobile `b121cd40019213273fd7d47db5cf1f93549bab7e`，Desktop `bd75dfc381b8be4aa791a42524a40a291e692f1c`。库存、同步、数据库和权限范围见 [`FEATURE_INVENTORY.md`](FEATURE_INVENTORY.md)。
