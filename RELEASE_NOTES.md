@@ -1,17 +1,21 @@
-# CNKH POS Desktop 1.10.9+37 candidate — not published
+# CNKH POS Desktop 1.10.9+37
 
 ## Fixes
 
-- **B001 (Both):** About reads the installed package version and build number.
-- **B002 (Mobile):** Product image filesystem failures stay inside the sync recovery path.
-- **B003 (Both CI):** Paired repository refs point to current companion main commits.
+- **B001 (Both):** About reads the installed package Version and Build Number, removing duplicate hard-coded values.
+- **B003 (Both CI):** Pin paired regression workflows to the companion repository commits included in this release cycle.
 
-## Release gate
+## Audit and regression
 
-The source candidate passed five audit rounds; the last two were clean. Final Release Regression passed: Mobile 147/147 tests, Desktop 151/151, integration 29/29, analyze with 0 errors, training capture/view checks, and version consistency. APK build is blocked by the missing Android SDK and matching Debug signing key; Windows build requires a Windows host. The current GitHub token is invalid, so no commit, push, tag, package, or Release was created. Existing downloads remain Mobile 1.10.7+35 and Desktop 1.10.8+36.
+Six complete audit rounds were performed; Rounds 5 and 6 were clean. Final local regression passed: Mobile **147/147**, Desktop **151/151**, and paired HTTP integration **29/29**. Both analyzers reported zero errors. Round 6 made supplier selection wait for the repository update and refreshed dropdown state, removing a timing-sensitive test failure on the Windows runner.
+
+The Windows release workflow runs the complete suite, builds the x64 app, verifies bundled training resources, and stages the portable ZIP with SHA-256. Database schema remains v10 and LAN protocol remains `cnkh-sync:v1`.
+
+## Installation notes
+
+The Windows ZIP is a portable package and has no installer. Back up business data and close the app before extracting it to a separate folder. Keep the EXE, DLL files, and `data` folder together. Physical printer, store-network, Android device, and live MyInvois acceptance were not performed.
 
 ---
-
 # CNKH POS Desktop 1.10.8+36
 
 ## 修复内容

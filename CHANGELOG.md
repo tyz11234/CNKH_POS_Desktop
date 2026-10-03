@@ -1,12 +1,11 @@
 # CNKH POS Desktop change log
 
-## 1.10.9+37 — unreleased (build and publish blocked)
+## 1.10.9+37 — 2026-10-03
 
-- **B001 (Both)** Read the installed Version and Build Number in About instead of maintaining duplicate Dart constants.
-- **B002 (Mobile)** Await product image writes so filesystem failures remain inside the existing sync recovery path.
-- **B003 (Both CI)** Update paired repository refs to the current companion main commits.
-
-Source candidate only; no APK or Windows package was produced or published. Current downloads remain Mobile 1.10.7+35 and Desktop 1.10.8+36.
+- **B001 (Both):** Read the installed Version and Build Number in About instead of maintaining duplicate Dart constants.
+- **B003 (Both CI):** Pin paired repository refs to the companion 1.10.9+37 source commits.
+- Completed six audit rounds; Rounds 5 and 6 were clean. Final regression passed Mobile 147/147, Desktop 151/151, and paired integration 29/29.
+- SQLite schema v10 and `cnkh-sync:v1` remain unchanged.
 
 ## 1.10.8+36 — released 2026-10-03
 
