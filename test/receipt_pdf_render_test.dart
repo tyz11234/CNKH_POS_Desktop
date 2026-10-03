@@ -81,7 +81,7 @@ void main() {
           'UTF-8',
           file.path,
           '-',
-        ]);
+        ], stdoutEncoding: utf8);
         expect(extracted.exitCode, 0, reason: '${extracted.stderr}');
         expect(extracted.stdout, contains('中文商品000'));
         expect(extracted.stdout, contains('中文页脚'));

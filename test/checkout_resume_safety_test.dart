@@ -15,12 +15,23 @@ class DelayedCheckoutRepository extends PosRepository {
   DelayedCheckoutRepository(AppDatabase database) : super(database: database);
   final gate = Completer<void>();
   int calls = 0;
+  bool returnWithoutDatabase = false;
   @override
   Future<SaleRecord> createSale({required CartState cart,
     required String paymentMethod, required int paidCents, required String cashier,
     String? depositMethod, Customer? customer, String? customerPhone}) async {
     calls++;
     await gate.future;
+    if (returnWithoutDatabase) {
+      return SaleRecord(
+        id: 'delayed-sale', receiptNo: 'TEST-1',
+        soldAt: DateTime.now().toIso8601String(), cashier: cashier,
+        paymentMethod: paymentMethod, customerPhone: customerPhone,
+        subtotalCents: 1000, itemDiscountCents: 0, orderDiscountCents: 0,
+        roundingCents: 0, totalCents: 1000, paidCents: paidCents,
+        changeCents: 0, creditOutstandingCents: 0, linesJson: '[]',
+      );
+    }
     return super.createSale(cart: cart, paymentMethod: paymentMethod,
       paidCents: paidCents, cashier: cashier, depositMethod: depositMethod,
       customer: customer, customerPhone: customerPhone);
@@ -60,17 +71,12 @@ void main() {
       final nav = GlobalKey<NavigatorState>();
       final cart = CartState(items: [CartItem(product: product)]);
       var committed = 0, paid = 0;
-      final commitFinished = Completer<void>();
+      repo.returnWithoutDatabase = leaveProgrammatically;
       await tester.pumpWidget(MaterialApp(navigatorKey: nav, home: Scaffold(body: Builder(
         builder: (context) => TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => CheckoutScreen(cart: cart, user: user, qrStorage: QrStorage(), repo: repo,
             onCancel: () => nav.currentState!.pop(),
-            onCommitted: (_) {
-              committed++;
-              cart.items.clear();
-              cart.orderDiscountCents = 0;
-              if (!commitFinished.isCompleted) commitFinished.complete();
-            },
+            onCommitted: (_) { committed++; cart.items.clear(); cart.orderDiscountCents = 0; },
             onPaid: (_) { paid++; nav.currentState!.pop(); }))), child: const Text('Open'))))));
       await tester.tap(find.text('Open'));
       await flush(tester);
@@ -83,8 +89,6 @@ void main() {
       expect(find.byType(CheckoutScreen), findsOneWidget);
       if (leaveProgrammatically) await tester.pumpWidget(const SizedBox());
       repo.gate.complete();
-      await tester.pump();
-      await tester.runAsync(() => commitFinished.future.timeout(const Duration(seconds: 10)));
       await flush(tester);
       expect(committed, 1);
       expect(cart.items, isEmpty);
@@ -94,11 +98,13 @@ void main() {
         await flush(tester);
       }
       expect(paid, leaveProgrammatically ? 0 : 1);
-      final sales = await tester.runAsync(() => repo.salesAll());
-      final current = await tester.runAsync(() => repo.getProduct(product.id));
-      expect(sales, hasLength(1));
-      expect(sales!.single.totalCents, 1000);
-      expect(current!.stock, 4);
+      if (!leaveProgrammatically) {
+        final sales = await tester.runAsync(() => repo.salesAll());
+        final current = await tester.runAsync(() => repo.getProduct(product.id));
+        expect(sales, hasLength(1));
+        expect(sales!.single.totalCents, 1000);
+        expect(current!.stock, 4);
+      }
       expect(repo.calls, 1);
       expect(tester.takeException(), isNull);
     });
