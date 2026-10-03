@@ -31,3 +31,8 @@ linter:
 analyzer:
   exclude:
     - integration/**
+    - build/**
+    - android/**
+    - web/**
+    - windows/**
+    - linux/**

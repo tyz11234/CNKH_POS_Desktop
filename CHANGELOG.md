@@ -1,5 +1,13 @@
 # CNKH POS Desktop change log
 
+## 1.10.9+37 — unreleased (build and publish blocked)
+
+- **B001 (Both)** Read the installed Version and Build Number in About instead of maintaining duplicate Dart constants.
+- **B002 (Mobile)** Await product image writes so filesystem failures remain inside the existing sync recovery path.
+- **B003 (Both CI)** Update paired repository refs to the current companion main commits.
+
+Source candidate only; no APK or Windows package was produced or published. Current downloads remain Mobile 1.10.7+35 and Desktop 1.10.8+36.
+
 ## 1.10.8+36 — released 2026-10-03
 
 - **B01** Clear a previous customer-directory phone on customer change/cancel while preserving a manually entered temporary number for the saved sale and eReceipt recipient.
@@ -18,4 +26,4 @@ MyInvois signing changes are not included. Latest official requirements and an i
 
 ## Ongoing maintenance
 
-For each future build, update `version` in `pubspec.yaml`, the constants and visible notes in `lib/app_release_notes.dart`, and this file together. Keep prior release entries. `test/app_version_test.dart` checks that the app-visible version matches the package version.
+For each future build, update `version` in `pubspec.yaml` and add the real changes to this file. About reads Version + Build Number from installed package metadata; do not add a second version constant. Keep prior release entries. `test/app_version_test.dart` checks the runtime label and changelog version.
