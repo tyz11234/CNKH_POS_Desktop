@@ -10,7 +10,7 @@
 
 本版修复客户电话误带入下一笔销售、备份恢复数据库完整性校验、挂单重复提交、商品与库存页面分页排序、税务作废待复核、购物车资料刷新、新供应商选择、Windows 剪贴板失败回退，以及恢复期间后台数据库/LAN 请求协调。LAN 协议仍为 cnkh-sync:v1，数据库仍为 schema v10。
 
-Mobile 完整测试 **145 项通过**，Desktop **149 项通过**。当前 README 下载区仍列出已验证的 1.10.7+35；1.10.8+36 Windows Release 工作流会在 main 更新后重新测试、构建和上传 ZIP 与 SHA-256。
+Mobile 完整测试 **145 项通过**，Desktop Windows Release 完整测试 **149 项通过**。Desktop 静态分析、培训截图与资源校验、Windows Release 构建及上传均成功；[查看 Release CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37115653774)。双端 HTTP 回归通过，见 [运行记录](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37114494494)。
 
 详见 [1.10.8+36 变更记录](CHANGELOG.md) 与 [Release Notes](RELEASE_NOTES.md)。
 
@@ -18,30 +18,30 @@ Mobile 完整测试 **145 项通过**，Desktop **149 项通过**。当前 READM
 
 | 项目 | 当前源码 | 最新可下载包 |
 | --- | --- | --- |
-| Desktop main | **1.10.8+36** | Windows ZIP **1.10.7+35**（1.10.8+36 发布构建进行中） |
+| Desktop main | **1.10.8+36** | [Windows ZIP 1.10.8+36](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.8) |
 | 配套 Mobile main | **1.10.8+36** | Android APK **1.10.7+35**（签名兼容性限制） |
 | LAN 协议 | cnkh-sync:v1 | schema v10，增量升级旧数据库 |
 
 ## 下载与更新
 
 - [Android APK（1.10.7+35）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/CNKH_POS_Mobile.apk)
-- [版本化 APK（内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/CNKH_POS_Mobile_v1.10.7.apk)
+- [版本化 APK（1.10.7，内容相同）](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/CNKH_POS_Mobile_v1.10.7.apk)
 - [APK SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/download/v1.10.7-mobile/SHA256SUMS.txt)
 - [Mobile Release v1.10.7-mobile](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases/tag/v1.10.7-mobile)
-- [Windows x64 ZIP 便携包（1.10.7+35）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.7/CNKH_POS_Desktop-windows-x64-v1.10.7-35.zip)
-- [ZIP SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.7/SHA256SUMS.txt)
-- [Desktop Release v1.10.7](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.7)
+- [Windows x64 ZIP 便携包（1.10.8+36）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.8/CNKH_POS_Desktop-windows-x64-v1.10.8-36.zip)
+- [Windows ZIP SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.8/SHA256SUMS.txt)
+- [Desktop Release v1.10.8](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.8)
 
 | 发布文件 | 字节数 | SHA-256 |
 | --- | ---: | --- |
-| `CNKH_POS_Mobile.apk`（两个 APK 相同） | 115187111 | `ba6e763059eebcee46ef8d55962546f92e3f4332391da82fedc81fb204e6e3ad` |
-| `CNKH_POS_Desktop-windows-x64-v1.10.7-35.zip` | 17487790 | `33818e0fe9e6a6141a790d842b909c023eca0dc528ccc42d2f17b3505d548c77` |
+| CNKH_POS_Mobile.apk（与版本化 APK 内容相同） | 115187111 | ba6e763059eebcee46ef8d55962546f92e3f4332391da82fedc81fb204e6e3ad |
+| CNKH_POS_Desktop-windows-x64-v1.10.8-36.zip | 17511169 | f114693cb0633b6ab46a0d5e7ae32885be4bcc0780971c3ce8fe603fc3fc73c6 |
 
-以上文件哈希由发布 CI 计算，并与 GitHub Release 资产 digest 核对一致。PowerShell 可用 `Get-FileHash <文件名> -Algorithm SHA256`；Linux/macOS 可用 `sha256sum <文件名>` / `shasum -a 256 <文件名>` 核对。
+SHA-256 由发布工作流生成，并与 GitHub Release 的 ZIP digest 核对一致。Windows Release 工作流：**149 项测试通过**、静态分析通过、培训资源验证通过、Release 构建和上传成功；[查看 Windows 发布 CI](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37115653774)。Mobile 1.10.8+36 CI **145 项测试通过**；[查看 Mobile CI](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37114494489) 和 [双端 HTTP 回归](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37114494494)。
 
-本次 APK 是 Release 构建，实际使用 **Android Debug 签名证书**；没有使用稳定发布 keystore。证书 SHA-256：`51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。 **与 1.10.6 APK 的证书不同，不能直接覆盖安装该版本。** 更新前完成业务同步并备份，保留旧 APK 和未确认的离线操作；不要直接卸载含有未同步数据的旧版，卸载会清除本地数据。Android/Windows 实体覆盖升级尚未验收。
+Mobile APK 尚停在 1.10.7+35：该 APK 使用 Android Debug 证书，仓库没有对应私钥。使用不同证书签名的 APK 会被 Android 拒绝覆盖安装；卸载会清除本地数据。更新前请同步业务并备份。要发布可覆盖安装的新 APK，需要恢复与当前安装包相同的签名私钥。
 
-Windows 沿用完整 ZIP 便携包，不含安装向导。先备份业务数据并关闭程序，将 ZIP 完整解压到独立目录，再运行 `cnkh_pos_desktop.exe`；保留同目录 DLL 和 data 文件夹。首次启动按现有增量迁移升级旧库，schema 仍为 v10。首次配对与库存基线修复应使用两端配套 1.10.7+35。
+Windows ZIP 为完整便携包，不含安装向导。先备份业务数据并关闭程序，将 ZIP 解压到独立目录，再运行 cnkh_pos_desktop.exe；保留同目录 DLL 与 data 文件夹。schema 仍为 v10，启动时使用现有增量迁移。
 
 ## 2026-10-01 · 1.10.6+34
 

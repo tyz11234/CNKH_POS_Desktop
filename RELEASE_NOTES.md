@@ -14,9 +14,17 @@
 - **R01** 恢复期间暂停并排空数据库后台轮询；替换生产数据库前停止接受 LAN 请求并排空进行中的请求。
 - **R04** 使用请求代次忽略过期目录搜索响应。
 
-## 验证与兼容性
+## Windows Release 验证
 
-Desktop 完整 Flutter 测试 **149 项通过**；Mobile 完整测试 **145 项通过**。本地静态分析没有 error，但仍有 info/warning 诊断。1.10.8+36 不新增数据库 schema 版本，保持 cnkh-sync:v1；支持的旧库仍走现有增量迁移。Windows Release workflow 会在 Windows runner 上再次测试、分析并构建 ZIP 便携包。
+Windows Release 工作流 [37115653774](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37115653774) 成功：静态分析通过，完整 Flutter 测试 **149 项通过**，培训截图及资源校验通过，Windows Release 构建与 ZIP 上传成功。Mobile CI **145 项通过**；双端 HTTP 回归见 [运行记录](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37114494494)。
 
-MyInvois R02 签名变更不在本版范围；官方要求与独立 verifier 尚待复核。未执行真实 Sandbox / Production 提交或作废。
+## 下载
+
+- [Windows x64 ZIP 便携包（1.10.8+36）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.8/CNKH_POS_Desktop-windows-x64-v1.10.8-36.zip)
+- [SHA256SUMS.txt](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.8/SHA256SUMS.txt)
+- [GitHub Release v1.10.8](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.8)
+
+ZIP 大小 **17,511,169 字节**，SHA-256：f114693cb0633b6ab46a0d5e7ae32885be4bcc0780971c3ce8fe603fc3fc73c6。Windows ZIP 是完整便携包，不含安装向导。数据库 schema 为 v10，继续使用 cnkh-sync:v1。
+
+Mobile APK 仍为 1.10.7+35。现有 APK 使用 Android Debug 证书；尚未取得与当前安装包匹配的私钥，因此没有发布一个会导致覆盖安装失败的新签名 APK。
 

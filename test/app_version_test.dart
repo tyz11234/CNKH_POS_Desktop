@@ -10,7 +10,13 @@ void main() {
       final manifest = await File('pubspec.yaml').readAsString();
       final changelog = await File('CHANGELOG.md').readAsString();
       expect(manifest, contains('version: $appVersion+$appBuildNumber'));
-      expect(changelog, contains('## $appVersionLabel — unreleased'));
+      expect(
+        changelog,
+        anyOf(
+          contains('## $appVersionLabel — unreleased'),
+          contains('## $appVersionLabel — released'),
+        ),
+      );
       expect(appVersionLabel, '$appVersion+$appBuildNumber');
       expect(appReleaseNotes, isNotEmpty);
     },

@@ -1,6 +1,6 @@
 # CNKH POS Desktop change log
 
-## 1.10.8+36 — unreleased
+## 1.10.8+36 — released 2026-10-03
 
 - **B01** Clear a previous customer-directory phone on customer change/cancel while preserving a manually entered temporary number for the saved sale and eReceipt recipient.
 - **B03** Validate required current tables/columns and POS queries, migrate supported old backups through the application upgrade path, and keep rollback DB/images until the restored production path reopens and validates.
