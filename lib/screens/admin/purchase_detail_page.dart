@@ -8,6 +8,7 @@ import '../../services/pos_repository.dart';
 import '../../services/purchase_attachment_store.dart';
 import '../../services/purchase_edit_service.dart';
 import '../../theme/cnkh_theme.dart';
+import '../../widgets/completed_dialog.dart';
 import '../../widgets/money_text.dart';
 
 class PurchaseDetailPage extends StatefulWidget {
@@ -107,7 +108,7 @@ class _PurchaseDetailPageState extends State<PurchaseDetailPage> {
     final errors = <String, String?>{};
     PurchaseEditInput? input;
 
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(

@@ -1,8 +1,8 @@
 # Audit Cycle 2 — 追加 10 轮完整审查
 
-更新：`2026-10-03T17:02:13.518134+00:00`。
+更新：`2026-10-04T02:21:34.392987+00:00`。
 
-本周期已完成 **1/10 轮**完整 Audit；已确认 **9 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
+本周期已完成 **2/10 轮**完整 Audit；已确认 **18 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
 
 当前功能分组 **42**（Shared 19 / Mobile 10 / Desktop 13）；**36/42** 有直接自动测试映射，**6/42** 保留目标设备/真实服务边界。本周期 PASS 只引用已完成轮次，未完成轮次不计为 Clean。
 
@@ -13,7 +13,7 @@
 | Cycle 2 Round | 全局 Round | 新确认缺陷组 | Mobile | Desktop | 跨端集成 | 状态 |
 |---:|---:|---:|---|---|---|---|
 | 1 | 7 | 9 | 160/160（失败 0，skip 0） | 183/183（失败 0，skip 0） | 29/29（失败 0，skip 0） | [已完成；修复后全量通过](audit-cycle-2/round-01/README.md) |
-| 2 | 8 | 待审查 | 待运行 | 待运行 | 待运行 | 尚未开始 |
+| 2 | 8 | 9 | 192/192（失败 0，skip 0） | 235/235（失败 0，skip 0） | 29/29（失败 0，skip 0） | [已完成；修复后全量通过](audit-cycle-2/round-02/README.md) |
 | 3 | 9 | 待审查 | 待运行 | 待运行 | 待运行 | 尚未开始 |
 | 4 | 10 | 待审查 | 待运行 | 待运行 | 待运行 | 尚未开始 |
 | 5 | 11 | 待审查 | 待运行 | 待运行 | 待运行 | 尚未开始 |
@@ -99,6 +99,78 @@
 - 修复：只读 immutable Release gate、统一 tag、annotated tag/SHA 验证、发布 mutex、禁止 overwrite。
 - 永久测试：`tool/test_release_gate.py（每端26项）`。
 
+### C2-B010 — 进货、OCR与日结接受超界金额或非法数量
+
+- Round：2；平台：Mobile / Desktop。
+- 修复前：真实SQLite巨量进货被保存，OCR已保存draft编辑乘除崩溃，QR NaN崩溃且0/-1改为1。
+- 根因：边界检查只看原始值，缩放/乘除后的金额仍可Infinity或int64饱和；QR零负数量被改成1。
+- 修复：复用整分精度上限并检查实际计算结果，非法输入保留原单据且阻断提交。
+- 永久测试：`purchase_import_validation_test / purchase_amount_boundary_regression_test / ocr_quantity_boundary_regression_test / purchase_edit_service_test`。
+
+### C2-B011 — 扫码在购物车接受决定前播放成功反馈
+
+- Round：2；平台：Mobile / Desktop。
+- 修复前：延迟拒绝与未完成回调仍读取feedback或产生扫码成功声。
+- 根因：void callback忽略异步库存检查的false、pending和异常。
+- 修复：回调返回Future<bool>，只有await true才计数和反馈，异常沿用Snackbar。
+- 永久测试：`scanner_cart_acceptance_regression_test / scanner_acceptance_feedback_test`。
+
+### C2-B012 — 库存盘点非法数量或保存失败没有可用提示
+
+- Round：2；平台：Desktop。
+- 修复前：实际NaN输入抛未处理异常，无错误提示。
+- 根因：UI直接传NaN并让repository异常逃逸。
+- 修复：输入先验证，写入失败显示Snackbar并保留库存。
+- 永久测试：`admin_entry_error_feedback_test`。
+
+### C2-B013 — 收据模板保存与重置失败后缺少错误反馈
+
+- Round：2；平台：Desktop。
+- 修复前：真实保存按钮触发StateError，无失败提示。
+- 根因：设置写入的异常没有UI恢复分支。
+- 修复：保存/重置捕获失败并解除busy，保留编辑值和现有提示机制。
+- 永久测试：`admin_entry_error_feedback_test`。
+
+### C2-B014 — 聚焦弹窗关闭时提前释放输入控制器
+
+- Round：2；平台：Mobile / Desktop。
+- 修复前：产品、采购、折扣、实体、用户及销售原因保存/取消实际抛TextEditingController used after disposed。
+- 根因：Navigator.pop完成时退出动画仍使用TextField，立即dispose使框架访问已释放controller。
+- 修复：等待DialogRoute.completed再释放各真实受影响入口的控制器。
+- 永久测试：`product_dialog_lifecycle_regression_test / purchase_amount_boundary_regression_test / admin_dialog_controller_lifecycle_test / cart_discount_dialog_lifecycle_test / sale void regressions`。
+
+### C2-B015 — 有效库存加减仍可产生Infinity库存或流水
+
+- Round：2；平台：Mobile / Desktop / LAN。
+- 修复前：两端真实SQLite库存/流水Infinity持久化；Desktop无穷reorder破坏JSON产品快照。
+- 根因：输入有限但当前库存与变动合算溢出，SQLite允许保存Infinity。
+- 修复：事务内校验实际新库存及差额，异常原子回滚，补reorder有限校验。
+- 永久测试：`stock_numeric_integrity_test / existing OCR, identity and reversal regressions`。
+
+### C2-B016 — 进货分币被截断成其他金额并确认
+
+- Round：2；平台：Mobile / Desktop / LAN Host。
+- 修复前：12个LAN非法金额均被接受；真实Repo小数unit cost被截断。
+- 根因：unitCost和LAN进货fees使用toInt截断小数，负0.5变成0绕过保护。
+- 修复：写入前验证有限非负整分，非法mutation不产生purchase、stock或durable ACK。
+- 永久测试：`lan_purchase_amount_validation_test / stock_numeric_integrity_test`。
+
+### C2-B017 — HTTP200 JSON null被误认为Release不存在
+
+- Round：2；平台：Mobile / Desktop release scripts。
+- 修复前：真实localhost两个HTTP200/null查询使发布检查PASS。
+- 根因：成功响应null与HTTP404共同返回None。
+- 修复：成功GET必须为对象，只有404代表不存在，异常形态fail closed。
+- 永久测试：`tool/test_release_gate.py`。
+
+### C2-B018 — 发布检查漏掉同tag草稿Release
+
+- Round：2；平台：Mobile / Desktop release scripts。
+- 修复前：符合官方契约的localhost published/ref404且同tag draft存在时门槛误PASS。
+- 根因：by-tag仅查published，旧草稿可被Release action复用并保留旧同名资产。
+- 修复：认证GET全部分页Release列表，发现同tag即阻断，异常/不前进分页fail closed。
+- 永久测试：`tool/test_release_gate.py（每端40项，含13项真实localhost草稿/分页回归）`。
+
 ## 既有 Windows 测试同步问题
 
 两项既有测试同步问题单独记录：固定等待后过早检查 sale callback；supplier UI 事务未结束时轮询数据库造成等待锁/停止 pump。双端 phone 与 Desktop supplier 测试已保留业务断言改为有界实际状态等待。这 **不计入本周期新产品 Bug 数**，也不使 Linux 通过自动变为 Windows CI 通过。
@@ -108,8 +180,8 @@
 
 | 来源 | Dart lib | Screens | Services | DB modules | Widgets | Test files | Version |
 |---|---:|---:|---:|---:|---:|---:|---|
-| mobile | 69 | 18 | 29 | 6 | 7 | 53 | 1.10.9+37 |
-| desktop | 74 | 17 | 36 | 6 | 6 | 54 | 1.10.9+37 |
+| mobile | 70 | 18 | 30 | 6 | 7 | 59 | 1.10.9+37 |
+| desktop | 76 | 17 | 37 | 6 | 7 | 61 | 1.10.9+37 |
 
 SQLite schema v10、LAN `cnkh-sync:v1` 保持。Mobile 26 张运行表；Desktop **26 张运行表**，包含 LAN Host 启动创建的 `lan_sync_changes` / `lan_sync_mobile_sales`。Cycle 1 历史清单写 Desktop 24 是未计入 Host 两表的统计口径，当前周期已纠正。
 

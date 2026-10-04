@@ -1,3 +1,4 @@
+import 'stock_numeric_validation.dart';
 import 'dart:convert';
 import 'auth_service.dart';
 import 'sale_reversal.dart';
@@ -261,7 +262,7 @@ class PosRepository {
   }
 
   Future<void> upsertProduct(Product p, {Product? original}) async {
-    if (p.priceCents < 0 || p.costCents < 0 || !p.stock.isFinite)
+    if (p.priceCents < 0 || p.costCents < 0 || !p.stock.isFinite || !p.reorderLevel.isFinite)
       throw ArgumentError('商品资料无效');
     await _saveEntity(
       'product',
@@ -293,7 +294,7 @@ class PosRepository {
       );
       if (rows.isEmpty) throw StateError('product missing');
       final old = (rows.first['stock'] as num).toDouble();
-      final delta = newStock - old;
+      final delta = checkedStockDifference(newStock, old);
       await queueMutation(txn, 'stocktake', productId, {
         'product_id': await remoteEntityId(txn, 'product', productId),
         'before_stock': old,
@@ -363,7 +364,7 @@ class PosRepository {
         await txn.insert('stock_moves', {
           'id': AppDatabase.newId(),
           'product_id': id,
-          'change': (row['stock'] as num) - (old.first['stock'] as num),
+          'change': checkedStockDifference(row['stock'] as num, old.first['stock'] as num),
           'reason': 'product_edit',
           'created_at': DateTime.now().toIso8601String(),
           'operator': 'product-editor',
@@ -511,6 +512,7 @@ class PosRepository {
       await txn.insert('sales', record);
       await queueMutation(txn, 'sale_upload', id, {'sale_id': id});
       for (final line in lines) {
+        await validateStockAddition(txn, line['productId'] as String, -(line['qty'] as num).toDouble());
         await txn.rawUpdate(
           'UPDATE products SET stock = stock - ? WHERE id = ?',
           [(line['qty'] as num).toDouble(), line['productId']],
@@ -656,8 +658,12 @@ class PosRepository {
     if (lines.isEmpty || totalCents < 0) throw ArgumentError('进货内容无效');
     for (final l in lines) {
       final q = (l['qty'] as num).toDouble();
-      if (!q.isFinite || q <= 0 || ((l['unitCostCents'] as num?) ?? 0) < 0)
+      final cost = l['unitCostCents'];
+      if (!q.isFinite || q <= 0 ||
+          (cost != null && (cost is! num || !cost.isFinite ||
+              cost < 0 || cost != cost.toInt()))) {
         throw ArgumentError('进货数量或成本无效');
+      }
     }
     final d = await _db.db;
     final id = purchaseId ?? AppDatabase.newId();
@@ -757,6 +763,7 @@ class PosRepository {
         final pid = line['productId'] as String;
         final qty = (line['qty'] as num).toDouble();
         final unitCost = (line['unitCostCents'] as num?)?.toInt();
+        await validateStockAddition(txn, pid, qty);
         if (unitCost != null) {
           await txn.rawUpdate(
             'UPDATE products SET stock = stock + ?, cost_cents = ? WHERE id = ?',

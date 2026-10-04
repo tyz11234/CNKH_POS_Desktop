@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/completed_dialog.dart';
+
 import '../models/money.dart';
 import '../services/pos_repository.dart';
 import '../theme/cnkh_theme.dart';
@@ -124,7 +126,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
 
   Future<void> _void(SaleRecord s) async {
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('作废备注 / Void note'),

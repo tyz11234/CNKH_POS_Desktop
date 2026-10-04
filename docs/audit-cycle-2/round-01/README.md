@@ -38,5 +38,15 @@
 - [root-review.md](root-review.md)
 - [windows-test-diagnosis.md](windows-test-diagnosis.md)
 
+## 结构化动态清单与来源
+
+| 文件 | SHA-256 | Bytes |
+|---|---|---:|
+| [desktop/source-inventory.json](desktop/source-inventory.json) | `b0b32a751e028923574e5851f52ac91dbaedf5e11a1b7e7c7beb494ebf80e54e` | 8337 |
+| [einvoice/reviewed-files.json](einvoice/reviewed-files.json) | `2486f9bac3fcdbb850f5065e3a60daf049ea945655345f7fe6d278b35fb90850` | 8574 |
+| [sync/dynamic-inventory.json](sync/dynamic-inventory.json) | `dd8613a8b8037d6aa2089988aadf364495b75a573cae111cea193d9ada992f4e` | 10124 |
+
+这些文件保留相应域审查时的清单；其 hash 作为证据来源记录，不据此推定原生设备或外部服务通过。
+
 部分子域报告是在统一回归前写成；本页完成状态以结构化全量 Gate 和四域确认共同决定。
 Windows CI、正式签名、实体设备和真实外部服务不由本地测试结果推定通过。

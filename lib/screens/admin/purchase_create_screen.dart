@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
+import '../../widgets/completed_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -233,7 +235,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     }
   }
 
-  Future<void> _addProductScan(Product p, {double qty = 1}) async {
+  Future<bool> _addProductScan(Product p, {double qty = 1, bool feedback = true}) async {
+    if (_busy || !mounted) return false;
     await _mergeLines([
       PurchaseDraftLine(
         name: p.nameZh,
@@ -247,7 +250,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         matchNote: '扫码加入',
       ),
     ]);
-    await playScanFeedback(widget.repo);
+    if (!mounted) return false;
+    if (feedback) await playScanFeedback(widget.repo);
+    return true;
   }
 
   Future<void> _onWedgeSubmit(String raw) async {
@@ -384,9 +389,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       MaterialPageRoute(
         builder: (_) => BarcodeScanScreen(
           repo: widget.repo,
-          onProduct: (p) {
-            _addProductScan(p);
-          },
+          onProduct: (p) => _addProductScan(p, feedback: false),
           onPairing: null,
         ),
       ),
@@ -498,7 +501,18 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
   }
 
   Future<void> _applyOcrText(String text) async {
-    final parsed = PurchaseInvoiceTextParser.parse(text);
+    List<PurchaseDraftLine> parsed;
+    try {
+      parsed = PurchaseInvoiceTextParser.parse(text);
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      setState(() => _rawOcrText = text);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: CnkhColors.danger),
+      );
+      return;
+    }
+    if (!mounted) return;
     if (parsed.isEmpty) {
       if (!mounted) return;
       setState(() => _rawOcrText = text);
@@ -537,7 +551,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       picked = products.first;
       costCtrl.text = centsToRm(picked.costCents).toStringAsFixed(2);
     }
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -720,7 +734,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     );
     final barcode = TextEditingController(text: line.barcode);
     final sku = TextEditingController(text: line.sku);
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(line.willCreate ? '编辑（将新建）' : '编辑进货行'),

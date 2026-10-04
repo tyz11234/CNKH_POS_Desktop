@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../db/app_database.dart';
 import '../db/ocr_purchase_schema.dart';
+import '../models/money.dart';
 import 'pos_repository.dart';
 
 class PurchaseEditInput {
@@ -89,9 +90,7 @@ class PurchaseEditService {
     }
 
     if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(text)) return null;
-    final value = double.tryParse(text);
-    if (value == null || !value.isFinite || value < 0) return null;
-    return (value * 100).round();
+    return tryParseRmCents(text);
   }
 
   Future<void> updateMetadata({

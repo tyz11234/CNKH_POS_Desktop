@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -42,6 +43,15 @@ class _ProductRepo extends PosRepository {
   }
 }
 
+class _DelayedPicker extends ImagePickerPlatform {
+  final result = Completer<XFile?>();
+  @override
+  Future<XFile?> getImageFromSource({
+    required ImageSource source,
+    ImagePickerOptions options = const ImagePickerOptions(),
+  }) => result.future;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory dir;
@@ -69,14 +79,49 @@ void main() {
     ImagePickerPlatform.instance = previousPicker;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
-    await dir.delete(recursive: true);
+    final cleanup = Stopwatch()..start();
+    while (true) {
+      try {
+        await dir.delete(recursive: true);
+        break;
+      } on FileSystemException catch (e) {
+        if (!Platform.isWindows ||
+            e.osError?.errorCode != 32 ||
+            cleanup.elapsedMilliseconds >= 10000) {
+          rethrow;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    }
   });
 
-  Future<void> openEditor(WidgetTester tester, _ProductRepo repo) async {
+  Future<void> openEditor(
+    WidgetTester tester,
+    _ProductRepo repo, {
+    bool pickImage = true,
+  }) async {
     tester.view.physicalSize = const Size(1440, 1100);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      final cache = PaintingBinding.instance.imageCache;
+      final decoding = Stopwatch()..start();
+      // FileImage decoding owns a native read handle on Windows. Complete
+      // pending streams before clearing their cache bookkeeping or the files.
+      while (cache.pendingImageCount > 0 &&
+          decoding.elapsedMilliseconds < 10000) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+      expect(cache.pendingImageCount, 0);
+      cache.clear();
+      cache.clearLiveImages();
+    });
     await tester.pumpWidget(
       MaterialApp(
         home: ProductsAdminPage(
@@ -90,6 +135,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('编辑 / Edit'));
     await tester.pumpAndSettle();
+    if (!pickImage) return;
     await tester.ensureVisible(find.text('选择商品图片 / Pick image'));
     await tester.tap(find.text('选择商品图片 / Pick image'));
     for (var i = 0; i < 100; i++) {
@@ -102,7 +148,25 @@ void main() {
           '${dir.path}/product_images',
         ).list().toList();
         final bytes = await original.readAsBytes();
-        return files.length > 1 || bytes.toString() != originalBytes.toString();
+        final draftPaths = files
+            .whereType<File>()
+            .where((file) => file.path != original.path)
+            .map((file) => file.path)
+            .toSet();
+        final preview = tester
+            .widgetList<Image>(
+              find.descendant(
+                of: find.byType(AlertDialog),
+                matching: find.byType(Image),
+              ),
+            )
+            .any(
+              (widget) =>
+                  widget.image is FileImage &&
+                  draftPaths.contains((widget.image as FileImage).file.path),
+            );
+        return (files.length > 1 && preview) ||
+            bytes.toString() != originalBytes.toString();
       });
       if (finished == true) return;
     }
@@ -120,6 +184,50 @@ void main() {
       imagePath: original.path,
     ),
     failSave: failSave,
+  );
+
+  for (final action in ['保存', '取消']) {
+    testWidgets('a focused product field can close with $action', (
+      tester,
+    ) async {
+      final repo = repository();
+      await openEditor(tester, repo, pickImage: false);
+      final field = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.labelText == '中文名',
+      );
+      await tester.enterText(field, '商品改名');
+      await tester.tap(find.text(action));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(repo.writes, action == '保存' ? 1 : 0);
+      expect(repo.product.nameZh, action == '保存' ? '商品改名' : '商品');
+    });
+  }
+
+  testWidgets(
+    'a late image selection after cancel leaves no draft or original change',
+    (tester) async {
+      final picker = _DelayedPicker();
+      ImagePickerPlatform.instance = picker;
+      final repo = repository();
+      await openEditor(tester, repo, pickImage: false);
+      await tester.ensureVisible(find.text('选择商品图片 / Pick image'));
+      await tester.tap(find.text('选择商品图片 / Pick image'));
+      await tester.pump();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      picker.result.complete(XFile('${dir.path}/replacement.png'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(await tester.runAsync(original.readAsBytes), originalBytes);
+      expect(
+        await tester.runAsync(
+          () => Directory('${dir.path}/product_images').list().length,
+        ),
+        1,
+      );
+      expect(repo.writes, 0);
+    },
   );
 
   testWidgets('canceling a replacement image preserves the original bytes', (

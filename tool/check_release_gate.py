@@ -11,6 +11,9 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
+MAX_RELEASE_PAGES = 1000
+
+
 class GateError(ValueError):
     pass
 
@@ -38,6 +41,16 @@ class GitHubAPI:
         self.api_url = api_url.rstrip("/")
 
     def get(self, resource):
+        return self._get(resource, dict, allow_missing=True)
+
+    def list_release_page(self, page):
+        if not self.token or not self.token.strip():
+            raise GateError("An authenticated token is required to verify draft Releases")
+        if type(page) is not int or page < 1:
+            raise GateError("Invalid Release page; release blocked")
+        return self._get(f"releases?per_page=100&page={page}", list, allow_missing=False)
+
+    def _get(self, resource, expected_type, allow_missing):
         headers = {"Accept": "application/vnd.github+json",
                    "X-GitHub-Api-Version": "2022-11-28",
                    "User-Agent": "cnkh-release-gate"}
@@ -47,9 +60,14 @@ class GitHubAPI:
                           headers=headers, method="GET")
         try:
             with urlopen(request, timeout=30) as response:
-                return json.load(response)
+                data = json.load(response)
+                # A missing object is represented only by HTTP 404. A successful
+                # null/scalar response cannot prove that a version is unpublished.
+                if not isinstance(data, expected_type):
+                    raise ValueError("Invalid GitHub response object")
+                return data
         except HTTPError as error:
-            if error.code == 404:
+            if error.code == 404 and allow_missing:
                 return None
             raise GateError(f"GitHub read failed (HTTP {error.code}); release blocked") from None
         except (URLError, OSError, ValueError):
@@ -71,6 +89,29 @@ def check_release(version, kind, staged_tag, ref, sha, api):
     encoded_tag = quote(tag, safe="")
     if api.get("releases/tags/" + encoded_tag) is not None:
         raise GateError(f"Release {tag} already exists; published versions are immutable")
+
+    # The by-tag endpoint promises published releases only. Authenticated lists
+    # also expose drafts, which must not be reused with stale source or assets.
+    seen_ids = set()
+    for page in range(1, MAX_RELEASE_PAGES + 1):
+        releases = api.list_release_page(page)
+        if not isinstance(releases, list) or len(releases) > 100:
+            raise GateError("Invalid Release list page; release blocked")
+        for release in releases:
+            if (not isinstance(release, dict) or
+                    type(release.get("id")) is not int or release["id"] <= 0 or
+                    not isinstance(release.get("tag_name"), str) or
+                    type(release.get("draft")) is not bool):
+                raise GateError("Invalid Release list item; release blocked")
+            if release["id"] in seen_ids:
+                raise GateError("Release pagination did not advance; release blocked")
+            seen_ids.add(release["id"])
+            if release["tag_name"] == tag:
+                raise GateError(f"Release {tag} already exists, including drafts; release blocked")
+        if len(releases) < 100:
+            break
+    else:
+        raise GateError("Release pagination exceeded the safety limit; release blocked")
 
     reference = api.get("git/ref/tags/" + encoded_tag)
     if reference is None:

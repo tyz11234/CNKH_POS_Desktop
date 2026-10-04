@@ -1,13 +1,13 @@
 <!-- CNKH_AUDIT_CYCLE_2_BEGIN -->
 # Feature Inventory — Audit Cycle 2 当前范围
 
-本周期已完成 **1/10 轮**完整 Audit；已确认 **9 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
+本周期已完成 **2/10 轮**完整 Audit；已确认 **18 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
 
 当前功能分组 **42**（Shared 19 / Mobile 10 / Desktop 13）；**36/42** 有直接自动测试映射，**6/42** 保留目标设备/真实服务边界。本周期 PASS 只引用已完成轮次，未完成轮次不计为 Clean。
 
 详细缺陷、每轮来源 hash / 命令 / 时间戳与域报告：[`AUDIT_CYCLE_2.md`](AUDIT_CYCLE_2.md)。
 
-Mobile lib/screens/services/db/widgets：69/18/29/6/7；Desktop：74/17/36/6/6。Desktop 运行表 **26**（含 Host 的 `lan_sync_changes` / `lan_sync_mobile_sales`），纠正历史清单的 24 表口径；Mobile 26 表。schema v10、LAN v1 保持。
+Mobile lib/screens/services/db/widgets：70/18/30/6/7；Desktop：76/17/37/6/7。Desktop 运行表 **26**（含 Host 的 `lan_sync_changes` / `lan_sync_mobile_sales`），纠正历史清单的 24 表口径；Mobile 26 表。schema v10、LAN v1 保持。
 
 <!-- CNKH_AUDIT_CYCLE_2_END -->
 

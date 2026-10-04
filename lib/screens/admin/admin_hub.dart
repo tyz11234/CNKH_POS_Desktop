@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/completed_dialog.dart';
+
 import '../../models/app_user.dart';
 import '../../models/money.dart';
 import '../../models/product.dart';
@@ -446,7 +448,7 @@ class _StocktakePageState extends State<StocktakePage> {
 
   Future<void> _adjust(Product p) async {
     final ctrl = TextEditingController(text: p.stock.toString());
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('盘点 ${p.nameZh}'),
@@ -467,14 +469,27 @@ class _StocktakePageState extends State<StocktakePage> {
         ],
       ),
     );
-    if (ok != true) return;
-    await widget.repo.adjustStock(
-      productId: p.id,
-      newStock: double.tryParse(ctrl.text.trim()) ?? p.stock,
-      operator: widget.user.username,
-      reason: 'stocktake',
-    );
-    await _load();
+    final newStock = double.tryParse(ctrl.text.trim());
+    ctrl.dispose();
+    if (ok != true || !mounted) return;
+    try {
+      if (newStock == null || !newStock.isFinite) {
+        throw ArgumentError('库存数量无效');
+      }
+      await widget.repo.adjustStock(
+        productId: p.id,
+        newStock: newStock,
+        operator: widget.user.username,
+        reason: 'stocktake',
+      );
+      if (!mounted) return;
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('盘点保存失败：$e')),
+      );
+    }
   }
 
   @override
@@ -852,7 +867,7 @@ class MaintenancePage extends StatelessWidget {
 
   Future<void> _factoryReset(BuildContext context) async {
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(

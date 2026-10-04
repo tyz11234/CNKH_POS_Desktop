@@ -1,0 +1,369 @@
+lib/main.dart:37:class CnkhPosMobileApp extends StatelessWidget {
+lib/main.dart:52:class _Root extends StatefulWidget {
+lib/main.dart:59:class _RootState extends State<_Root> {
+lib/main.dart:85:class HomeShell extends StatefulWidget {
+lib/main.dart:103:class _HomeShellState extends State<HomeShell> {
+lib/main.dart:113:  Timer? _holdPoll;
+lib/main.dart:118:        widget.repo.setSetting('lan_sync_last_purchase_error', error),
+lib/main.dart:161:    _holdPoll = Timer.periodic(const Duration(seconds: 60), (_) {
+lib/main.dart:216:    final cfg = await Navigator.of(context).push<LanSyncConfig>(
+lib/main.dart:217:      MaterialPageRoute(
+lib/main.dart:289:    await Navigator.of(context).push(
+lib/main.dart:290:      MaterialPageRoute(
+lib/main.dart:296:          onCancel: () => Navigator.of(context).pop(),
+lib/main.dart:304:            Navigator.of(context).pop();
+lib/main.dart:388:                onPressed: () => Navigator.pop(ctx, h),
+lib/main.dart:451:            Navigator.of(context).pop(); // close scanner
+lib/main.dart:612:class _Nav {
+lib/screens/login_screen.dart:7:class LoginScreen extends StatefulWidget {
+lib/screens/login_screen.dart:17:class _LoginScreenState extends State<LoginScreen> {
+lib/screens/login_screen.dart:18:  final _userCtrl = TextEditingController(text: 'staff');
+lib/screens/login_screen.dart:19:  final _pinCtrl = TextEditingController();
+lib/models/product.dart:1:class Product {
+lib/models/product.dart:117:class Category {
+lib/models/app_user.dart:1:enum AppRole { admin, staff }
+lib/models/app_user.dart:3:class AppUser {
+lib/screens/cart_screen.dart:16:class CartScreen extends StatefulWidget {
+lib/screens/cart_screen.dart:46:class _CartScreenState extends State<CartScreen> {
+lib/screens/cart_screen.dart:47:  final _search = TextEditingController();
+lib/screens/cart_screen.dart:180:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/cart_screen.dart:184:              onPressed: () => Navigator.pop(ctx, true),
+lib/screens/cart_screen.dart:231:            onPressed: () => Navigator.pop(ctx, 'rm'),
+lib/screens/cart_screen.dart:235:            onPressed: () => Navigator.pop(ctx, 'pct'),
+lib/screens/cart_screen.dart:239:            onPressed: () => Navigator.pop(ctx, 'clear'),
+lib/screens/cart_screen.dart:251:    final ctrl = TextEditingController();
+lib/screens/cart_screen.dart:267:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/cart_screen.dart:271:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/cart_screen.dart:311:    final ctrl = TextEditingController(
+lib/screens/cart_screen.dart:325:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/cart_screen.dart:329:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/cart_screen.dart:357:    await Navigator.of(context).push(
+lib/screens/cart_screen.dart:358:      MaterialPageRoute(
+lib/screens/cart_screen.dart:752:class _ProductShelf extends SliverPersistentHeaderDelegate {
+lib/screens/cart_screen.dart:775:class _ProductChip extends StatelessWidget {
+lib/screens/cart_screen.dart:863:class _CartTile extends StatelessWidget {
+lib/screens/cart_screen.dart:936:class _QtyBtn extends StatelessWidget {
+lib/models/purchase_ocr.dart:1:enum PurchaseWarningLevel { info, warning, error }
+lib/models/purchase_ocr.dart:3:class PurchaseWarning {
+lib/models/purchase_ocr.dart:30:class PurchaseDraftLine {
+lib/models/purchase_ocr.dart:165:class PurchaseDraft {
+lib/models/cart_item.dart:7:class CartItem {
+lib/models/cart_item.dart:32:class CartState {
+lib/screens/admin/admin_hub.dart:24:class AdminHub extends StatelessWidget {
+lib/screens/admin/admin_hub.dart:138:    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)).then((_) {
+lib/screens/admin/admin_hub.dart:144:class _Tile {
+lib/screens/admin/enhanced_purchases_page.dart:17:class EnhancedPurchasesPage extends StatefulWidget {
+lib/screens/admin/enhanced_purchases_page.dart:31:class _EnhancedPurchasesPageState extends State<EnhancedPurchasesPage> {
+lib/screens/admin/enhanced_purchases_page.dart:83:    await Navigator.of(context).push<void>(
+lib/screens/admin/enhanced_purchases_page.dart:84:      MaterialPageRoute(
+lib/screens/admin/enhanced_purchases_page.dart:132:                      onTap: () => Navigator.pop(ctx, d['id'] as String),
+lib/screens/admin/enhanced_purchases_page.dart:143:    final committed = await Navigator.of(context).push<bool>(
+lib/screens/admin/enhanced_purchases_page.dart:144:      MaterialPageRoute(
+lib/screens/admin/enhanced_purchases_page.dart:174:              onTap: () => Navigator.pop(ctx, 'camera'),
+lib/screens/admin/enhanced_purchases_page.dart:180:              onTap: () => Navigator.pop(ctx, 'gallery'),
+lib/screens/admin/enhanced_purchases_page.dart:187:                onTap: () => Navigator.pop(ctx, 'drafts'),
+lib/screens/admin/enhanced_purchases_page.dart:193:              onTap: () => Navigator.pop(ctx, 'manual'),
+lib/screens/admin/enhanced_purchases_page.dart:208:    final result = await Navigator.of(context).push<bool>(
+lib/screens/admin/enhanced_purchases_page.dart:209:      MaterialPageRoute(
+lib/screens/admin/enhanced_purchases_page.dart:245:    final qty = TextEditingController(text: '0');
+lib/screens/admin/enhanced_purchases_page.dart:246:    final cost = TextEditingController(
+lib/screens/admin/enhanced_purchases_page.dart:411:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/enhanced_purchases_page.dart:435:                Navigator.pop(ctx, true);
+lib/screens/admin/enhanced_purchases_page.dart:545:                        await Navigator.of(context).push<void>(
+lib/screens/admin/enhanced_purchases_page.dart:546:                          MaterialPageRoute(
+lib/screens/admin/enhanced_purchases_page.dart:554:                      final changed = await Navigator.of(context).push<bool>(
+lib/screens/admin/enhanced_purchases_page.dart:555:                        MaterialPageRoute(
+lib/services/held_cart_coordinator.dart:4:class HeldCartResult {
+lib/services/held_cart_coordinator.dart:13:class HeldCartCoordinator {
+lib/screens/admin/entities_page.dart:8:class EntitiesPage extends StatefulWidget {
+lib/screens/admin/entities_page.dart:19:class _EntitiesPageState extends State<EntitiesPage> {
+lib/screens/admin/entities_page.dart:95:    final name = TextEditingController(
+lib/screens/admin/entities_page.dart:98:    final phone = TextEditingController(
+lib/screens/admin/entities_page.dart:101:    final extra = TextEditingController(
+lib/screens/admin/entities_page.dart:104:    final notes = TextEditingController(text: supplier?.notes ?? '');
+lib/screens/admin/entities_page.dart:151:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/entities_page.dart:160:                Navigator.pop(ctx, true);
+lib/screens/admin/entities_page.dart:221:                onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/entities_page.dart:225:                onPressed: () => Navigator.pop(ctx, true),
+lib/services/pos_repository.dart:14:class Customer {
+lib/services/pos_repository.dart:33:class Supplier {
+lib/services/pos_repository.dart:55:class SaleRecord {
+lib/services/pos_repository.dart:124:class HeldOrder {
+lib/services/pos_repository.dart:146:class AuditEntry {
+lib/services/pos_repository.dart:189:class PosRepository {
+lib/services/pos_repository.dart:986:  Future<void> setSetting(String key, String value) async {
+lib/screens/admin/supplier_aliases_page.dart:8:class SupplierAliasesPage extends StatefulWidget {
+lib/screens/admin/supplier_aliases_page.dart:17:class _SupplierAliasesPageState extends State<SupplierAliasesPage> {
+lib/screens/admin/supplier_aliases_page.dart:64:    final unit = TextEditingController(
+lib/screens/admin/supplier_aliases_page.dart:69:    final conversion = TextEditingController(
+lib/screens/admin/supplier_aliases_page.dart:129:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/supplier_aliases_page.dart:143:                Navigator.pop(ctx, true);
+lib/screens/admin/supplier_aliases_page.dart:196:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/supplier_aliases_page.dart:200:            onPressed: () => Navigator.pop(ctx, true),
+lib/services/purchase_invoice_image_store.dart:7:class PurchaseInvoiceImages {
+lib/services/purchase_invoice_image_store.dart:17:class PurchaseInvoiceImageStore {
+lib/screens/admin/desktop_purchase_history_page.dart:10:class DesktopPurchaseHistoryPage extends StatelessWidget {
+lib/services/esc_pos_receipt.dart:9:class EscPosReceiptEncoder {
+lib/screens/admin/products_admin.dart:17:class ProductsAdminPage extends StatefulWidget {
+lib/screens/admin/products_admin.dart:25:class _ProductsAdminPageState extends State<ProductsAdminPage> {
+lib/screens/admin/products_admin.dart:27:  final _q = TextEditingController();
+lib/screens/admin/products_admin.dart:112:  Future<void> _pickCategory(TextEditingController catCtrl) async {
+lib/screens/admin/products_admin.dart:129:              onTap: () => Navigator.pop(ctx, ''),
+lib/screens/admin/products_admin.dart:137:                  onTap: () => Navigator.pop(ctx, cats[i].name),
+lib/screens/admin/products_admin.dart:158:    final nameZh = TextEditingController(text: existing?.nameZh ?? '');
+lib/screens/admin/products_admin.dart:159:    final nameEn = TextEditingController(text: existing?.nameEn ?? '');
+lib/screens/admin/products_admin.dart:160:    final sku = TextEditingController(text: existing?.sku ?? '');
+lib/screens/admin/products_admin.dart:161:    final barcode = TextEditingController(text: existing?.barcode ?? '');
+lib/screens/admin/products_admin.dart:162:    final price = TextEditingController(
+lib/screens/admin/products_admin.dart:167:    final stock = TextEditingController(
+lib/screens/admin/products_admin.dart:170:    final unit = TextEditingController(text: existing?.unit ?? 'pcs');
+lib/screens/admin/products_admin.dart:171:    final cat = TextEditingController(text: existing?.category ?? '');
+lib/screens/admin/products_admin.dart:172:    final reorder = TextEditingController(
+lib/screens/admin/products_admin.dart:327:                onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/products_admin.dart:331:                onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/products_admin.dart:421:                onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/products_admin.dart:425:                onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/products_admin.dart:443:              onTap: () => Navigator.pop(ctx, 'edit'),
+lib/screens/admin/products_admin.dart:449:              onTap: () => Navigator.pop(ctx, 'queue'),
+lib/screens/admin/products_admin.dart:455:              onTap: () => Navigator.pop(ctx, 'export'),
+lib/screens/admin/products_admin.dart:463:              onTap: () => Navigator.pop(ctx, 'del'),
+lib/screens/admin/products_admin.dart:803:class CategoriesAdminPage extends StatefulWidget {
+lib/screens/admin/products_admin.dart:810:class _CategoriesAdminPageState extends State<CategoriesAdminPage> {
+lib/screens/admin/products_admin.dart:825:    final ctrl = TextEditingController(text: existing?.name ?? '');
+lib/screens/admin/products_admin.dart:837:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/products_admin.dart:841:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/products_admin.dart:873:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/products_admin.dart:877:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/products_admin.dart:941:class BarcodeQueuePage extends StatefulWidget {
+lib/screens/admin/products_admin.dart:948:class _BarcodeQueuePageState extends State<BarcodeQueuePage> {
+lib/services/einvoice/einvoice_status_store.dart:4:class EInvoiceStatusStore {
+lib/screens/admin/admin_hub_legacy.dart:13:class AdminHub extends StatelessWidget {
+lib/screens/admin/admin_hub_legacy.dart:85:    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)).then((_) {
+lib/screens/admin/admin_hub_legacy.dart:91:class _Tile {
+lib/screens/admin/admin_hub_legacy.dart:98:class _ScaffoldPage extends StatelessWidget {
+lib/screens/admin/admin_hub_legacy.dart:106:    final canPop = Navigator.of(context).canPop();
+lib/screens/admin/admin_hub_legacy.dart:114:                onPressed: () => Navigator.of(context).pop(),
+lib/screens/admin/admin_hub_legacy.dart:124:class DashboardPage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:131:class _DashboardPageState extends State<DashboardPage> {
+lib/screens/admin/admin_hub_legacy.dart:176:class EntitiesPage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:184:class _EntitiesPageState extends State<EntitiesPage> {
+lib/screens/admin/admin_hub_legacy.dart:203:    final name = TextEditingController();
+lib/screens/admin/admin_hub_legacy.dart:204:    final phone = TextEditingController();
+lib/screens/admin/admin_hub_legacy.dart:205:    final extra = TextEditingController();
+lib/screens/admin/admin_hub_legacy.dart:224:          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+lib/screens/admin/admin_hub_legacy.dart:225:          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+lib/screens/admin/admin_hub_legacy.dart:284:class PurchasesPage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:292:class _PurchasesPageState extends State<PurchasesPage> {
+lib/screens/admin/admin_hub_legacy.dart:312:    final qty = TextEditingController(text: '10');
+lib/screens/admin/admin_hub_legacy.dart:313:    final cost = TextEditingController(
+lib/screens/admin/admin_hub_legacy.dart:349:            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+lib/screens/admin/admin_hub_legacy.dart:350:            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+lib/screens/admin/admin_hub_legacy.dart:397:class StocktakePage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:405:class _StocktakePageState extends State<StocktakePage> {
+lib/screens/admin/admin_hub_legacy.dart:408:  final _q = TextEditingController();
+lib/screens/admin/admin_hub_legacy.dart:462:    final ctrl = TextEditingController(text: p.stock.toString());
+lib/screens/admin/admin_hub_legacy.dart:473:          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+lib/screens/admin/admin_hub_legacy.dart:474:          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+lib/screens/admin/admin_hub_legacy.dart:545:class UsersPage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:552:class _UsersPageState extends State<UsersPage> {
+lib/screens/admin/admin_hub_legacy.dart:554:    final pin=TextEditingController();final confirmation=TextEditingController();
+lib/screens/admin/admin_hub_legacy.dart:560:      ]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('取消')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('保存'))]));
+lib/screens/admin/admin_hub_legacy.dart:598:class ReportsPage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:605:class _ReportsPageState extends State<ReportsPage> {
+lib/screens/admin/admin_hub_legacy.dart:639:class DailyClosePage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:648:class _DailyClosePageState extends State<DailyClosePage> {
+lib/screens/admin/admin_hub_legacy.dart:650:  final _open = TextEditingController(text: '0.00');
+lib/screens/admin/admin_hub_legacy.dart:651:  final _count = TextEditingController(text: '0.00');
+lib/screens/admin/admin_hub_legacy.dart:652:  final _notes = TextEditingController();
+lib/screens/admin/admin_hub_legacy.dart:757:class MaintenancePage extends StatelessWidget {
+lib/screens/admin/admin_hub_legacy.dart:789:                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+lib/screens/admin/admin_hub_legacy.dart:790:                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('清除')),
+lib/screens/admin/admin_hub_legacy.dart:817:class AuditLogPage extends StatefulWidget {
+lib/screens/admin/admin_hub_legacy.dart:824:class _AuditLogPageState extends State<AuditLogPage> {
+lib/services/receipt_template.dart:41:class ReceiptTemplate {
+lib/services/receipt_template.dart:172:    Future<void> put(String key, String value) => repo.setSetting(key, value);
+lib/services/product_match_service.dart:3:class ProductMatchCandidate {
+lib/services/product_match_service.dart:15:class ProductMatchService {
+lib/screens/admin/purchase_ocr_screen.dart:20:class PurchaseOcrScreen extends StatefulWidget {
+lib/screens/admin/purchase_ocr_screen.dart:38:class _PurchaseOcrScreenState extends State<PurchaseOcrScreen> {
+lib/screens/admin/purchase_ocr_screen.dart:81:          if (mounted) Navigator.pop(context);
+lib/screens/admin/purchase_ocr_screen.dart:142:    final qty = TextEditingController(text: line.quantity.toString());
+lib/screens/admin/purchase_ocr_screen.dart:143:    final unit = TextEditingController(text: line.unit);
+lib/screens/admin/purchase_ocr_screen.dart:144:    final cost = TextEditingController(
+lib/screens/admin/purchase_ocr_screen.dart:147:    final subtotal = TextEditingController(
+lib/screens/admin/purchase_ocr_screen.dart:150:    final conversion = TextEditingController(
+lib/screens/admin/purchase_ocr_screen.dart:266:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:303:                Navigator.pop(ctx, true);
+lib/screens/admin/purchase_ocr_screen.dart:338:    final invoice = TextEditingController(
+lib/screens/admin/purchase_ocr_screen.dart:343:    final no = TextEditingController(text: draft.invoiceNo);
+lib/screens/admin/purchase_ocr_screen.dart:344:    final date = TextEditingController(text: draft.invoiceDate);
+lib/screens/admin/purchase_ocr_screen.dart:357:    int? parseFee(TextEditingController controller) {
+lib/screens/admin/purchase_ocr_screen.dart:433:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:474:                Navigator.pop(ctx, true);
+lib/screens/admin/purchase_ocr_screen.dart:498:  TextEditingController _moneyCtrl(int cents) =>
+lib/screens/admin/purchase_ocr_screen.dart:499:      TextEditingController(text: (cents / 100).toStringAsFixed(2));
+lib/screens/admin/purchase_ocr_screen.dart:502:    TextEditingController c,
+lib/screens/admin/purchase_ocr_screen.dart:546:    final reason = TextEditingController();
+lib/screens/admin/purchase_ocr_screen.dart:578:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:587:                Navigator.pop(ctx, true);
+lib/screens/admin/purchase_ocr_screen.dart:607:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:611:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/purchase_ocr_screen.dart:657:                onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:661:                onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/purchase_ocr_screen.dart:694:      Navigator.pop(context, true);
+lib/screens/admin/purchase_ocr_screen.dart:715:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:719:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/purchase_ocr_screen.dart:733:      Navigator.pop(context, false);
+lib/screens/admin/purchase_ocr_screen.dart:755:            onPressed: () => Navigator.pop(ctx),
+lib/screens/admin/purchase_ocr_screen.dart:797:                  onPressed: () => Navigator.pop(context),
+lib/screens/admin/purchase_ocr_screen.dart:852:                          Navigator.pop(context, false);
+lib/screens/admin/purchase_ocr_screen.dart:1038:class PurchaseDetailScreen extends StatefulWidget {
+lib/screens/admin/purchase_ocr_screen.dart:1054:class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
+lib/screens/admin/purchase_ocr_screen.dart:1079:    final notes = TextEditingController();
+lib/screens/admin/purchase_ocr_screen.dart:1114:              onPressed: () => Navigator.pop(ctx, false),
+lib/screens/admin/purchase_ocr_screen.dart:1118:              onPressed: () => Navigator.pop(ctx, true),
+lib/screens/admin/purchase_ocr_screen.dart:1171:            onPressed: () => Navigator.pop(ctx),
+lib/services/purchase_ocr_repository.dart:16:class PurchaseOcrRepository {
+lib/services/auth_service.dart:25:class AuthService {
+lib/screens/checkout_screen.dart:14:enum PayMethod { cash, card, duitnow, credit }
+lib/screens/checkout_screen.dart:16:class CheckoutScreen extends StatefulWidget {
+lib/screens/checkout_screen.dart:42:class _CheckoutScreenState extends State<CheckoutScreen> {
+lib/screens/checkout_screen.dart:46:  final _cashCtrl = TextEditingController();
+lib/screens/checkout_screen.dart:47:  final _depositCtrl = TextEditingController(text: '0.00');
+lib/screens/checkout_screen.dart:48:  final _phoneCtrl = TextEditingController();
+lib/screens/checkout_screen.dart:176:                onPressed: () => Navigator.pop(ctx, false),
+lib/screens/checkout_screen.dart:180:                onPressed: () => Navigator.pop(ctx, true),
+lib/screens/checkout_screen.dart:469:                                    Navigator.of(context).push(
+lib/screens/checkout_screen.dart:470:                                      MaterialPageRoute(
+lib/services/purchase_reverse_plan.dart:8:class PurchaseReversePlan {
+lib/screens/sale_receipt_detail_screen.dart:13:class SaleReceiptDetailScreen extends StatefulWidget {
+lib/screens/sale_receipt_detail_screen.dart:28:    return Navigator.of(context).push<void>(
+lib/screens/sale_receipt_detail_screen.dart:29:      MaterialPageRoute(
+lib/screens/sale_receipt_detail_screen.dart:40:class _SaleReceiptDetailScreenState extends State<SaleReceiptDetailScreen> {
+lib/screens/sale_receipt_detail_screen.dart:108:          onPressed: () => Navigator.of(context).pop(),
+lib/screens/sale_receipt_detail_screen.dart:170:          onClose: () => Navigator.of(context).pop(),
+lib/screens/sale_receipt_detail_screen.dart:177:class _MetaHeader extends StatelessWidget {
+lib/screens/sale_receipt_detail_screen.dart:277:class _ActionBar extends StatelessWidget {
+lib/services/purchase_invoice_parser.dart:3:class PurchaseInvoiceParser {
+lib/screens/barcode_scan_screen.dart:18:class BarcodeScanScreen extends StatefulWidget {
+lib/screens/barcode_scan_screen.dart:36:class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
+lib/screens/barcode_scan_screen.dart:88:    if (mounted) Navigator.of(context).pop();
+lib/screens/barcode_scan_screen.dart:147:            Navigator.of(context).pop(cfg);
+lib/screens/barcode_scan_screen.dart:333:class _FallbackBody extends StatelessWidget {
+lib/screens/barcode_scan_screen.dart:381:class _ManualProductSearchSheet extends StatefulWidget {
+lib/screens/barcode_scan_screen.dart:390:class _ManualProductSearchSheetState extends State<_ManualProductSearchSheet> {
+lib/screens/barcode_scan_screen.dart:391:  final _q = TextEditingController();
+lib/screens/barcode_scan_screen.dart:452:                      onTap: () => Navigator.pop(context, p),
+lib/services/bluetooth_printer.dart:12:class BluetoothPrinterService {
+lib/services/bluetooth_printer.dart:35:      repo.setSetting('bt_printer_address', address.trim());
+lib/services/bluetooth_printer.dart:117:class _NativeBluetoothTransport implements BluetoothPrinterTransport {
+lib/services/owned_receipt_cache.dart:9:class OwnedReceiptCache {
+lib/screens/settings_screen.dart:20:class SettingsScreen extends StatefulWidget {
+lib/screens/settings_screen.dart:36:class _SettingsScreenState extends State<SettingsScreen> {
+lib/screens/settings_screen.dart:39:  final _syncHost = TextEditingController();
+lib/screens/settings_screen.dart:40:  final _syncToken = TextEditingController();
+lib/screens/settings_screen.dart:45:  final _holdTimeout = TextEditingController(text: '30');
+lib/screens/settings_screen.dart:46:  final _lowStock = TextEditingController(text: '10');
+lib/screens/settings_screen.dart:225:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/settings_screen.dart:229:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/settings_screen.dart:257:      await widget.repo.setSetting(kEReceiptCacheDirKey, picked.trim());
+lib/screens/settings_screen.dart:275:    await widget.repo.setSetting(kEReceiptCacheDirKey, '');
+lib/screens/settings_screen.dart:285:    final confirmCtrl = TextEditingController();
+lib/screens/settings_screen.dart:303:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/settings_screen.dart:308:            onPressed: () => Navigator.pop(ctx, true),
+lib/screens/settings_screen.dart:342:            onPressed: () => Navigator.pop(ctx, false),
+lib/screens/settings_screen.dart:349:                Navigator.pop(ctx, true);
+lib/screens/settings_screen.dart:407:            onTap: () => Navigator.of(context).push(
+lib/screens/settings_screen.dart:408:              MaterialPageRoute(
+lib/screens/settings_screen.dart:500:                              await widget.repo.setSetting(
+lib/screens/settings_screen.dart:513:                              await widget.repo.setSetting(
+lib/screens/settings_screen.dart:532:                    await widget.repo.setSetting(
+lib/screens/settings_screen.dart:558:                          await widget.repo.setSetting('scan_feedback', m.$1);
+lib/screens/settings_screen.dart:574:                    await widget.repo.setSetting(
+lib/screens/settings_screen.dart:590:                          await widget.repo.setSetting(
+lib/screens/settings_screen.dart:605:                          await widget.repo.setSetting(
+lib/screens/settings_screen.dart:614:                    Navigator.of(context).push(
+lib/screens/settings_screen.dart:615:                      MaterialPageRoute(builder: (_) => const TrainingPage()),
+lib/screens/settings_screen.dart:820:                                  onPressed: () => Navigator.pop(ctx, false),
+lib/screens/settings_screen.dart:824:                                  onPressed: () => Navigator.pop(ctx, true),
+lib/services/purchase_history_sync.dart:11:class PurchaseHistoryPullResult {
+lib/services/purchase_history_sync.dart:29:class PurchaseHistorySync {
+lib/services/purchase_history_sync.dart:339:class PurchaseHistoryCoordinator {
+lib/screens/einvoice_status_screen.dart:5:class EInvoiceStatusScreen extends StatefulWidget {
+lib/screens/einvoice_status_screen.dart:10:class _EInvoiceStatusScreenState extends State<EInvoiceStatusScreen> {
+lib/services/barcode_labels.dart:18:class BarcodeLabelService {
+lib/screens/sales_list_screen.dart:10:class SalesListScreen extends StatefulWidget {
+lib/screens/sales_list_screen.dart:30:class _SalesListScreenState extends State<SalesListScreen> {
+lib/screens/sales_list_screen.dart:38:  final _q = TextEditingController();
+lib/screens/sales_list_screen.dart:126:    final ctrl = TextEditingController();
+lib/screens/sales_list_screen.dart:136:          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+lib/screens/sales_list_screen.dart:137:          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('作废')),
+lib/screens/sales_list_screen.dart:368:        leading: Navigator.of(context).canPop()
+lib/screens/sales_list_screen.dart:372:                onPressed: () => Navigator.of(context).pop(),
+lib/screens/training_page.dart:8:class TrainingPage extends StatelessWidget {
+lib/screens/training_page.dart:52:class TrainingScreenshot extends StatelessWidget {
+lib/screens/training_page.dart:68:class _Arrow extends CustomPainter {
+lib/screens/qr_capture_screen.dart:8:class QrCaptureScreen extends StatefulWidget {
+lib/screens/qr_capture_screen.dart:22:class _QrCaptureScreenState extends State<QrCaptureScreen> {
+lib/screens/qr_capture_screen.dart:66:    Navigator.of(context).pop(raw);
+lib/services/lan_sync.dart:21:enum SyncLinkState { offline, connected, pending }
+lib/services/lan_sync.dart:23:class LanSyncConfig {
+lib/services/lan_sync.dart:60:class PairingExpiredException implements Exception {
+lib/services/lan_sync.dart:113:class LanSyncClient {
+lib/services/lan_sync.dart:145:      await repo.setSetting('stock_policy', '${h['stock_policy']}');
+lib/services/lan_sync.dart:149:    await repo.setSetting(
+lib/services/lan_sync.dart:173:        await repo.setSetting(key, '');
+lib/services/lan_sync.dart:193:        await repo.setSetting('einvoice_status_sync_error', '');
+lib/services/lan_sync.dart:195:        await repo.setSetting(
+lib/services/lan_sync.dart:203:    await repo.setSetting('lan_sync_last_error', deferredError ?? '');
+lib/services/lan_sync.dart:233:    await repo.setSetting(
+lib/services/lan_sync.dart:419:        await repo.setSetting('lan_sync_last_error', '$e');
+lib/services/lan_sync.dart:428:      await repo.setSetting('lan_sync_last_error', deferredError);
+lib/services/lan_sync.dart:493:    await repo.setSetting('lan_sync_host', cfg.normalizedBase);
+lib/services/lan_sync.dart:494:    await repo.setSetting('lan_sync_token', cfg.token);
+lib/services/lan_sync.dart:495:    await repo.setSetting('lan_sync_name', cfg.name);
+lib/services/lan_sync.dart:763:      await repo.setSetting('lan_sync_last_error', lastError!);
+lib/services/lan_sync.dart:1479:        await repo.setSetting(
+lib/services/lan_sync.dart:1536:      await repo.setSetting('lan_sync_last_push', now);
+lib/services/lan_sync.dart:1537:      await repo.setSetting('lan_sync_last_error', '');
+lib/services/lan_sync.dart:1542:      await repo.setSetting('lan_sync_last_error', lastError!);
+lib/services/lan_sync.dart:1685:      await repo.setSetting('lan_sync_sales_cursor', nextCursor);
+lib/services/lan_sync.dart:1686:      await repo.setSetting('lan_sync_last_error', '');
+lib/services/lan_sync.dart:1690:      await repo.setSetting('lan_sync_last_error', lastError!);
+lib/services/lan_sync.dart:1715:    await repo.setSetting(
+lib/services/lan_sync.dart:1725:class LanLiveSync {
+lib/services/lan_sync.dart:1729:  StreamSubscription? _wsSub;
+lib/services/lan_sync.dart:1730:  Timer? _poll;
+lib/services/lan_sync.dart:1755:    _poll = Timer.periodic(
+lib/services/lan_sync.dart:1816:      await client.repo.setSetting('lan_sync_last_error', '$e');
+lib/services/qr_storage.dart:10:class QrStorage {
+lib/services/ocr_service.dart:3:class LocalOcrService {
+lib/services/sync_store.dart:233:class AsyncMutex {
+lib/widgets/cash_change_dialog.dart:50:                onPressed: () => Navigator.pop(ctx),
+lib/services/product_image_sync_queue.dart:7:class ProductImageSyncQueue {
+lib/widgets/money_text.dart:6:class MoneyText extends StatelessWidget {
+lib/services/product_images.dart:9:class ProductImageStore {
+lib/services/purchase_validation_service.dart:3:class PurchaseHistorySample {
+lib/services/purchase_validation_service.dart:13:class PurchaseValidationService {
+lib/widgets/receipt_template_editor.dart:11:class ReceiptTemplateEditor extends StatefulWidget {
+lib/widgets/receipt_template_editor.dart:25:class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
+lib/widgets/receipt_template_editor.dart:26:  final _store = TextEditingController();
+lib/widgets/receipt_template_editor.dart:27:  final _address = TextEditingController();
+lib/widgets/receipt_template_editor.dart:28:  final _phone = TextEditingController();
+lib/widgets/receipt_template_editor.dart:29:  final _header = TextEditingController();
+lib/widgets/receipt_template_editor.dart:30:  final _footer = TextEditingController();
+lib/widgets/receipt_template_editor.dart:31:  final _notes = TextEditingController();
+lib/widgets/receipt_template_editor.dart:32:  final _width = TextEditingController(text: '$kDefaultReceiptCharWidth');
+lib/widgets/receipt_template_editor.dart:155:            onPressed: () => Navigator.pop(ctx, false),
+lib/widgets/receipt_template_editor.dart:159:            onPressed: () => Navigator.pop(ctx, true),
+lib/widgets/e_receipt_actions.dart:19:    final nameCtrl = TextEditingController(text: name);
+lib/widgets/e_receipt_actions.dart:20:    final phoneCtrl = TextEditingController();
+lib/widgets/e_receipt_actions.dart:56:              onPressed: () => Navigator.pop(ctx, false),
+lib/widgets/e_receipt_actions.dart:60:              onPressed: () => Navigator.pop(ctx, true),
+lib/widgets/e_receipt_actions.dart:189:              onPressed: () => Navigator.pop(ctx),
+lib/widgets/paged_list_footer.dart:4:class PagedListFooter extends StatelessWidget {
+lib/widgets/paged_list_footer.dart:33:class ListLoadMessage extends StatelessWidget {
+lib/widgets/duitnow_qr_panel.dart:8:class DuitNowQrPanel extends StatelessWidget {
+lib/widgets/duitnow_qr_panel.dart:107:class _Placeholder extends StatelessWidget {
+lib/widgets/duitnow_qr_panel.dart:135:class DuitNowQrFullscreen extends StatelessWidget {
+lib/widgets/receipt_preview_pane.dart:6:class ReceiptPreviewPane extends StatelessWidget {

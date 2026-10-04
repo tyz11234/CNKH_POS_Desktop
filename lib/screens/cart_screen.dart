@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
+import '../widgets/completed_dialog.dart';
+
 import '../models/app_user.dart';
 import '../models/cart_item.dart';
 import '../models/money.dart';
@@ -244,7 +246,7 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(mode == 'rm' ? '折扣 RM' : '折扣 %'),
@@ -308,7 +310,7 @@ class _CartScreenState extends State<CartScreen> {
     final ctrl = TextEditingController(
       text: centsToRm(widget.cart.orderDiscountCents).toStringAsFixed(2),
     );
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('整单折扣 RM / Order discount'),
@@ -360,8 +362,9 @@ class _CartScreenState extends State<CartScreen> {
         builder: (_) => BarcodeScanScreen(
           repo: widget.repo,
           onProduct: (p) async {
-            await _add(p);
+            final accepted = await _add(p);
             if (mounted) setState(() {});
+            return accepted;
           },
           onPairing: widget.onPairing,
         ),

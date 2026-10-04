@@ -1,3 +1,4 @@
+import 'stock_numeric_validation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -1466,6 +1467,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           // can itself begin with pc-; stripping it again loses the deduction.
           final qty = _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
           if (productId.isEmpty || qty <= 0) continue;
+          await validateStockAddition(txn, productId, -qty);
           final changed = await txn.rawUpdate(
             'UPDATE products SET stock=stock-? WHERE id=?',
             <Object?>[qty, productId],

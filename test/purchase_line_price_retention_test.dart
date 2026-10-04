@@ -52,6 +52,39 @@ class _PurchaseRepo extends PosRepository {
 }
 
 void main() {
+  for (final action in ['加入', '取消']) {
+    testWidgets('focused manual purchase quantity closes safely with $action', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1440, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PurchaseCreateScreen(
+            repo: _PurchaseRepo(),
+            user: const AppUser(username: 'admin', role: AppRole.admin),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('手动加行'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '数量',
+        ),
+        '2',
+      );
+      await tester.tap(find.text(action));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(action == '加入' ? '明细 1 行' : '明细 0 行'), findsOneWidget);
+    });
+  }
+
   testWidgets(
     'successive invoice imports preserve different costs for one product',
     (tester) async {
@@ -72,7 +105,9 @@ void main() {
       await tester.pumpAndSettle();
       for (var attempt = 0; attempt < 100; attempt++) {
         if (find.byType(DropdownButton<String>).evaluate().isNotEmpty) break;
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
         await tester.pump();
       }
       expect(find.byType(DropdownButton<String>), findsOneWidget);
@@ -97,7 +132,9 @@ void main() {
       await importLine(200);
       final total = tester.widget<MoneyText>(find.byType(MoneyText).last);
       expect(total.amountCents, 300);
-      ScaffoldMessenger.of(tester.element(find.byType(PurchaseCreateScreen))).clearSnackBars();
+      ScaffoldMessenger.of(
+        tester.element(find.byType(PurchaseCreateScreen)),
+      ).clearSnackBars();
       await tester.pumpAndSettle();
       await tester.tap(find.text('核对并提交'));
       await tester.pumpAndSettle();

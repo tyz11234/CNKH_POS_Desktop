@@ -70,6 +70,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('作废'));
     await tester.pumpAndSettle();
+    await tester.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), '核对原单');
     await tester.tap(find.text('作废').last);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

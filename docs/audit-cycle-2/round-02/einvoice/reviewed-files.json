@@ -1,0 +1,548 @@
+[
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/services/einvoice/einvoice_service.dart",
+    "sha256": "7e83d181cf39c6e6eeefb1304ff92099eeae17992ac4f0c2906453e43a592466",
+    "bytes": 25677
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/services/einvoice/myinvois_client.dart",
+    "sha256": "daaca03ff5714913bbee4dc6a92ef47d0eeca168365f8164c5785ab06dab83dd",
+    "bytes": 5647
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/services/einvoice/einvoice_settings.dart",
+    "sha256": "b5051691ea1f138e0e24aa0cdecce74c73e3696ad9ff5a7b134cf94aea34fdbf",
+    "bytes": 6722
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/services/einvoice/einvoice_signer.dart",
+    "sha256": "154b9ddb727c649672ebb1d1f2233adc83ba2e187ebf6537d791b6a3fcb3c341",
+    "bytes": 22630
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/services/einvoice/invoice_mapper.dart",
+    "sha256": "0e9ef787d9ce207c2c4ef2cce60659fda9f61671302d4e0c50e4726cc85bb8ce",
+    "bytes": 8279
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/services/einvoice/sale_submission_guard.dart",
+    "sha256": "8af79ffe811b51e9e22f55a9013beffdfe08316c931311262ffac631269bc37b",
+    "bytes": 1457
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/screens/einvoice_setup_screen.dart",
+    "sha256": "b7373458373464669b9fa875064cb204453cfc5b26f4088f73ccc0a34df09830",
+    "bytes": 16702
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/db/einvoice_schema.dart",
+    "sha256": "c974152e1f0d6b99b383d54e18df94392c0d87e580851e32adac6a480b386b88",
+    "bytes": 3746
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/db/einvoice_migration.dart",
+    "sha256": "37000aa3a2ff4de7fb04eee9c8bc60541a0c2b5db37b157e59f53a79460cf733",
+    "bytes": 128
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "pubspec.yaml",
+    "sha256": "addbc6a894aff070f5a65582d579777f0cfc477b39b6cfc2f106cd666c93e334",
+    "bytes": 1254
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "pubspec.lock",
+    "sha256": "92c333b55f3b8a69333d8a912ec355d2715fdfd7de615d0b38c091f6254b5c31",
+    "bytes": 28635
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/Runner.rc",
+    "sha256": "7d79a60b06272d23eb6ab72ccc53c9b1dc91c2314c5ce517a4cfb0cde60c39e6",
+    "bytes": 3081
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/flutter_window.cpp",
+    "sha256": "9c41abfd04c726a9c7f158f3fe9bfed983c870a08c74b0bdb164fb3ddb871ff8",
+    "bytes": 2226
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/flutter/generated_plugins.cmake",
+    "sha256": "ae17679ba9de7d53f41df04e4cdbc6db4e276f4f2a2cb8d5a65c64db078d7fb6",
+    "bytes": 862
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/CMakeLists.txt",
+    "sha256": "d11516443b0dbf875a31d70122a9d4b7e9d7c5badbf876bc942b70973f3b89d6",
+    "bytes": 4168
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": ".github/workflows/windows-release.yml",
+    "sha256": "31c34a257d218c07e73dce63a368e83007834e82d29c5465ce0cc2be96a43351",
+    "bytes": 3952
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": ".github/workflows/training-validation.yml",
+    "sha256": "88f325ed4a2e7c70c2d538dc3dd005acfc1f12098ce57ac541fdf86dcbf3066a",
+    "bytes": 892
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": ".github/workflows/pair-regression.yml",
+    "sha256": "a7ada893480084408e90ffa4700d4c2e5b62cb8e24557ba3b85de9b0ae57ce40",
+    "bytes": 2205
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/screens/training_page.dart",
+    "sha256": "a7a8e35788169382f1ffb03826fcccbc682447833532e00ef75c9548b6dc122e",
+    "bytes": 6295
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "tool/training_capture_test.dart",
+    "sha256": "3f4adefbc6a01b485b248604ceffdc3abc3ed77b335beea23e79dae7fdf1367e",
+    "bytes": 8226
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "tool/training_view_test.dart",
+    "sha256": "e93e005f3ec9ef5ec42018b226ef867387bc7bb7707f4cf625b71286a2b11e26",
+    "bytes": 1828
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "tool/verify_training_bundle.py",
+    "sha256": "9889d6799a7ca86532a91cce1fadd3ff8d820370da6a3d69a5f951fd9533b192",
+    "bytes": 2390
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "test/einvoice_test.dart",
+    "sha256": "f611393ccc9e450ffebc57cffde1d29cb2ec586b751742ad9ca10e55c44a29ec",
+    "bytes": 41856
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "test/app_version_test.dart",
+    "sha256": "58e1be6e594011f6e665060458f54d05382d6710360a46e3c690273252d6bf27",
+    "bytes": 1521
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "lib/services/einvoice/einvoice_status_store.dart",
+    "sha256": "5010cb07315ba989a0c4cd5be55967f33d736753a18be1abf468d00fd0ea8a5e",
+    "bytes": 1806
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "lib/screens/einvoice_status_screen.dart",
+    "sha256": "33adb00808db6a8f4d5880c051a61ec7fdafb48ee4ce429fd0fb7aaa47a1318d",
+    "bytes": 2335
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "lib/db/einvoice_status_schema.dart",
+    "sha256": "dd0887ff1505aa610349e1b2324c4f6d13591dfb70cd6c05fcec6f1d4fa9f16f",
+    "bytes": 443
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "pubspec.yaml",
+    "sha256": "509c6693bd7eceb062e221271d70f7fbda81889daf8adedcd35823ca4f38fa6c",
+    "bytes": 1180
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "pubspec.lock",
+    "sha256": "a7838306b6aa242639913fbaf9037ffda3e5003b3a11e2eb1a721d4ae2023dea",
+    "bytes": 26323
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/build.gradle.kts",
+    "sha256": "e45ee2eaab799e6997539701b98767f4319f62e2170f49ee3922a18ad96bb484",
+    "bytes": 2674
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/AndroidManifest.xml",
+    "sha256": "da783cf6703a8c73f00f8f28d017fdb2fe5e27430984de3595cac7167b428211",
+    "bytes": 3440
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/kotlin/com/cnkh/cnkh_pos_mobile/MainActivity.kt",
+    "sha256": "2b5af4d57dc4ece3bcc8a8223210ee2c0d4c3b402542219cf4a05621f81e007f",
+    "bytes": 3265
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": ".github/workflows/mobile-ci.yml",
+    "sha256": "e3c395580d1ae5443fc24c2356cbb1c7a123f5acde6c8778195bbb3aa4adf76e",
+    "bytes": 10361
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": ".github/workflows/pair-regression.yml",
+    "sha256": "8b8167dc4b0b96901f06aec7f087e44cc71fed95c49359c1f9e88af0d349ba51",
+    "bytes": 2390
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": ".github/workflows/layout-validation.yml",
+    "sha256": "d937b7e244f8b192d90319c1bfa27c8caebda8a830cdafda2bd31aa21f42439c",
+    "bytes": 848
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "lib/screens/training_page.dart",
+    "sha256": "125537f0b4fa67efa85b43f449bca05e231248a21a4f039ad1d8b553a1e9e63e",
+    "bytes": 6887
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "tool/training_capture_test.dart",
+    "sha256": "072ba0f166a8f1e2139c40ca426731b0e1808f5d7ad13c5ff79f42749287c67f",
+    "bytes": 8370
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "tool/training_view_test.dart",
+    "sha256": "4383bd2ba4ee8096bbf9490f4f3b8ec0309d162254d336236b927cf7900f86ad",
+    "bytes": 1827
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "tool/verify_training_bundle.py",
+    "sha256": "b99d329ebba8c7f6fb8a297bf792221f4364dd4c4477df5ab670f9c573b29424",
+    "bytes": 2464
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "test/einvoice_status_test.dart",
+    "sha256": "6892e2f6d210be199b5442fbf7c84e67d27a8eba0f6c6d2915d5a2bc29a32c0b",
+    "bytes": 2414
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "test/app_version_test.dart",
+    "sha256": "1494c7be92458fa6993b8189462a75db22268ea3043df79deda8b52dc504a408",
+    "bytes": 1519
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "tool/check_release_gate.py",
+    "sha256": "4b76e01a3858e5bbc6242cc40d06ebafec33c24c1d92fb3ced8bae73373fa1f4",
+    "bytes": 7447
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "tool/test_release_gate.py",
+    "sha256": "32c644c3ff5e755a1f6a4702f02abe3707bb4e8fec7597a980eabd153abc7349",
+    "bytes": 19310
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "tool/check_release_gate.py",
+    "sha256": "4b76e01a3858e5bbc6242cc40d06ebafec33c24c1d92fb3ced8bae73373fa1f4",
+    "bytes": 7447
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "tool/test_release_gate.py",
+    "sha256": "32c644c3ff5e755a1f6a4702f02abe3707bb4e8fec7597a980eabd153abc7349",
+    "bytes": 19310
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/settings.gradle.kts",
+    "sha256": "f822f8653a25b632ea3334473d8e9964e7d7da73e3ec33448f17e8600834b063",
+    "bytes": 770
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/local.properties",
+    "sha256": "731c7677033119b81edfe71606c5596c27e92f07919a835a565404a5d315b894",
+    "bytes": 48
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/gradle.properties",
+    "sha256": "20c411ebbe5162992d16d170656ee19a9ffe0571e6c4d4c5a5314bb06da0a672",
+    "bytes": 166
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/build.gradle.kts",
+    "sha256": "6a26dba2cb8dfba1e74f540b0d17a89d96c1301d3c3bfda14348bed257fddcba",
+    "bytes": 537
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/win32_window.h",
+    "sha256": "7dd03746b19dcf3542829b2f6e8ed40a2714ce5f2cb3b0e23f0118a2fcf62d62",
+    "bytes": 3522
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/whatsapp_share.h",
+    "sha256": "34bc9f583a8db7ffc4211e2a911dd51876628266dde2b61a5f87bec82b95b8cc",
+    "bytes": 532
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/main.cpp",
+    "sha256": "17f88ee402ecf21caf4afe104fa4925bdcc58e55dd8320e9ccd3a0267656ed97",
+    "bytes": 1269
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/flutter_window.h",
+    "sha256": "38e0fcd3a0b83895852ec295cb70d90179c0dcd40d58f065eb5232a4ecd84898",
+    "bytes": 928
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/CMakeLists.txt",
+    "sha256": "573f75a84a60a98cdc0387264538d92bccf936773e5ac0dcd29beb187cf16b6d",
+    "bytes": 1879
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/utils.cpp",
+    "sha256": "dc2ee94d43116f959a4abd42557f71d07acc631abbffe03b11489dbeed35bedb",
+    "bytes": 1797
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/whatsapp_share.cpp",
+    "sha256": "2440234aaa8ea039aedd97d1031ba50c7d3a495cef4045ba0b9c024264927809",
+    "bytes": 5472
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/runner.exe.manifest",
+    "sha256": "825d243e9fa1542619909c1b72d09b3ed7c1f3b225bb8367c125835e5dc3f8aa",
+    "bytes": 602
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/utils.h",
+    "sha256": "95a7f7dddb832997cefa937a96f89472332277e75734a5de553610760b744b03",
+    "bytes": 672
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/win32_window.cpp",
+    "sha256": "9065f31ccf746cf8b390121f958f9e959033af864aed779597066625ed56bc36",
+    "bytes": 8534
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/runner/resource.h",
+    "sha256": "1fa98588b04561590ba1cf0521ab86a9db4a878312f21c9d5861d965ddd8d1ae",
+    "bytes": 432
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/flutter/CMakeLists.txt",
+    "sha256": "1fe418971b6f41bb35ceb3d64113a835f3f6f171ecaa707bf232492b57a588d6",
+    "bytes": 3742
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "windows/flutter/generated_plugin_registrant.h",
+    "sha256": "dbc11635d7b1ba1887adf40df5b83d634e9c3ab0bee34510c71528bb4d73602a",
+    "bytes": 302
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/build.gradle.kts",
+    "sha256": "b148ffec198db24a621ded91f919854d942bcf1782e07b60842ba2c59cbc549b",
+    "bytes": 1409
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/gradle/wrapper/gradle-wrapper.properties",
+    "sha256": "4f0df93978f8c53f8995c6afcdecd9d290b5df35fa08f236163e8e5df8557c8e",
+    "bytes": 201
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/AndroidManifest.xml",
+    "sha256": "863bb363277f6fef92ea9c98399a883cb7ebe7926b03950a96990826d1eedab4",
+    "bytes": 3374
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/debug/AndroidManifest.xml",
+    "sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b",
+    "bytes": 378
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/profile/AndroidManifest.xml",
+    "sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b",
+    "bytes": 378
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/res/xml/file_paths.xml",
+    "sha256": "6858b2d06e5d22013947140e2162543c8a3311713f505a359c04867bfff65bbc",
+    "bytes": 350
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/res/drawable/launch_background.xml",
+    "sha256": "94433756fe10005ddd6fc55cc5c0b1e9f3c10b66a08ceac795ece6713d34e28a",
+    "bytes": 434
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/res/values/styles.xml",
+    "sha256": "937d7c82f539c72eb94fd3a3773f29b3d3fef1997213c92cb632298cedf4bda9",
+    "bytes": 996
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/res/values-night/styles.xml",
+    "sha256": "8c5bad5152f217e837519f9c15211d19f39bd45f5f67faf6dd81cb4b299e518f",
+    "bytes": 995
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/res/drawable-v21/launch_background.xml",
+    "sha256": "7ca6d5cec2169c5a98661a119db23a6f3399c8fef2256ff04f3a642831282478",
+    "bytes": 438
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "android/app/src/main/kotlin/com/cnkh/cnkh_pos_desktop/MainActivity.kt",
+    "sha256": "a3c6f17c6a7ff24318d20882c37d795883f9ea82e6114c9f2aa40586b90f5741",
+    "bytes": 3267
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/settings.gradle.kts",
+    "sha256": "a9b5756048f668d4ebf355116678fd334cd5f2169b7d4518ad19b8df14d3af36",
+    "bytes": 772
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/local.properties",
+    "sha256": "731c7677033119b81edfe71606c5596c27e92f07919a835a565404a5d315b894",
+    "bytes": 48
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/gradle.properties",
+    "sha256": "20c411ebbe5162992d16d170656ee19a9ffe0571e6c4d4c5a5314bb06da0a672",
+    "bytes": 166
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/build.gradle.kts",
+    "sha256": "6a26dba2cb8dfba1e74f540b0d17a89d96c1301d3c3bfda14348bed257fddcba",
+    "bytes": 537
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/gradle/wrapper/gradle-wrapper.properties",
+    "sha256": "9920c662e8c6a5f0bc6ccd77618580e655f30a0cd5e062acd3a3183e54db34fc",
+    "bytes": 203
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/debug/AndroidManifest.xml",
+    "sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b",
+    "bytes": 378
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/profile/AndroidManifest.xml",
+    "sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b",
+    "bytes": 378
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/res/xml/file_paths.xml",
+    "sha256": "6858b2d06e5d22013947140e2162543c8a3311713f505a359c04867bfff65bbc",
+    "bytes": 350
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/res/drawable/launch_background.xml",
+    "sha256": "94433756fe10005ddd6fc55cc5c0b1e9f3c10b66a08ceac795ece6713d34e28a",
+    "bytes": 434
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/res/values/styles.xml",
+    "sha256": "937d7c82f539c72eb94fd3a3773f29b3d3fef1997213c92cb632298cedf4bda9",
+    "bytes": 996
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/res/values-night/styles.xml",
+    "sha256": "8c5bad5152f217e837519f9c15211d19f39bd45f5f67faf6dd81cb4b299e518f",
+    "bytes": 995
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "android/app/src/main/res/drawable-v21/launch_background.xml",
+    "sha256": "7ca6d5cec2169c5a98661a119db23a6f3399c8fef2256ff04f3a642831282478",
+    "bytes": 438
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "test/training_content_regression_test.dart",
+    "sha256": "8c493093371e8518928ee39cb9dbd1b3fa02436a70d08c9f0c3145c25588138c",
+    "bytes": 598
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/app_version.dart",
+    "sha256": "986db54e77ed590a3843f0ff1b41c8ce3e35fe686235b21dd68c0bafda994a5a",
+    "bytes": 204
+  },
+  {
+    "repo": "CNKH_POS_Desktop",
+    "path": "lib/app_release_notes.dart",
+    "sha256": "27288b0e499a6b22dfc377e1f54d8d6e4c4f02024ef468a061a0a6765a18a97d",
+    "bytes": 411
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "test/training_source_regression_test.dart",
+    "sha256": "d4155e2b1313b4d2ece40577c9eb79a7a213c8eb61e477df39bfe0757b269b70",
+    "bytes": 1218
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "lib/app_version.dart",
+    "sha256": "986db54e77ed590a3843f0ff1b41c8ce3e35fe686235b21dd68c0bafda994a5a",
+    "bytes": 204
+  },
+  {
+    "repo": "CNKH_POS_Mobile_APK",
+    "path": "lib/app_release_notes.dart",
+    "sha256": "27288b0e499a6b22dfc377e1f54d8d6e4c4f02024ef468a061a0a6765a18a97d",
+    "bytes": 411
+  }
+]

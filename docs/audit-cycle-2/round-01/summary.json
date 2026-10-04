@@ -320,5 +320,25 @@
     },
     "new_bug_clusters": 9,
     "test_synchronization_defects": 2
-  }
+  },
+  "review_artifacts": [
+    {
+      "path": "desktop/source-inventory.json",
+      "source": "evidence/round-01/desktop/source-inventory.json",
+      "sha256": "b0b32a751e028923574e5851f52ac91dbaedf5e11a1b7e7c7beb494ebf80e54e",
+      "bytes": 8337
+    },
+    {
+      "path": "einvoice/reviewed-files.json",
+      "source": "evidence/round-01/einvoice/reviewed-files.json",
+      "sha256": "2486f9bac3fcdbb850f5065e3a60daf049ea945655345f7fe6d278b35fb90850",
+      "bytes": 8574
+    },
+    {
+      "path": "sync/dynamic-inventory.json",
+      "source": "evidence/round-01/sync/dynamic-inventory.json",
+      "sha256": "dd8613a8b8037d6aa2089988aadf364495b75a573cae111cea193d9ada992f4e",
+      "bytes": 10124
+    }
+  ]
 }

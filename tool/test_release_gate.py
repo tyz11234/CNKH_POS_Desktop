@@ -3,7 +3,10 @@
 from pathlib import Path
 import importlib
 import io
+import json
 import re
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
@@ -72,6 +75,14 @@ class FakeAPI:
             raise response
         return response
 
+    def list_release_page(self, page):
+        resource = f"releases?per_page=100&page={page}"
+        self.calls.append(resource)
+        response = self.responses.get(resource, [])
+        if isinstance(response, Exception):
+            raise response
+        return response
+
 
 class ReleaseIdentityTests(unittest.TestCase):
     def setUp(self):
@@ -89,7 +100,8 @@ class ReleaseIdentityTests(unittest.TestCase):
     def test_new_desktop_version_can_create_release(self):
         self.assertEqual(self.check(), "v1.10.10")
         self.assertEqual(self.api.calls,
-                         ["releases/tags/v1.10.10", "git/ref/tags/v1.10.10"])
+                         ["releases/tags/v1.10.10", "releases?per_page=100&page=1",
+                          "git/ref/tags/v1.10.10"])
 
     def test_new_mobile_version_uses_mobile_suffix(self):
         self.assertEqual(self.check(kind="mobile", tag="v1.10.10-mobile"),
@@ -214,6 +226,13 @@ class PubspecAndTransportTests(unittest.TestCase):
         self.assertEqual(sent.full_url, "https://api.github.com/repos/owner/repo/releases/tags/v1")
         self.assertEqual(sent.get_header("Authorization"), "Bearer secret-token")
 
+    def test_successful_http_null_or_scalar_is_not_an_absent_release(self):
+        for payload in (b'null', b'[]', b'42', b'true', b'"missing"'):
+            with self.subTest(payload=payload):
+                with patch.object(self.gate, "urlopen", return_value=io.BytesIO(payload)):
+                    with self.assertRaisesRegex(self.gate.GateError, "release blocked"):
+                        self.gate.GitHubAPI("owner/repo").get("releases/tags/v1")
+
     def test_only_404_means_not_found(self):
         for status in (401, 403, 429, 500):
             with self.subTest(status=status):
@@ -233,6 +252,147 @@ class PubspecAndTransportTests(unittest.TestCase):
         with patch.object(self.gate, "urlopen", return_value=io.BytesIO(b'not JSON')):
             with self.assertRaisesRegex(self.gate.GateError, "release blocked"):
                 self.gate.GitHubAPI("owner/repo").get("releases/tags/v1")
+
+
+class DraftPaginationHTTPTests(unittest.TestCase):
+    """Exercise the real stdlib transport, including draft-only API semantics."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gate = importlib.import_module("check_release_gate")
+        cls.routes = {}
+        cls.calls = []
+        cls.authenticated = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                cls.calls.append(self.path)
+                cls.authenticated.append(self.headers.get("Authorization") == "Bearer offline-test")
+                status, payload = cls.routes.get(self.path, (404, {"message": "Not Found"}))
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                data = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+                self.wfile.write(data)
+
+            def log_message(self, *args):
+                pass
+
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        cls.thread = Thread(target=lambda: cls.server.serve_forever(poll_interval=0.01), daemon=True)
+        cls.thread.start()
+        cls.base_url = f"http://127.0.0.1:{cls.server.server_port}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(timeout=1)
+
+    def setUp(self):
+        type(self).routes = {}
+        type(self).calls = []
+        type(self).authenticated = []
+
+    def page_path(self, page):
+        return f"/repos/owner/repo/releases?per_page=100&page={page}"
+
+    def release(self, release_id, tag="v1.10.9", draft=True):
+        return {"id": release_id, "tag_name": tag, "draft": draft}
+
+    def check(self, token="offline-test"):
+        api = self.gate.GitHubAPI("owner/repo", token=token, api_url=self.base_url)
+        return self.gate.check_release("1.10.10+38", "desktop", "v1.10.10",
+                                       "refs/heads/main", SHA, api)
+
+    def test_existing_matching_draft_on_first_page_is_rejected(self):
+        self.routes[self.page_path(1)] = (200, [self.release(7, "v1.10.10")])
+        with self.assertRaisesRegex(self.gate.GateError, "already exists"):
+            self.check()
+        self.assertIn(self.page_path(1), self.calls)
+        self.assertTrue(all(self.authenticated))
+
+    def test_matching_draft_on_later_page_is_rejected(self):
+        self.routes[self.page_path(1)] = (200, [self.release(i) for i in range(1, 101)])
+        self.routes[self.page_path(2)] = (200, [self.release(101, "v1.10.10")])
+        with self.assertRaisesRegex(self.gate.GateError, "already exists"):
+            self.check()
+        self.assertIn(self.page_path(2), self.calls)
+
+    def test_unrelated_draft_does_not_block(self):
+        self.routes[self.page_path(1)] = (200, [self.release(7, "v1.10.10-mobile"),
+                                               self.release(8, ""),
+                                               self.release(9, "v1.10.9", draft=False)])
+        self.assertEqual(self.check(), "v1.10.10")
+        self.assertIn(self.page_path(1), self.calls)
+
+    def test_empty_authenticated_list_allows_new_version(self):
+        self.routes[self.page_path(1)] = (200, [])
+        self.assertEqual(self.check(), "v1.10.10")
+        self.assertIn(self.page_path(1), self.calls)
+
+    def test_missing_token_cannot_prove_draft_absence(self):
+        self.routes[self.page_path(1)] = (200, [])
+        with self.assertRaisesRegex(self.gate.GateError, "token"):
+            self.check(token="")
+        self.assertNotIn(self.page_path(1), self.calls)
+
+    def test_later_page_http_errors_fail_closed(self):
+        self.routes[self.page_path(1)] = (200, [self.release(i) for i in range(1, 101)])
+        for status in (401, 403, 404, 429, 500):
+            with self.subTest(status=status):
+                self.routes[self.page_path(2)] = (status, {"message": "unavailable"})
+                with self.assertRaises(self.gate.GateError):
+                    self.check()
+
+    def test_non_array_and_invalid_json_list_fail_closed(self):
+        for payload in (None, {}, 42, True, "missing", b'{'):
+            with self.subTest(payload=payload):
+                self.routes[self.page_path(1)] = (200, payload)
+                with self.assertRaises(self.gate.GateError):
+                    self.check()
+
+    def test_invalid_release_items_fail_closed(self):
+        for item in (None, [], {}, self.release(True), self.release(0),
+                     self.release("7"), self.release(7, tag=None),
+                     self.release(7, draft="true")):
+            with self.subTest(item=item):
+                self.routes[self.page_path(1)] = (200, [item])
+                with self.assertRaises(self.gate.GateError):
+                    self.check()
+
+    def test_repeated_page_is_rejected(self):
+        page = [self.release(i) for i in range(1, 101)]
+        self.routes[self.page_path(1)] = (200, page)
+        self.routes[self.page_path(2)] = (200, page)
+        with self.assertRaisesRegex(self.gate.GateError, "advance"):
+            self.check()
+        self.assertNotIn(self.page_path(3), self.calls)
+
+    def test_duplicate_id_within_page_is_rejected(self):
+        self.routes[self.page_path(1)] = (200, [self.release(7), self.release(7)])
+        with self.assertRaisesRegex(self.gate.GateError, "advance"):
+            self.check()
+
+    def test_oversized_page_is_rejected(self):
+        self.routes[self.page_path(1)] = (200, [self.release(i) for i in range(1, 102)])
+        with self.assertRaises(self.gate.GateError):
+            self.check()
+
+    def test_later_short_page_without_matching_tag_allows_release(self):
+        self.routes[self.page_path(1)] = (200, [self.release(i) for i in range(1, 101)])
+        self.routes[self.page_path(2)] = (200, [self.release(101)])
+        self.assertEqual(self.check(), "v1.10.10")
+        self.assertIn(self.page_path(2), self.calls)
+        self.assertNotIn(self.page_path(3), self.calls)
+
+    def test_unique_endless_pages_cannot_run_unbounded(self):
+        self.routes[self.page_path(1)] = (200, [self.release(i) for i in range(1, 101)])
+        self.routes[self.page_path(2)] = (200, [self.release(i) for i in range(101, 201)])
+        with patch.object(self.gate, "MAX_RELEASE_PAGES", 2, create=True):
+            with self.assertRaisesRegex(self.gate.GateError, "limit"):
+                self.check()
+        self.assertNotIn(self.page_path(3), self.calls)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../../widgets/completed_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../db/app_database.dart';
@@ -280,7 +282,7 @@ class _ProductsAdminPageState extends State<ProductsAdminPage> {
         : (existing.barcode.trim().isEmpty ? 'auto' : 'manual');
 
     try {
-      final ok = await showDialog<bool>(
+      final ok = await showCompletedDialog<bool>(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setLocal) => AlertDialog(
