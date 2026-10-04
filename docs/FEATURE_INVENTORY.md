@@ -1,3 +1,18 @@
+<!-- CNKH_AUDIT_CYCLE_2_BEGIN -->
+# Feature Inventory — Audit Cycle 2 当前范围
+
+本周期已完成 **2/10 轮**完整 Audit；已确认 **18 组**可复现产品/构建培训/发布流程缺陷；最后连续 **0 轮 Clean**。
+
+当前功能分组 **42**（Shared 19 / Mobile 10 / Desktop 13）；**36/42** 有直接自动测试映射，**6/42** 保留目标设备/真实服务边界。本周期 PASS 只引用已完成轮次，未完成轮次不计为 Clean。
+
+详细缺陷、每轮来源 hash / 命令 / 时间戳与域报告：[`AUDIT_CYCLE_2.md`](AUDIT_CYCLE_2.md)。
+
+Mobile lib/screens/services/db/widgets：70/18/30/6/7；Desktop：76/17/37/6/7。Desktop 运行表 **26**（含 Host 的 `lan_sync_changes` / `lan_sync_mobile_sales`），纠正历史清单的 24 表口径；Mobile 26 表。schema v10、LAN v1 保持。
+
+<!-- CNKH_AUDIT_CYCLE_2_END -->
+
+> 以下为 Audit Cycle 1 历史记录；当前周期状态以上方 Cycle 2 为准。
+
 # Feature Inventory — Audit Cycle 1, Round 6
 
 审核基线：Mobile `c73e5f515b7a8179c6d82efef3ac2fd139b5d4a7` / Desktop `cec6ae88ea1baa4580063eaa7cf48aeb33fce2bc`，起始版本 `1.10.8+36`；Round 6 与 Final Release Regression 验证合并候选 `1.10.9+37`，SQLite schema v10。Round 6 完成后 Mobile/ Desktop 源码分别合并为 `b121cd40019213273fd7d47db5cf1f93549bab7e` / `bd75dfc381b8be4aa791a42524a40a291e692f1c`。六轮重扫确认 42 个功能组、69/74 个 Dart 源文件、26/24 张运行表；lifecycle、权限、输入、MyInvois、构建和发布流程的功能入口与主要测试映射均已检查。Feature group 依当前 `lib/`、路由入口、设置读写、数据库 schema、LAN host/client 和测试目录归并；新增正式功能应加入本表与 [`FEATURE_TEST_MATRIX.md`](FEATURE_TEST_MATRIX.md)。

@@ -45,13 +45,33 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  Future<void> flush(WidgetTester tester) async {
-    for (var i = 0; i < 6; i++) {
+  Future<void> waitForSelectedSupplier(WidgetTester tester, String name) async {
+    final elapsed = Stopwatch()..start();
+    while (elapsed.elapsed < const Duration(seconds: 10)) {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 60)),
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
-      await tester.pump(const Duration(milliseconds: 80));
+      await tester.pump(const Duration(milliseconds: 20));
+      final dropdownFinder = find.byType(DropdownButton<String>);
+      if (dropdownFinder.evaluate().isEmpty) continue;
+      final dropdown = tester.widget<DropdownButton<String>>(
+        dropdownFinder.first,
+      );
+      final selectedId = dropdown.value;
+      if (selectedId == null) continue;
+      // A database read here could queue behind the UI transaction while
+      // runAsync stops pumping that transaction's fake-async continuations.
+      // Wait for the refreshed, selected dropdown item before querying SQLite.
+      if (dropdown.items!.any(
+        (item) =>
+            item.value == selectedId &&
+            item.child is Text &&
+            (item.child as Text).data == name,
+      )) {
+        return;
+      }
     }
+    fail('Supplier "$name" was not selected within 10 seconds');
   }
 
   Future<void> openPurchase(WidgetTester tester) async {
@@ -67,7 +87,7 @@ void main() {
         ),
       ),
     );
-    await flush(tester);
+    await waitForSelectedSupplier(tester, '现有供应商');
   }
 
   Future<String> selectedSupplierId(WidgetTester tester) async {
@@ -83,31 +103,6 @@ void main() {
   Finder supplierNameField() => find.byWidgetPredicate(
     (widget) => widget is TextField && widget.decoration?.labelText == '名称 *',
   );
-
-  Future<void> waitForSelectedSupplier(
-    WidgetTester tester,
-    String name,
-  ) async {
-    for (var attempt = 0; attempt < 80; attempt++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
-      );
-      await tester.pump();
-      final dropdown = tester.widget<DropdownButton<String>>(
-        find.byType(DropdownButton<String>).first,
-      );
-      final selectedId = dropdown.value;
-      if (selectedId == null) continue;
-      final suppliers = await tester.runAsync(() => repo.listSuppliers());
-      if (suppliers?.any(
-            (supplier) => supplier.id == selectedId && supplier.name == name,
-          ) ==
-          true) {
-        return;
-      }
-    }
-    fail('Supplier "$name" was not selected within 8 seconds');
-  }
 
   testWidgets(
     'ordinary supplier creation selects the instance from the refreshed list',

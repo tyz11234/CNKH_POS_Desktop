@@ -1,3 +1,4 @@
+import 'stock_numeric_validation.dart';
 import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
@@ -271,7 +272,8 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
             (row['price_cents'] as int) < 0 ||
             (row['cost_cents'] as int) < 0 ||
             row['stock'] is! num ||
-            !(row['stock'] as num).isFinite) {
+            !(row['stock'] as num).isFinite ||
+            (row['reorder_level'] != null && (row['reorder_level'] is! num || !(row['reorder_level'] as num).isFinite))) {
           throw const FormatException('invalid product');
         }
         for (final key in ['barcode', 'sku']) {
@@ -296,7 +298,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
           await txn.insert('stock_moves', {
             'id': AppDatabase.newId(),
             'product_id': entityId,
-            'change': (changes['stock'] as num) - (existing.first['stock'] as num),
+            'change': checkedStockDifference(changes['stock'] as num, existing.first['stock'] as num),
             'reason': 'product_edit',
             'created_at': now,
             'operator': 'mobile-sync',
@@ -337,7 +339,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       await txn.insert('stock_moves', {
         'id': AppDatabase.newId(),
         'product_id': pid,
-        'change': stock - old,
+        'change': checkedStockDifference(stock, old),
         'reason': 'stocktake',
         'created_at': now,
         'operator': p['operator'] ?? 'mobile-sync',
@@ -371,6 +373,15 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
           'applied_at': now,
         }, conflictAlgorithm: ConflictAlgorithm.ignore);
         return;
+      }
+      for (final field in ['discount_cents', 'tax_cents',
+        'delivery_fee_cents', 'other_fee_cents']) {
+        if (p[field] != null) p[field] = _purchaseCents(p[field], field);
+      }
+      for (final line in lines) {
+        for (final field in ['unitCostCents', 'invoiceUnitCostCents', 'subtotalCents']) {
+          if (line[field] != null) line[field] = _purchaseCents(line[field], field);
+        }
       }
       var supplierId = p['supplier_id']?.toString().trim() ?? '';
       final invoiceNo = p['invoice_no']?.toString().trim() ?? '';
@@ -476,6 +487,7 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
         if (!qty.isFinite || qty <= 0 || (cost ?? 0) < 0) {
           throw const FormatException('invalid purchase line');
         }
+        await validateStockAddition(txn, line['productId'] as String, qty);
         if (await txn.rawUpdate(
               'UPDATE products SET stock=stock+?${cost == null ? '' : ',cost_cents=?'} WHERE id=? AND is_deleted=0',
               [qty, if (cost != null) cost, line['productId']],
@@ -628,3 +640,12 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
 
 String _hex(List<int> bytes) =>
     bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+// Purchase money is an integer number of cents. Never round or truncate a
+// malformed mutation into another cost before recording its durable ACK.
+int _purchaseCents(Object value, String field) {
+  if (value is! num || !value.isFinite || value < 0 || value != value.toInt()) {
+    throw FormatException('invalid purchase amount: $field');
+  }
+  return value.toInt();
+}

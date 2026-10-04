@@ -1,3 +1,4 @@
+import 'stock_numeric_validation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -1408,12 +1409,14 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
             customerId == null) {
           throw StateError('赊账客户尚未同步或存在歧义');
         }
-        final subtotal = _asInt(sale['subtotal_cents']);
-        final orderDiscount = _asInt(sale['order_discount_cents']);
-        final totalDiscount = _asInt(sale['discount_cents']);
+        final subtotal = _saleAmount(sale, 'subtotal_cents');
+        final orderDiscount = _saleAmount(sale, 'order_discount_cents');
+        final totalDiscount = _saleAmount(sale, 'discount_cents');
         final itemDiscount = max(0, totalDiscount - orderDiscount);
-        final total = _asInt(sale['total_cents']);
-        final paid = _asInt(sale['paid_cents'], fallback: total);
+        final total = _saleAmount(sale, 'total_cents');
+        final paid = _saleAmount(sale, 'paid_cents', fallback: total);
+        final change = _saleAmount(sale, 'change_cents');
+        final rounding = _saleAmount(sale, 'rounding_cents', allowNegative: true);
         final payment = sale['payment_method']?.toString() ?? 'CASH';
         final outstanding = payment.toUpperCase() == 'CREDIT'
             ? max(0, total - paid)
@@ -1434,10 +1437,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'subtotal_cents': subtotal,
           'item_discount_cents': itemDiscount,
           'order_discount_cents': orderDiscount,
-          'rounding_cents': _asInt(sale['rounding_cents']),
+          'rounding_cents': rounding,
           'total_cents': total,
           'paid_cents': paid,
-          'change_cents': _asInt(sale['change_cents']),
+          'change_cents': change,
           'credit_outstanding_cents': outstanding,
           'lines_json': jsonEncode(lines),
           'voided': incomingVoided ? 1 : 0,
@@ -1464,6 +1467,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           // can itself begin with pc-; stripping it again loses the deduction.
           final qty = _asDouble(line['qty'] ?? line['quantity'], fallback: 1);
           if (productId.isEmpty || qty <= 0) continue;
+          await validateStockAddition(txn, productId, -qty);
           final changed = await txn.rawUpdate(
             'UPDATE products SET stock=stock-? WHERE id=?',
             <Object?>[qty, productId],
@@ -1514,6 +1518,30 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'receipts': receipts,
       'cursor': await _latestChangeSeq(db),
     });
+  }
+
+  // Legacy v1 peers may send integer strings or omit optional amounts. Keep
+  // those defaults while rejecting malformed amounts before any business write.
+  int _saleAmount(
+    Map<String, Object?> sale,
+    String field, {
+    int fallback = 0,
+    bool allowNegative = false,
+  }) {
+    final value = sale[field];
+    if (value == null) return fallback;
+    int? amount;
+    if (value is int) {
+      amount = value;
+    } else if (value is num && value.isFinite && value == value.toInt()) {
+      amount = value.toInt();
+    } else if (value is String) {
+      amount = int.tryParse(value);
+    }
+    if (amount == null || (!allowNegative && amount < 0)) {
+      throw FormatException('invalid sale amount: $field');
+    }
+    return amount;
   }
 
   bool _sameIncomingSale(

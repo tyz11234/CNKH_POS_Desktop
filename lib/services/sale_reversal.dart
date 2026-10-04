@@ -1,3 +1,4 @@
+import 'stock_numeric_validation.dart';
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../db/app_database.dart';
@@ -48,6 +49,7 @@ Future<void> reverseSale(DatabaseExecutor txn, String id, String note) async {
   final now = DateTime.now().toIso8601String();
   for (final e in quantities.entries) {
     if (!e.value.isFinite || e.value <= 0) throw StateError('销售数量无效');
+    await validateStockAddition(txn, e.key, e.value);
     if (await txn.rawUpdate('UPDATE products SET stock=stock+? WHERE id=?', [
           e.value,
           e.key,

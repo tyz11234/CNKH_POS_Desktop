@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 /// Device-local DuitNow QR image storage.
 /// Production: sync from Admin desktop later (TBD).
@@ -27,17 +28,33 @@ class QrStorage {
     final safeExt = (ext == '.png' || ext == '.jpg' || ext == '.jpeg' || ext == '.webp')
         ? ext
         : '.png';
-    // Remove prior copies with other extensions to avoid stale files.
-    for (final staleExt in ['.png', '.jpg', '.jpeg', '.webp']) {
-      final stale = File(p.join(destDir.path, 'payment_qr$staleExt'));
-      if (stale.existsSync() && staleExt != safeExt) {
-        await stale.delete();
+    final prefs = await SharedPreferences.getInstance();
+    final previousPath = prefs.getString(_keyPath);
+    // Copy to a fresh file first: failed imports and selecting the saved image
+    // again must never delete or truncate the current payment QR.
+    final dest = File(
+      p.join(destDir.path, 'payment_qr_${const Uuid().v4()}$safeExt'),
+    );
+    try {
+      await File(sourcePath).copy(dest.path);
+      if (!await prefs.setString(_keyPath, dest.path)) {
+        throw StateError('Unable to save the payment QR preference');
+      }
+    } catch (_) {
+      if (await dest.exists()) await dest.delete();
+      rethrow;
+    }
+    // Only retire the previously selected, app-owned file after committing.
+    if (previousPath != null &&
+        p.dirname(previousPath) == destDir.path &&
+        p.basename(previousPath).startsWith('payment_qr')) {
+      try {
+        final previous = File(previousPath);
+        if (await previous.exists()) await previous.delete();
+      } on FileSystemException {
+        // A stale file does not invalidate the newly saved payment QR.
       }
     }
-    final dest = File(p.join(destDir.path, 'payment_qr$safeExt'));
-    await File(sourcePath).copy(dest.path);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPath, dest.path);
     return dest.path;
   }
 

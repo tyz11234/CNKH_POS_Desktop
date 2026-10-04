@@ -1,0 +1,340 @@
+{
+  "CNKH_POS_Mobile_APK": {
+    "tables_declared": [
+      "audit_logs",
+      "barcode_print_queue",
+      "categories",
+      "customers",
+      "daily_closings",
+      "demo_users",
+      "e_invoice_status",
+      "held_orders",
+      "products",
+      "purchase_attachments",
+      "purchase_audit_log",
+      "purchase_commit_keys",
+      "purchase_draft_lines",
+      "purchase_drafts",
+      "purchase_reversals",
+      "purchases",
+      "sales",
+      "settings",
+      "stock_moves",
+      "stock_reversals",
+      "supplier_product_aliases",
+      "suppliers",
+      "sync_applied_operations",
+      "sync_entity_ids",
+      "sync_outbox",
+      "sync_outbox_v10",
+      "user_credentials"
+    ],
+    "indexes": [
+      "idx_products_barcode",
+      "idx_purchase_alias_supplier",
+      "idx_purchase_attachment_sync",
+      "idx_purchase_audit_purchase",
+      "idx_purchase_drafts_status",
+      "idx_purchases_supplier_invoice",
+      "idx_sales_customer",
+      "idx_sales_date",
+      "idx_stock_moves_product"
+    ],
+    "triggers": [
+      "block_local_reverse_of_desktop_purchase",
+      "purchase_attachment_outbox_acked",
+      "purchase_attachment_outbox_failed",
+      "sync_outbox_assign_seq"
+    ],
+    "endpoints": [
+      "/api/v1/barcode_queue",
+      "/api/v1/categories",
+      "/api/v1/customers",
+      "/api/v1/einvoices",
+      "/api/v1/health",
+      "/api/v1/mutations",
+      "/api/v1/notify",
+      "/api/v1/product_images",
+      "/api/v1/products",
+      "/api/v1/purchases",
+      "/api/v1/sales",
+      "/api/v1/stock-moves",
+      "/api/v1/suppliers",
+      "/api/v1/ws"
+    ],
+    "mutation_kinds": [
+      "${entity}_upsert",
+      "category_upsert",
+      "product_upsert",
+      "purchase",
+      "purchase_attachment",
+      "purchase_reverse",
+      "sale_upload",
+      "sale_void",
+      "stocktake"
+    ],
+    "covered_files": [
+      {
+        "path": "lib/db/reliability_schema.dart",
+        "sha256": "176fdf55dbd10bd5769423e759ab0be9dfdc9d195c1e1a7514d515250df3149b",
+        "lines": 65
+      },
+      {
+        "path": "lib/db/app_database.dart",
+        "sha256": "2a9f60165bf6cb7466be0b67615ed55bbc6262a8d92e582cf91f6f85a78af13d",
+        "lines": 592
+      },
+      {
+        "path": "lib/db/ocr_purchase_schema.dart",
+        "sha256": "89372a756ca5845a446ebee0ce3e221d6e861305ebfa6b217ca14dbcefe866cb",
+        "lines": 246
+      },
+      {
+        "path": "lib/db/document_numbers.dart",
+        "sha256": "eb9188e71fc657b035872ac28cbe510e87df30758bdf41273cfdf8097593edd2",
+        "lines": 38
+      },
+      {
+        "path": "lib/db/einvoice_status_schema.dart",
+        "sha256": "dd0887ff1505aa610349e1b2324c4f6d13591dfb70cd6c05fcec6f1d4fa9f16f",
+        "lines": 8
+      },
+      {
+        "path": "lib/db/legacy_purchase_outbox_migration.dart",
+        "sha256": "4007d1d611174316c2da0c92b67e74a8248c8d37ee2b2bbebfe6bdb1aaaefd7f",
+        "lines": 584
+      },
+      {
+        "path": "lib/services/lan_sync.dart",
+        "sha256": "1982a184b7a4bb04e2da3426d09e5003bccadad72b13681ae2290a8c6fcac499",
+        "lines": 1866
+      },
+      {
+        "path": "lib/services/pos_repository.dart",
+        "sha256": "474a59a1a581b17b522d3d952db71e2e17c49f00cc03ba1d4caab4051e55f152",
+        "lines": 1251
+      },
+      {
+        "path": "lib/services/sync_store.dart",
+        "sha256": "3c9c528a2a745cc4262030c4cb582fa6000969caa871e667131b0c527c467ad8",
+        "lines": 240
+      },
+      {
+        "path": "lib/services/sync_role.dart",
+        "sha256": "a14e26d685374aed23d349d6eb614cb9e041bd328000f7d231b98301a62b6509",
+        "lines": 1
+      },
+      {
+        "path": "lib/services/purchase_history_sync.dart",
+        "sha256": "bd5806dedc92906fdb2882bf60b9da48d33ae991d9c0ce93145654cdcf1a3584",
+        "lines": 371
+      },
+      {
+        "path": "lib/services/purchase_reverse_sync.dart",
+        "sha256": "af926cb27619210581f434c8b4cd0965dbcbe1e5a48204cb789cebc90db98ccc",
+        "lines": 141
+      },
+      {
+        "path": "lib/services/catalog_stock_baseline.dart",
+        "sha256": "47adf025b6d4b1709601517e26cdf4edfaed55ec638cc2f7a4cbbde3d21f2897",
+        "lines": 40
+      },
+      {
+        "path": "lib/services/product_image_sync_queue.dart",
+        "sha256": "f305db321dd42230928b543ebd914deeef4d74594f7dfafa1d9c46056028c4f3",
+        "lines": 61
+      },
+      {
+        "path": "lib/services/sale_reversal.dart",
+        "sha256": "403dbb7d74fa8ff2bba6f91995869b1f1807e23a0025c9499d60547093a2a705",
+        "lines": 72
+      },
+      {
+        "path": "lib/services/purchase_reverse_plan.dart",
+        "sha256": "bf0e2ed6dc7349735d6109e59380d50986a97b0ff3685e6e5b564654466d869d",
+        "lines": 119
+      }
+    ]
+  },
+  "CNKH_POS_Desktop": {
+    "tables_declared": [
+      "audit_logs",
+      "barcode_print_queue",
+      "categories",
+      "customers",
+      "daily_closings",
+      "demo_users",
+      "e_invoice_documents",
+      "e_invoice_logs",
+      "e_invoice_settings",
+      "held_orders",
+      "lan_sync_changes",
+      "lan_sync_mobile_sales",
+      "products",
+      "purchase_attachments",
+      "purchase_audit_log",
+      "purchase_reversals",
+      "purchases",
+      "sales",
+      "settings",
+      "stock_moves",
+      "stock_reversals",
+      "suppliers",
+      "sync_applied_operations",
+      "sync_entity_ids",
+      "sync_outbox",
+      "user_credentials"
+    ],
+    "indexes": [
+      "idx_einvoice_sale",
+      "idx_einvoice_sale_attempt",
+      "idx_einvoice_status",
+      "idx_lan_sync_changes_entity_seq",
+      "idx_products_barcode",
+      "idx_purchase_attachments_purchase",
+      "idx_sales_customer",
+      "idx_sales_date",
+      "idx_stock_moves_product"
+    ],
+    "triggers": [
+      "lan_sync_categories_ad",
+      "lan_sync_categories_ai",
+      "lan_sync_categories_au",
+      "lan_sync_customers_ad",
+      "lan_sync_customers_ai",
+      "lan_sync_customers_au",
+      "lan_sync_products_ad",
+      "lan_sync_products_ai",
+      "lan_sync_products_au",
+      "lan_sync_purchases_ad",
+      "lan_sync_purchases_ai",
+      "lan_sync_purchases_au",
+      "lan_sync_sales_ad",
+      "lan_sync_sales_ai",
+      "lan_sync_sales_au",
+      "lan_sync_suppliers_ad",
+      "lan_sync_suppliers_ai",
+      "lan_sync_suppliers_au"
+    ],
+    "endpoints": [
+      "/api/v1/barcode_queue",
+      "/api/v1/categories",
+      "/api/v1/customers",
+      "/api/v1/einvoices",
+      "/api/v1/events",
+      "/api/v1/health",
+      "/api/v1/mutations",
+      "/api/v1/notify",
+      "/api/v1/product_images",
+      "/api/v1/products",
+      "/api/v1/purchases",
+      "/api/v1/sales",
+      "/api/v1/stock-moves",
+      "/api/v1/suppliers",
+      "/api/v1/ws"
+    ],
+    "mutation_kinds": [
+      "${entity}_upsert",
+      "category_upsert",
+      "product_upsert",
+      "purchase",
+      "purchase_attachment",
+      "purchase_reverse",
+      "sale_upload",
+      "sale_void",
+      "stocktake"
+    ],
+    "covered_files": [
+      {
+        "path": "lib/db/reliability_schema.dart",
+        "sha256": "70b5a41ba36bddc4f2427f7db6caef66c224a3edfcd029bf1905428148059c97",
+        "lines": 14
+      },
+      {
+        "path": "lib/db/einvoice_migration.dart",
+        "sha256": "37000aa3a2ff4de7fb04eee9c8bc60541a0c2b5db37b157e59f53a79460cf733",
+        "lines": 2
+      },
+      {
+        "path": "lib/db/app_database.dart",
+        "sha256": "0437c0999f84b94915ec8fad9bd2ed04e23e0a069c45817d3311b7673dacfc53",
+        "lines": 717
+      },
+      {
+        "path": "lib/db/ocr_purchase_schema.dart",
+        "sha256": "b17fd0b23f0d1fdb8e3020c604f4f3d9f87678d38c3c9dbc4107acf4e046f6a1",
+        "lines": 72
+      },
+      {
+        "path": "lib/db/document_numbers.dart",
+        "sha256": "fa3a73cf93f6db3837d43573a57552b8bc7ed926577c49ec809577d8ee6c9271",
+        "lines": 48
+      },
+      {
+        "path": "lib/db/einvoice_schema.dart",
+        "sha256": "c974152e1f0d6b99b383d54e18df94392c0d87e580851e32adac6a480b386b88",
+        "lines": 63
+      },
+      {
+        "path": "lib/services/lan_sync.dart",
+        "sha256": "5f2680b6cf87cd0e1ad1fa6a5ee74687e0500c705c300b35caf7094709fc16e2",
+        "lines": 738
+      },
+      {
+        "path": "lib/services/lan_pairing_host.dart",
+        "sha256": "4c420f95feb77b6d757174c3bdf0158a9a88d8924e6698192eb4b3e08b61ed35",
+        "lines": 1834
+      },
+      {
+        "path": "lib/services/lan_mutations.dart",
+        "sha256": "2d0f18b44a9bcb7403b170488c523c61fba38ae053608ca23709d59f2d48b7e7",
+        "lines": 630
+      },
+      {
+        "path": "lib/services/lan_product_identity.dart",
+        "sha256": "417532a87180e47caba87508bfb3a213768931486655288881d807a9c0b488e0",
+        "lines": 73
+      },
+      {
+        "path": "lib/services/pos_repository.dart",
+        "sha256": "b48852b456e13806ea4a6c239f1ad85b8d8ac6e39f3a66157d31608e69c0ba7c",
+        "lines": 1198
+      },
+      {
+        "path": "lib/services/sync_store.dart",
+        "sha256": "d6e8e6a57e7d8bd67d7077aef708679166968f5e5b12e63a3d26eca5443cb18a",
+        "lines": 92
+      },
+      {
+        "path": "lib/services/sync_role.dart",
+        "sha256": "a2f8e4289ec15854bc3c279788cca8e1b05bdfbe408b074350faac2fdb1c4f52",
+        "lines": 1
+      },
+      {
+        "path": "lib/services/desktop_backup.dart",
+        "sha256": "d52ee502ca79cfb46a4f059912591662effc9925fe438fe473cca76e7002e787",
+        "lines": 428
+      },
+      {
+        "path": "lib/services/desktop_database_maintenance.dart",
+        "sha256": "d948b6ec685e78b23551c9fb601b296a74b04e2e9b38ce05bf2aa506a587b325",
+        "lines": 45
+      },
+      {
+        "path": "lib/services/sale_reversal.dart",
+        "sha256": "5eacadec7fa22eeff89ba7a48c5eeb76d76dfcdf4c35d98cc4885115783f4820",
+        "lines": 74
+      },
+      {
+        "path": "lib/services/purchase_reverse_safety.dart",
+        "sha256": "6dae09a3edf605b9a7adb838f82739423a426317e2a08913fa59c4260187279b",
+        "lines": 95
+      },
+      {
+        "path": "lib/services/purchase_reverse_plan.dart",
+        "sha256": "39976ac44795b8155de95bffe443f24d682e342f2d242651da2d4a049ad220e5",
+        "lines": 99
+      }
+    ]
+  }
+}

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../db/app_database.dart';
 import '../../services/pos_repository.dart';
 import '../../theme/cnkh_theme.dart';
+import '../../widgets/completed_dialog.dart';
 
 class EntitiesAdminPage extends StatefulWidget {
   const EntitiesAdminPage({
@@ -59,7 +60,7 @@ class _EntitiesAdminPageState extends State<EntitiesAdminPage> {
     final notes = TextEditingController(text: supplier?.notes ?? '');
     String? error;
 
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -125,7 +126,13 @@ class _EntitiesAdminPageState extends State<EntitiesAdminPage> {
         ),
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) {
+      name.dispose();
+      phone.dispose();
+      extra.dispose();
+      notes.dispose();
+      return;
+    }
 
     setState(() => _busy = true);
     try {

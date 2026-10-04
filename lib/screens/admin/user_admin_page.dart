@@ -4,6 +4,7 @@ import '../../services/lan_pairing_host.dart';
 import '../../services/pos_repository.dart';
 import '../../services/user_admin_service.dart';
 import '../../theme/cnkh_theme.dart';
+import '../../widgets/completed_dialog.dart';
 import '../barcode_scan_screen.dart';
 
 class UserAdminPage extends StatefulWidget {
@@ -94,7 +95,7 @@ class _UserAdminPageState extends State<UserAdminPage> {
     var active = existing == null || existing['is_active'] == 1;
     String? error;
 
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -167,7 +168,7 @@ class _UserAdminPageState extends State<UserAdminPage> {
         ),
       ),
     );
-    if (ok != true) {
+    if (ok != true || !mounted) {
       username.dispose();
       display.dispose();
       return;
@@ -215,7 +216,7 @@ class _UserAdminPageState extends State<UserAdminPage> {
     final pin = TextEditingController();
     final confirmation = TextEditingController();
     String? error;
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -268,7 +269,7 @@ class _UserAdminPageState extends State<UserAdminPage> {
       ),
     );
     try {
-      if (ok == true) {
+      if (ok == true && mounted) {
         await _service.setPin(username, pin.text);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

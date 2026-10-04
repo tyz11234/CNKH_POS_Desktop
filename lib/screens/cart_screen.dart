@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
+import '../widgets/completed_dialog.dart';
+
 import '../models/app_user.dart';
 import '../models/cart_item.dart';
 import '../models/money.dart';
@@ -244,7 +246,7 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(mode == 'rm' ? '折扣 RM' : '折扣 %'),
@@ -269,11 +271,23 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
     );
+    final text = ctrl.text.trim();
+    ctrl.dispose();
     if (ok != true || !mounted) return;
-    final v = double.tryParse(ctrl.text.trim()) ?? 0;
+    final v = double.tryParse(text);
+    final cents = mode == 'rm' ? tryParseRmCents(text) : null;
+    if (v == null || !v.isFinite || v < 0 || (mode == 'rm' && cents == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('折扣格式无效 / Invalid discount'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
     final oldDisc = item.discountCents;
     if (mode == 'rm') {
-      item.discountCents = clampDiscountCents(rmToCents(v), item.grossCents);
+      item.discountCents = clampDiscountCents(cents!, item.grossCents);
     } else {
       item.discountCents = percentDiscountCents(item.grossCents, v);
     }
@@ -296,7 +310,7 @@ class _CartScreenState extends State<CartScreen> {
     final ctrl = TextEditingController(
       text: centsToRm(widget.cart.orderDiscountCents).toStringAsFixed(2),
     );
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('整单折扣 RM / Order discount'),
@@ -317,11 +331,20 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
     );
+    final parsed = tryParseRmCents(ctrl.text);
+    ctrl.dispose();
     if (ok != true || !mounted) return;
+    if (parsed == null || parsed < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('折扣格式无效 / Invalid discount'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
     final oldOrder = widget.cart.orderDiscountCents;
-    widget.cart.orderDiscountCents = rmToCents(
-      double.tryParse(ctrl.text.trim()) ?? 0,
-    );
+    widget.cart.orderDiscountCents = parsed;
     await widget.repo.logAudit(
       username: widget.user.username,
       role: widget.user.isAdmin ? 'ADMIN' : 'STAFF',
@@ -339,8 +362,9 @@ class _CartScreenState extends State<CartScreen> {
         builder: (_) => BarcodeScanScreen(
           repo: widget.repo,
           onProduct: (p) async {
-            await _add(p);
+            final accepted = await _add(p);
             if (mounted) setState(() {});
+            return accepted;
           },
           onPairing: widget.onPairing,
         ),

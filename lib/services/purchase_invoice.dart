@@ -189,32 +189,35 @@ class PurchaseDraftLine {
     final name = (j['name'] as String?)?.trim() ??
         (j['nameZh'] as String?)?.trim() ??
         '';
-    final qty = _asDouble(j['qty'] ?? j['quantity'] ?? 1) ?? 1;
+    final qty = _asDouble(j['qty'] ?? j['quantity'] ?? 1);
+    if (qty == null || !qty.isFinite || qty <= 0 || qty > 9007199254740991) {
+      throw const FormatException('进货单数量或金额无效');
+    }
     int costCents = 0;
-    if (j['costCents'] != null) {
-      costCents = _asInt(j['costCents']) ?? 0;
-    } else if (j['unitCostCents'] != null) {
-      costCents = _asInt(j['unitCostCents']) ?? 0;
-    } else if (j['price'] != null) {
-      costCents = rmToCents(_asDouble(j['price']) ?? 0);
-    } else if (j['unitCost'] != null) {
-      costCents = rmToCents(_asDouble(j['unitCost']) ?? 0);
-    } else if (j['cost'] != null) {
-      costCents = rmToCents(_asDouble(j['cost']) ?? 0);
+    for (final key in ['costCents', 'unitCostCents', 'price', 'unitCost', 'cost']) {
+      if (j[key] == null) continue;
+      costCents = key.endsWith('Cents')
+          ? _validCents(j[key])
+          : _validRm(j[key]);
+      break;
     }
     int? sell;
     if (j['sellPriceCents'] != null) {
-      sell = _asInt(j['sellPriceCents']);
+      sell = _validCents(j['sellPriceCents']);
     } else if (j['sellPrice'] != null) {
-      sell = rmToCents(_asDouble(j['sellPrice']) ?? 0);
+      sell = _validRm(j['sellPrice']);
     } else if (j['priceCents'] != null && j['costCents'] == null) {
       // Ambiguous single priceCents → treat as cost for purchase context
-      costCents = costCents == 0 ? (_asInt(j['priceCents']) ?? 0) : costCents;
+      if (costCents == 0) costCents = _validCents(j['priceCents']);
+    }
+    final subtotal = qty * costCents;
+    if (!subtotal.isFinite || subtotal > 9007199254740991) {
+      throw const FormatException('进货单数量或金额无效');
     }
     return PurchaseDraftLine(
       name: name,
-      qty: qty <= 0 ? 1 : qty,
-      unitCostCents: costCents < 0 ? 0 : costCents,
+      qty: qty,
+      unitCostCents: costCents,
       sku: (j['sku'] as String?)?.trim() ?? '',
       barcode: (j['barcode'] as String?)?.trim() ??
           (j['code'] as String?)?.trim() ??
@@ -248,11 +251,26 @@ class PurchaseDraftLine {
       );
 }
 
-int? _asInt(Object? v) {
-  if (v == null) return null;
-  if (v is int) return v;
-  if (v is num) return v.round();
-  return int.tryParse(v.toString().trim());
+int _validCents(Object? value) {
+  final int? parsed;
+  if (value is num && value.isFinite && value >= 0 &&
+      value <= 9007199254740991 && value == value.roundToDouble()) {
+    parsed = value.round();
+  } else {
+    parsed = int.tryParse(value.toString().trim());
+  }
+  if (parsed == null || parsed < 0 || parsed > 9007199254740991) {
+    throw const FormatException('进货单数量或金额无效');
+  }
+  return parsed;
+}
+
+int _validRm(Object? value) {
+  final parsed = tryParseRmCents(value.toString());
+  if (parsed == null || parsed < 0) {
+    throw const FormatException('进货单数量或金额无效');
+  }
+  return parsed;
 }
 
 double? _asDouble(Object? v) {
@@ -342,7 +360,13 @@ class PurchaseInvoiceTextParser {
         qty ??= 1;
       }
       final qtyVal = qty;
-      if (qtyVal <= 0) continue;
+      final costCents = tryParseRmCents(price.toString());
+      if (!qtyVal.isFinite || qtyVal <= 0 || qtyVal > 9007199254740991 ||
+          costCents == null || costCents < 0 ||
+          !(qtyVal * costCents).isFinite ||
+          qtyVal * costCents > 9007199254740991) {
+        throw const FormatException('进货单数量或金额无效');
+      }
 
       var name = row;
       name = name.replaceAll(_barcodeLike, ' ');
@@ -369,7 +393,7 @@ class PurchaseInvoiceTextParser {
       lines.add(PurchaseDraftLine(
         name: name,
         qty: qtyVal,
-        unitCostCents: rmToCents(price),
+        unitCostCents: costCents,
         barcode: barcode,
         confidence: conf.clamp(0, 1),
         matchNote: conf < 0.55 ? '低置信度，请核对' : '',

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/completed_dialog.dart';
+
 import '../models/money.dart';
 import '../services/pos_repository.dart';
 import '../theme/cnkh_theme.dart';
@@ -86,8 +88,8 @@ class _SalesListScreenState extends State<SalesListScreen> {
     }
     if (_to != null) {
       final sold = DateTime.tryParse(s.soldAt);
-      final end = DateTime(_to!.year, _to!.month, _to!.day, 23, 59, 59);
-      if (sold != null && sold.isAfter(end)) return false;
+      final endExclusive = DateTime(_to!.year, _to!.month, _to!.day + 1);
+      if (sold != null && !sold.isBefore(endExclusive)) return false;
     }
     if (q.isEmpty) return true;
     final phone = (s.customerPhone ?? '').toLowerCase();
@@ -124,7 +126,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
 
   Future<void> _void(SaleRecord s) async {
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('作废备注 / Void note'),
@@ -138,9 +140,18 @@ class _SalesListScreenState extends State<SalesListScreen> {
         ],
       ),
     );
-    if (ok != true) return;
-    await widget.repo.voidSale(s.id, ctrl.text.trim().isEmpty ? 'void' : ctrl.text.trim());
-    await _load();
+    final note = ctrl.text.trim();
+    ctrl.dispose();
+    if (ok != true || !mounted) return;
+    try {
+      await widget.repo.voidSale(s.id, note.isEmpty ? 'void' : note);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('作废失败：$e'), backgroundColor: CnkhColors.danger),
+      );
+    }
   }
 
   @override

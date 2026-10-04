@@ -138,6 +138,11 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('小票格式已保存 / Receipt template saved')),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('小票格式保存失败：$e')),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -162,7 +167,7 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     setState(() => _saving = true);
     try {
       await ReceiptTemplate.resetToDefaults(widget.repo);
@@ -170,6 +175,11 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已恢复默认 / Defaults restored')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('恢复默认失败：$e')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

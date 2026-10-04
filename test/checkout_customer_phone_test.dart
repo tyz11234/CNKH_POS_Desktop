@@ -53,12 +53,22 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  Future<void> flush(WidgetTester tester) async {
-    for (var i = 0; i < 6; i++) {
+  Future<void> waitUntil(
+    WidgetTester tester,
+    bool Function() completed, {
+    required String description,
+  }) async {
+    final elapsed = Stopwatch()..start();
+    while (!completed()) {
+      if (elapsed.elapsed >= const Duration(seconds: 10)) {
+        fail('Timed out waiting for $description');
+      }
+      // SQLite FFI progresses in real time; widget callbacks and endOfFrame
+      // must also be pumped before checking whether the operation completed.
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 60)),
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
-      await tester.pump(const Duration(milliseconds: 80));
+      await tester.pump(const Duration(milliseconds: 20));
     }
   }
 
@@ -81,9 +91,17 @@ void main() {
           ),
         ),
       );
-      await flush(tester);
-
       final customerDropdown = find.byType(DropdownButton<Customer?>);
+      await waitUntil(
+        tester,
+        () =>
+            tester
+                .widget<DropdownButton<Customer?>>(customerDropdown)
+                .items!
+                .length ==
+            3,
+        description: 'the customer directory to load',
+      );
       final phoneField = find.byWidgetPredicate(
         (widget) =>
             widget is TextField &&
@@ -94,7 +112,6 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text(label).last);
         await tester.pumpAndSettle();
-        await flush(tester);
       }
 
       await choose('Customer A  0111111111');
@@ -120,7 +137,11 @@ void main() {
       await tester.tap(find.text('卡\nCard'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认收款 / Confirm'));
-      await flush(tester);
+      await waitUntil(
+        tester,
+        () => saved != null,
+        description: 'the committed sale and onPaid callback',
+      );
 
       expect(saved, isNotNull);
       expect(saved!.customerId, 'customer-b');

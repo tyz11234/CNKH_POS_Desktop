@@ -1,0 +1,210 @@
+lib/screens/einvoice_setup_screen.dart:32:  @override void dispose() { service.dispose(); for (final c in inputs.values) { c.dispose(); } clientId.dispose(); secret.dispose(); search.dispose(); super.dispose(); }
+lib/screens/einvoice_setup_screen.dart:41:    } catch (_) { message = '读取设置失败，请重试'; }
+lib/screens/einvoice_setup_screen.dart:42:    if (mounted) setState(() => busy = false);
+lib/screens/einvoice_setup_screen.dart:46:    try { await action(); rows = await service.history(environment, receipt: search.text.trim()); if (mounted) setState(() => message = '操作完成'); }
+lib/screens/einvoice_setup_screen.dart:47:    catch (e) { if (mounted) setState(() => message = e is FormatException || e is StateError || e is ArgumentError || e is MyInvoisException ? '$e' : '连接或操作失败，请检查网络和 MyInvois 配置'); }
+lib/screens/einvoice_setup_screen.dart:48:    finally { if (mounted) setState(() => busy = false); }
+lib/screens/einvoice_setup_screen.dart:53:    if (rate == null || rate < 0 || rate > 100 || !rate.isFinite) throw const FormatException('税率须为 0–100');
+lib/screens/einvoice_setup_screen.dart:63:    // Dialog route may still animate after completion; let its field dispose first.
+lib/screens/einvoice_setup_screen.dart:74:      if (bytes == null || bytes.isEmpty) throw StateError('无法读取所选证书文件');
+lib/screens/einvoice_setup_screen.dart:104:      if (!mounted) return;
+lib/screens/einvoice_setup_screen.dart:139:            Text('${row['receipt_no']} · ${row['status']}', style: Theme.of(context).textTheme.titleMedium),
+lib/screens/einvoice_setup_screen.dart:143:            if ('${row['document_uuid']}'.isNotEmpty) SelectableText('UUID: ${row['document_uuid']}'),
+lib/screens/einvoice_setup_screen.dart:145:              if (row['is_latest_attempt'] == true && row['voided'] != 1 && ['pending','rejected'].contains(row['status']) && row['document_uuid'] == '' && (row['status'] == 'rejected' || row['submission_uid'] == '')) TextButton(onPressed: busy ? null : () => _prepare(row), child: const Text('买方资料 / 生成')),
+lib/screens/einvoice_setup_screen.dart:146:              if (row['is_latest_attempt'] == true && row['voided'] != 1 && row['status'] == 'invalid' && '${row['document_uuid']}'.isNotEmpty) TextButton(onPressed: busy ? null : () => _prepare(row, correction: true), child: const Text('生成更正尝试')),
+lib/screens/einvoice_setup_screen.dart:147:              if (row['is_latest_attempt'] == true && row['document_id'] != null && row['status'] == 'pending' && row['voided'] != 1 && row['document_uuid'] == '' && row['submission_uid'] == '') FilledButton(onPressed: busy ? null : () => _submit(row), child: const Text('提交')),
+lib/screens/einvoice_setup_screen.dart:149:              if (row['document_id'] != null && (['needs_review','submitting'].contains(row['status']) || (row['status'] == 'pending' && (row['document_uuid'] != '' || row['submission_uid'] != '')))) TextButton(onPressed: busy ? null : () async {
+lib/screens/einvoice_setup_screen.dart:157:              if (row['document_id'] != null && row['status'] == 'invalid' && '${row['document_uuid']}'.isNotEmpty) TextButton(onPressed: busy ? null : () async { final uuid = await _prompt('查看 Invalid 文件的验证详情 UUID'); if (uuid != null && uuid.trim().isNotEmpty) await _run(() => service.reconcile(row['document_id'] as String, uuid)); }, child: const Text('查看验证详情')),
+lib/screens/einvoice_setup_screen.dart:158:              if (row['document_uuid'] != '' && ['submitted','validated'].contains(row['status'])) TextButton(onPressed: busy ? null : () async { final reason = await _prompt('取消 e-Invoice 原因', hint: '受 MyInvois 取消期限限制；不会退款'); if (reason != null) await _run(() => service.cancel(row['document_id'] as String, reason)); }, child: const Text('取消 e-Invoice')),
+../CNKH_POS_Mobile_APK/lib/screens/einvoice_status_screen.dart:4:import '../services/einvoice/einvoice_status_store.dart';
+../CNKH_POS_Mobile_APK/lib/screens/einvoice_status_screen.dart:19:      message = await widget.repo.getSetting('einvoice_status_sync_error');
+../CNKH_POS_Mobile_APK/lib/screens/einvoice_status_screen.dart:20:    } catch (_) { message = '状态读取失败，请重试'; }
+../CNKH_POS_Mobile_APK/lib/screens/einvoice_status_screen.dart:21:    if (mounted) setState(() {});
+../CNKH_POS_Mobile_APK/lib/screens/einvoice_status_screen.dart:28:    for (final row in rows) Card(child: ListTile(title: Text('${row['receipt_no']}'), subtitle: Text('${row['updated_at'] ?? '等待 Desktop 处理'}${row['voided'] == 1 ? '\n销售已作废，请向管理员核对 e-Invoice' : ''}'), trailing: Text({'pending':'Pending','submitting':'Pending · 核对中','submitted':'Submitted','validated':'Validated','rejected':'Rejected','cancelled':'Cancelled','needs_review':'待核对'}[row['status']] ?? '${row['status']}'))),
+lib/services/einvoice/invoice_mapper.dart:10:    if (s.isEmpty || s.length > max) throw FormatException('$key 必填，最多 $max 字');
+lib/services/einvoice/invoice_mapper.dart:17:    if (!['BRN', 'NRIC', 'PASSPORT', 'ARMY'].contains(idType)) throw const FormatException('Invalid buyer ID type');
+lib/services/einvoice/invoice_mapper.dart:20:    if (!RegExp(r'^\+[1-9]\d{6,14}$').hasMatch(phone)) throw const FormatException('电话须为 E.164 格式，例如 +60123456789');
+lib/services/einvoice/invoice_mapper.dart:22:    if (!RegExp(r'^(0[1-9]|1[0-7])$').hasMatch(state)) throw const FormatException('Malaysia state code 须为 01–17');
+lib/services/einvoice/invoice_mapper.dart:41:    if (sale['voided'] == 1) throw const FormatException('已作废销售不能生成发票');
+lib/services/einvoice/invoice_mapper.dart:43:    if (!RegExp(r'^\d{5}$').hasMatch('${supplier['msic'] ?? ''}')) throw const FormatException('MSIC 必须为五位数字');
+lib/services/einvoice/invoice_mapper.dart:45:    if (!RegExp(r'^\d{3}$').hasMatch(classification)) throw const FormatException('商品分类须为三位 MyInvois classification code');
+lib/services/einvoice/invoice_mapper.dart:47:    if (!['01','02','03','04','05','06','E'].contains(taxCode)) throw const FormatException('Invalid tax type');
+lib/services/einvoice/invoice_mapper.dart:49:    if (rate < 0 || rate > 10000 || (['06','E'].contains(taxCode) && rate != 0)) throw const FormatException('Invalid tax rate');
+lib/services/einvoice/invoice_mapper.dart:50:    if (!['06','E'].contains(taxCode) && rate == 0) throw const FormatException('请输入适用税率');
+lib/services/einvoice/invoice_mapper.dart:53:    if (raw.isEmpty) throw const FormatException('销售没有明细');
+lib/services/einvoice/invoice_mapper.dart:54:    int n(Object? v) { if (v is! int) throw const FormatException('Invalid monetary snapshot'); return v; }
+lib/services/einvoice/invoice_mapper.dart:64:      if (qty <= 0 || unit < 0 || discount < 0 || discount > qty * unit) throw const FormatException('Invalid line snapshot');
+lib/services/einvoice/invoice_mapper.dart:66:      if (line['lineTotalCents'] != null && n(line['lineTotalCents']) != gross - discount) throw const FormatException('明细金额不一致');
+lib/services/einvoice/invoice_mapper.dart:71:    if (orderDiscount < 0 || orderDiscount > net || total != net-orderDiscount+rounding || grossSum != n(sale['subtotal_cents']) || discountSum != n(sale['item_discount_cents'] ?? discountSum)) throw const FormatException('销售合计不一致，不能提交');
+lib/services/einvoice/sale_submission_guard.dart:9:/// Called inside the same transaction as every POS/LAN sale reversal. A tax
+lib/services/einvoice/sale_submission_guard.dart:19:    if (['submitting', 'needs_review'].contains(doc['status']) ||
+lib/services/einvoice/sale_submission_guard.dart:20:        (doc['status'] == 'pending' &&
+lib/services/einvoice/sale_submission_guard.dart:21:            ('${doc['document_uuid'] ?? ''}'.isNotEmpty ||
+lib/services/einvoice/sale_submission_guard.dart:23:      throw SaleVoidRejected('税务提交处理中或结果未知，请先核对 MyInvois 后再作废；原请求保留');
+lib/services/einvoice/sale_submission_guard.dart:33:        'status': doc['status'],
+lib/services/einvoice/sale_submission_guard.dart:34:        'document_uuid': doc['document_uuid'],
+lib/services/einvoice/einvoice_settings.dart:27:    if (!create) throw StateError('本机凭据密钥不可用，请重新输入 Client ID / Secret');
+lib/services/einvoice/einvoice_settings.dart:38:    if (credentials && (row['credentials_cipher'] as String).isNotEmpty) {
+lib/services/einvoice/einvoice_settings.dart:39:      final box = jsonDecode(row['credentials_cipher'] as String) as Map<String, dynamic>;
+lib/services/einvoice/einvoice_settings.dart:48:    if (clientId.trim().isEmpty || clientSecret.isEmpty) throw StateError('Client ID / Secret 必填');
+lib/services/einvoice/einvoice_settings.dart:55:      'credentials_cipher': jsonEncode({'data': base64Encode(box.cipherText), 'nonce': base64Encode(box.nonce), 'mac': base64Encode(box.mac.bytes)}),
+lib/services/einvoice/einvoice_settings.dart:68:    if (pfx.isEmpty || fileName.trim().isEmpty) throw ArgumentError('请选择有效的 PFX/P12 文件');
+lib/services/einvoice/einvoice_settings.dart:76:      await db.insert('e_invoice_settings', {'id': environment, 'environment': environment, 'tin': '', 'brn': '', 'profile_json': '{}', 'client_id': '', 'client_secret': '', 'credentials_cipher': '', ...values});
+lib/services/einvoice/einvoice_settings.dart:84:    if (rows.isEmpty || '${rows.single['signing_certificate_cipher'] ?? ''}'.isEmpty) throw StateError('请先在 e-Invoice 设置导入 MyInvois 数字证书');
+lib/services/einvoice/einvoice_settings.dart:96:    if (value != 'sandbox' && value != 'production') throw ArgumentError('Invalid environment');
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:10:      for (final key in ['document_id','sale_id','receipt_no','environment','status','updated_at']) {
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:11:        if (row[key] is! String) throw const FormatException('Invalid e-Invoice status response');
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:13:      if (!['sandbox','production'].contains(row['environment']) || !['pending','submitting','submitted','validated','rejected','invalid','cancelled','needs_review'].contains(row['status'])) throw const FormatException('Unknown e-Invoice status');
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:14:      accepted.add({'host': host, for (final key in ['document_id','sale_id','receipt_no','environment','status','updated_at']) key: row[key], 'client_sale_id': row['client_sale_id'] is String ? row['client_sale_id'] : ''});
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:16:    await db.transaction((txn) async {
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:17:      await txn.delete('e_invoice_status', where: 'host=?', whereArgs: [host]);
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:18:      for (final row in accepted) { await txn.insert('e_invoice_status', row, conflictAlgorithm: ConflictAlgorithm.replace); }
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:22:    SELECT s.receipt_no, s.voided, s.total_cents, COALESCE(e.status,'pending') AS status, e.updated_at
+../CNKH_POS_Mobile_APK/lib/services/einvoice/einvoice_status_store.dart:23:    FROM sales s LEFT JOIN e_invoice_status e ON e.host=? AND e.environment=?
+lib/services/einvoice/einvoice_service.dart:25:    if (repo.auth.currentUser?.role != AppRole.admin) throw StateError('仅已登录管理员可操作 e-Invoice');
+lib/services/einvoice/einvoice_service.dart:58:      d.id AS document_id, COALESCE(d.status,'pending') AS status,
+lib/services/einvoice/einvoice_service.dart:59:      COALESCE(d.error_message,'') AS error_message, COALESCE(d.document_uuid,'') AS document_uuid,
+lib/services/einvoice/einvoice_service.dart:67:    SELECT d.sale_id,d.invoice_no,'原销售已移除','',0,1,d.id,d.status,d.error_message,
+lib/services/einvoice/einvoice_service.dart:68:      d.document_uuid,d.submission_uid,d.buyer_json,d.payload_json,d.invoice_no,d.attempt_no,d.parent_document_id,d.updated_at
+lib/services/einvoice/einvoice_service.dart:82:        try { final payload=jsonDecode(r['payload_json'] as String);row['total_cents']=((payload['Invoice'][0]['LegalMonetaryTotal'][0]['PayableAmount'][0]['_'] as num)*100).round(); } catch (_) {}
+lib/services/einvoice/einvoice_service.dart:101:    final previousStatus = previous?['status'] as String?;
+lib/services/einvoice/einvoice_service.dart:102:    final previousUuid = '${previous?['document_uuid'] ?? ''}';
+lib/services/einvoice/einvoice_service.dart:106:        throw StateError('只有已取得 UUID 且 MyInvois 状态为 Invalid 的记录可生成更正尝试');
+lib/services/einvoice/einvoice_service.dart:113:        throw StateError('此销售已有提交记录，请查询状态；需要更正时使用“生成更正尝试”');
+lib/services/einvoice/einvoice_service.dart:125:    if (collisions.isNotEmpty) throw StateError('此发票号码已有税务记录，不能重复使用');
+lib/services/einvoice/einvoice_service.dart:134:    await db.transaction((txn) async {
+lib/services/einvoice/einvoice_service.dart:138:      if (latest?['id'] != previous?['id'] || latest?['status'] != previousStatus ||
+lib/services/einvoice/einvoice_service.dart:139:          '${latest?['document_uuid'] ?? ''}' != previousUuid) throw StateError('提交状态已变更，请刷新列表');
+lib/services/einvoice/einvoice_service.dart:141:      if (currentSale.isEmpty || currentSale.single['voided'] == 1) throw StateError('销售已作废或移除');
+lib/services/einvoice/einvoice_service.dart:144:      if (invoiceCollision.isNotEmpty) throw StateError('此发票号码已有税务记录，不能重复使用');
+lib/services/einvoice/einvoice_service.dart:148:        'buyer_json': jsonEncode(buyer), 'status': 'pending', 'error_message': '',
+lib/services/einvoice/einvoice_service.dart:149:        'submission_uid': '', 'document_uuid': '', 'submitted_at': null, 'long_id': '',
+lib/services/einvoice/einvoice_service.dart:181:    if (docs.isEmpty) throw StateError('请先生成发票');
+lib/services/einvoice/einvoice_service.dart:183:    if (doc['status'] != 'pending' || '${doc['payload_json']}'.isEmpty ||
+lib/services/einvoice/einvoice_service.dart:184:        '${doc['document_uuid'] ?? ''}'.isNotEmpty || '${doc['submission_uid'] ?? ''}'.isNotEmpty) {
+lib/services/einvoice/einvoice_service.dart:185:      throw StateError('只能提交已生成且未提交的发票；已有 UUID/Submission UID 时请先查询');
+lib/services/einvoice/einvoice_service.dart:188:    if (sale['voided'] == 1) throw StateError('销售已作废');
+lib/services/einvoice/einvoice_service.dart:193:    if (date != _now().substring(0,10)) throw StateError('发票日期已过期，请重新生成后提交');
+lib/services/einvoice/einvoice_service.dart:196:    if (issuer != cfg['tin']) throw StateError('公司 TIN 已变更，请重新生成');
+lib/services/einvoice/einvoice_service.dart:200:    final claimed = await db.transaction((txn) async {
+lib/services/einvoice/einvoice_service.dart:204:        throw StateError('销售已作废或移除，未发送税务提交');
+lib/services/einvoice/einvoice_service.dart:206:      final changed = await txn.update('e_invoice_documents', {'status': 'submitting', 'error_message': '', 'updated_at': _now()}, where: 'id=? AND status=? AND payload_hash=?', whereArgs: [id, 'pending', doc['payload_hash']]);
+lib/services/einvoice/einvoice_service.dart:214:    if (claimed != 1) throw StateError('此发票已被另一操作处理，请刷新');
+lib/services/einvoice/einvoice_service.dart:224:        values.addAll({'status': uid.isEmpty ? 'needs_review' : 'submitted',
+lib/services/einvoice/einvoice_service.dart:225:          'submission_uid': uid, 'document_uuid': matching.single['uuid'], 'submitted_at': _now(),
+lib/services/einvoice/einvoice_service.dart:234:          'status': knownRejected ? 'rejected' : 'needs_review',
+lib/services/einvoice/einvoice_service.dart:241:      await db.transaction((txn) async {
+lib/services/einvoice/einvoice_service.dart:243:        await _log(txn, id, 'submit', '${values['status']}', details: {
+lib/services/einvoice/einvoice_service.dart:248:    } catch (e) {
+lib/services/einvoice/einvoice_service.dart:250:      final definite = e is MyInvoisException && [400,401,403,429].contains(e.statusCode);
+lib/services/einvoice/einvoice_service.dart:251:      await db.transaction((txn) async {
+lib/services/einvoice/einvoice_service.dart:252:        await _update(txn, id, {'status': definite ? 'pending' : 'needs_review', 'error_message': e is MyInvoisException ? e.toString() : '网络或响应异常，提交结果未知；请先核对 MyInvois'});
+lib/services/einvoice/einvoice_service.dart:254:          if (e is MyInvoisException) 'http_status': e.statusCode,
+lib/services/einvoice/einvoice_service.dart:257:      rethrow;
+lib/services/einvoice/einvoice_service.dart:281:    if (uid.isEmpty) throw StateError('无 Submission UID；请用 MyInvois 中的 UUID 核对');
+lib/services/einvoice/einvoice_service.dart:287:    final match = rows.where((r) => r['uuid'] == doc['document_uuid']).toList();
+lib/services/einvoice/einvoice_service.dart:289:      await _log(db, id, 'query', 'document_not_found', details: {'submission_uid': uid, 'overall_status': result['overallStatus']});
+lib/services/einvoice/einvoice_service.dart:290:      throw StateError('MyInvois 尚未返回该发票，请稍后查询');
+lib/services/einvoice/einvoice_service.dart:297:    final storedUuid = '${doc['document_uuid'] ?? ''}';
+lib/services/einvoice/einvoice_service.dart:298:    final invalid = doc['status'] == 'invalid';
+lib/services/einvoice/einvoice_service.dart:299:    final unresolved = ['needs_review', 'submitting'].contains(doc['status']) ||
+lib/services/einvoice/einvoice_service.dart:300:        (doc['status'] == 'pending' &&
+lib/services/einvoice/einvoice_service.dart:302:    if (!invalid && !unresolved) throw StateError('请使用查询 MyInvois；核对仅用于未知提交结果或 Invalid 验证详情');
+lib/services/einvoice/einvoice_service.dart:303:    if (uuid.trim().isEmpty) throw StateError('请填写 MyInvois Portal 中的 UUID');
+lib/services/einvoice/einvoice_service.dart:309:      throw StateError('输入 UUID 与原提交记录不符；原记录未变更');
+lib/services/einvoice/einvoice_service.dart:317:      if (uid.isEmpty) throw StateError('请填写 Portal 中的 Submission UID；结果未知时不能重新提交');
+lib/services/einvoice/einvoice_service.dart:319:        throw StateError('Submission UID 与原提交记录不符');
+lib/services/einvoice/einvoice_service.dart:328:        throw StateError('该提交未唯一返回此 UUID；记录仍为待核对，勿重复提交');
+lib/services/einvoice/einvoice_service.dart:331:      if (result['submissionUid'] != null && result['submissionUid'] != uid) throw StateError('返回的 Submission UID 不符');
+lib/services/einvoice/einvoice_service.dart:339:      await _log(db, id, 'reconcile', 'identity_mismatch', details: {'requested_uuid': uuid.trim(), ..._statusAudit(result)});
+lib/services/einvoice/einvoice_service.dart:340:      throw StateError('UUID 的发票号码、TIN 或金额不符；原记录未变更');
+lib/services/einvoice/einvoice_service.dart:347:    if ((doc['document_uuid'] as String).isEmpty) throw StateError('无 MyInvois UUID');
+lib/services/einvoice/einvoice_service.dart:348:    if (!['submitted','validated'].contains(doc['status'])) throw StateError('只有已接收或验证通过的发票可申请取消；Invalid/Rejected 记录保留原状态');
+lib/services/einvoice/einvoice_service.dart:349:    final result = await (await _client(doc['environment'] as String)).cancelDocument(doc['document_uuid'] as String, reason);
+lib/services/einvoice/einvoice_service.dart:350:    if ('${result['status']}'.toLowerCase() != 'cancelled') {
+lib/services/einvoice/einvoice_service.dart:351:      await _log(db, id, 'cancel', 'unknown_result', details: {'response_status': result['status']});
+lib/services/einvoice/einvoice_service.dart:352:      throw StateError('MyInvois 尚未确认取消，请查询');
+lib/services/einvoice/einvoice_service.dart:354:    await db.transaction((txn) async {
+lib/services/einvoice/einvoice_service.dart:355:      await _update(txn, id, {'status': 'cancelled', 'error_message': reason.trim()});
+lib/services/einvoice/einvoice_service.dart:360:    final rawStatus = '${result['status'] ?? ''}'.toLowerCase();
+lib/services/einvoice/einvoice_service.dart:362:    final savedUuid = '${doc['document_uuid'] ?? ''}';
+lib/services/einvoice/einvoice_service.dart:363:    final status = switch (rawStatus) {
+lib/services/einvoice/einvoice_service.dart:371:    if (status == null) {
+lib/services/einvoice/einvoice_service.dart:372:      await _log(db, documentId, 'query', 'unknown_status', details: _statusAudit(result));
+lib/services/einvoice/einvoice_service.dart:373:      throw StateError('未知 MyInvois 状态“$rawStatus”；记录未变更，请在 MyInvois 核对后重试');
+lib/services/einvoice/einvoice_service.dart:376:      await _log(db, documentId, 'query', 'uuid_mismatch', details: {'stored_uuid': savedUuid, 'response_uuid': responseUuid, ..._statusAudit(result)});
+lib/services/einvoice/einvoice_service.dart:377:      throw StateError('MyInvois 返回的 UUID 与原提交不符；原记录未变更');
+lib/services/einvoice/einvoice_service.dart:381:      await _log(db, documentId, 'query', 'missing_uuid', details: _statusAudit(result));
+lib/services/einvoice/einvoice_service.dart:382:      throw StateError('MyInvois 状态响应缺少 UUID；原记录未变更');
+lib/services/einvoice/einvoice_service.dart:384:    final summary = status == 'invalid' ? _validationSummary(result) : '';
+lib/services/einvoice/einvoice_service.dart:385:    final error = status == 'invalid'
+lib/services/einvoice/einvoice_service.dart:388:    await db.transaction((txn) async {
+lib/services/einvoice/einvoice_service.dart:390:      if (latest.isEmpty || '${latest.single['document_uuid'] ?? ''}' != savedUuid) throw StateError('本地提交记录已变化，请刷新后核对');
+lib/services/einvoice/einvoice_service.dart:392:        'status': status,
+lib/services/einvoice/einvoice_service.dart:393:        'document_uuid': uuid,
+lib/services/einvoice/einvoice_service.dart:398:      await _log(txn, documentId, 'query', status, details: _statusAudit(result));
+lib/services/einvoice/einvoice_service.dart:401:  static Map<String, Object?> _statusAudit(Map<String, dynamic> result) => {
+lib/services/einvoice/einvoice_service.dart:402:    for (final key in ['status','uuid','submissionUid','longId','validationResults','errors','error'])
+lib/services/einvoice/einvoice_service.dart:425:  Future<void> _log(DatabaseExecutor db, String id, String action, String status, {Map<String, Object?> details = const {}}) => db.insert('e_invoice_logs', {'id': AppDatabase.newId(), 'document_id': id, 'action': action, 'response_json': jsonEncode({
+lib/services/einvoice/einvoice_service.dart:427:    if (details.containsKey('status')) 'remote_status': details['status'],
+lib/services/einvoice/einvoice_service.dart:428:    'status': status,
+lib/services/einvoice/einvoice_service.dart:430:  void dispose() { for (final client in _clients.values) { client.close(); } }
+lib/services/einvoice/einvoice_signer.dart:25:      throw ArgumentError('证书文件大小须小于 5 MB');
+lib/services/einvoice/einvoice_signer.dart:33:      throw StateError('MyInvois 需要至少 2048 位 RSA 数字证书');
+lib/services/einvoice/einvoice_signer.dart:43:      throw StateError('PFX 私钥与证书公钥不匹配');
+lib/services/einvoice/einvoice_signer.dart:50:      throw StateError('Invoice JSON 结构无效');
+lib/services/einvoice/einvoice_signer.dart:63:      throw StateError('此待提交发票是旧版未签名单据，请重新生成后再提交');
+lib/services/einvoice/einvoice_signer.dart:78:      if (references.length != 2) throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:104:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:110:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:131:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:141:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:148:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:155:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:167:        throw const FormatException();
+lib/services/einvoice/einvoice_signer.dart:169:    } catch (_) {
+lib/services/einvoice/einvoice_signer.dart:170:      throw StateError('发票数字签名无效或已被修改，请重新生成');
+lib/services/einvoice/einvoice_signer.dart:189:      throw const FormatException('Invoice JSON 结构无效');
+lib/services/einvoice/einvoice_signer.dart:192:    if (invoice['UBLExtensions'] != null || invoice['Signature'] != null) throw StateError('发票已有签名扩展，拒绝重复签名');
+lib/services/einvoice/einvoice_signer.dart:256:      throw const FormatException('证书格式无效');
+lib/services/einvoice/einvoice_signer.dart:261:      throw const FormatException('证书缺少必需字段');
+lib/services/einvoice/einvoice_signer.dart:272:      throw const FormatException('证书缺少有效期或 RSA 公钥');
+lib/services/einvoice/einvoice_signer.dart:277:      throw const FormatException('证书公钥不是 RSA');
+lib/services/einvoice/einvoice_signer.dart:283:      throw const FormatException('RSA 公钥编码无效');
+lib/services/einvoice/einvoice_signer.dart:287:      throw const FormatException('RSA 公钥结构无效');
+lib/services/einvoice/einvoice_signer.dart:309:    if (value.isEmpty) throw const FormatException('证书整数无效');
+lib/services/einvoice/einvoice_signer.dart:335:        throw const FormatException('证书扩展结构无效');
+lib/services/einvoice/einvoice_signer.dart:339:          throw const FormatException('证书扩展字段无效');
+lib/services/einvoice/einvoice_signer.dart:346:          throw const FormatException('证书扩展值无效');
+lib/services/einvoice/einvoice_signer.dart:351:            throw const FormatException('Key Usage 扩展无效');
+lib/services/einvoice/einvoice_signer.dart:363:            throw const FormatException('Extended Key Usage 扩展无效');
+lib/services/einvoice/einvoice_signer.dart:377:      throw const FormatException('证书时间须为 UTC');
+lib/services/einvoice/einvoice_signer.dart:387:    if (match == null) throw const FormatException('证书有效期格式无效');
+lib/services/einvoice/einvoice_signer.dart:403:      throw StateError('数字证书已过期或尚未生效');
+lib/services/einvoice/einvoice_signer.dart:422:        throw StateError('数字证书缺少必需字段 ${entry.value}');
+lib/services/einvoice/einvoice_signer.dart:426:      throw StateError('MyInvois 数字证书必须属于马来西亚组织');
+lib/services/einvoice/einvoice_signer.dart:433:      throw StateError('证书 TIN 与当前 e-Invoice 公司资料不符');
+lib/services/einvoice/einvoice_signer.dart:438:      throw StateError('证书 BRN 与当前 e-Invoice 公司资料不符');
+lib/services/einvoice/einvoice_signer.dart:441:      throw StateError('数字证书 Key Usage 必须包含 Non-Repudiation');
+lib/services/einvoice/einvoice_signer.dart:444:      throw StateError('数字证书 Enhanced Key Usage 必须包含 Document Signing');
+lib/services/einvoice/einvoice_signer.dart:471:    if (parts.isEmpty) throw const FormatException('证书没有可读取的 X.509 名称');
+lib/services/einvoice/einvoice_signer.dart:521:    if ((length & 0x80) != 0) { final count = length & 0x7f; if (count == 0 || count > 4) throw const FormatException('Unsupported certificate DER length'); length = 0; for (var i=0; i<count; i++) { length = (length << 8) | bytes[offset++]; } }
+lib/services/einvoice/einvoice_signer.dart:523:    if (end > bytes.length) throw const FormatException('Truncated certificate DER');
+lib/services/einvoice/myinvois_client.dart:8:  const MyInvoisException(this.statusCode, this.operation, {this.retryAfter});
+lib/services/einvoice/myinvois_client.dart:9:  final int statusCode;
+lib/services/einvoice/myinvois_client.dart:12:  @override String toString() => 'MyInvois $operation: HTTP $statusCode${retryAfter == null ? '' : ' (Retry-After: $retryAfter)'}';
+lib/services/einvoice/myinvois_client.dart:17:    if (!['sandbox', 'production'].contains(environment)) throw ArgumentError('Invalid environment');
+lib/services/einvoice/myinvois_client.dart:32:    if (retry != null && retry.isAfter(_now())) throw StateError('MyInvois 暂时限流，请等待 ${retry.difference(_now()).inSeconds + 1} 秒后重试');
+lib/services/einvoice/myinvois_client.dart:35:    if ('${cfg['client_id'] ?? ''}'.isEmpty || '${cfg['client_secret'] ?? ''}'.isEmpty) throw StateError('请先保存 MyInvois 凭据');
+lib/services/einvoice/myinvois_client.dart:37:      ..followRedirects = false
+lib/services/einvoice/myinvois_client.dart:43:    if (response.statusCode != 200) { _rememberRetry(response); throw MyInvoisException(response.statusCode, 'authentication', retryAfter: response.headers['retry-after']); }
+lib/services/einvoice/myinvois_client.dart:47:    if (token is! String || token.isEmpty || expires is! num || expires <= 0) throw const FormatException('Invalid OAuth response');
+lib/services/einvoice/myinvois_client.dart:54:        ..followRedirects = false
+lib/services/einvoice/myinvois_client.dart:58:      if (response.statusCode == 401 && attempt == 0) { clearToken(); continue; }
+lib/services/einvoice/myinvois_client.dart:59:      if (response.statusCode != expected) { _rememberRetry(response); throw MyInvoisException(response.statusCode, method, retryAfter: response.headers['retry-after']); }
+lib/services/einvoice/myinvois_client.dart:62:    throw const MyInvoisException(401, 'authentication');
+lib/services/einvoice/myinvois_client.dart:67:      if (response.statusCode == 429) _retryNotBefore = _now().add(const Duration(seconds: 60));
+lib/services/einvoice/myinvois_client.dart:72:    try { _retryNotBefore = HttpDate.parse(value); } catch (_) { _retryNotBefore = _now().add(const Duration(seconds: 60)); }
+lib/services/einvoice/myinvois_client.dart:76:    if (bytes.length > 300 * 1024) throw StateError('单张 e-Invoice 超过 300 KB');
+lib/services/einvoice/myinvois_client.dart:84:    if (reason.trim().isEmpty || reason.length > 300) throw ArgumentError('取消原因须为 1–300 字');
+lib/services/einvoice/myinvois_client.dart:85:    return _request('PUT', '/api/v1.0/documents/state/${Uri.encodeComponent(uuid)}/state', body: {'status': 'cancelled', 'reason': reason.trim()});

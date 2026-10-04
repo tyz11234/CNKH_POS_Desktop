@@ -1,0 +1,1865 @@
+{
+  "CNKH_POS_Mobile_APK": {
+    "head": "230f4768ce24b6fa3a0181351246a22b5907a715",
+    "tables": [
+      "audit_logs",
+      "barcode_print_queue",
+      "categories",
+      "customers",
+      "daily_closings",
+      "demo_users",
+      "e_invoice_status",
+      "held_orders",
+      "products",
+      "purchase_attachments",
+      "purchase_audit_log",
+      "purchase_commit_keys",
+      "purchase_draft_lines",
+      "purchase_drafts",
+      "purchase_reversals",
+      "purchases",
+      "sales",
+      "settings",
+      "stock_moves",
+      "stock_reversals",
+      "supplier_product_aliases",
+      "suppliers",
+      "sync_applied_operations",
+      "sync_entity_ids",
+      "sync_outbox",
+      "sync_outbox_v10",
+      "user_credentials"
+    ],
+    "indexes": [
+      "idx_products_barcode",
+      "idx_purchase_alias_supplier",
+      "idx_purchase_attachment_sync",
+      "idx_purchase_audit_purchase",
+      "idx_purchase_drafts_status",
+      "idx_purchases_supplier_invoice",
+      "idx_sales_customer",
+      "idx_sales_date",
+      "idx_stock_moves_product"
+    ],
+    "triggers": [
+      "block_local_reverse_of_desktop_purchase",
+      "purchase_attachment_outbox_acked",
+      "purchase_attachment_outbox_failed",
+      "sync_outbox_assign_seq"
+    ],
+    "endpoints": [
+      "/api/v1/barcode_queue",
+      "/api/v1/categories",
+      "/api/v1/customers",
+      "/api/v1/einvoices",
+      "/api/v1/health",
+      "/api/v1/mutations",
+      "/api/v1/notify",
+      "/api/v1/product_images",
+      "/api/v1/products",
+      "/api/v1/purchases",
+      "/api/v1/sales",
+      "/api/v1/stock-moves",
+      "/api/v1/suppliers",
+      "/api/v1/ws"
+    ],
+    "files": [
+      {
+        "path": "lib/db/reliability_schema.dart",
+        "sha256": "176fdf55dbd10bd5769423e759ab0be9dfdc9d195c1e1a7514d515250df3149b",
+        "lines": 65,
+        "declarations": [
+          {
+            "line": 2,
+            "declaration": "Future<void> ensureReliabilitySchema(DatabaseExecutor db) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/app_database.dart",
+        "sha256": "2a9f60165bf6cb7466be0b67615ed55bbc6262a8d92e582cf91f6f85a78af13d",
+        "lines": 592,
+        "declarations": [
+          {
+            "line": 34,
+            "declaration": "Future<void> close() async {"
+          },
+          {
+            "line": 40,
+            "declaration": "Future<Database> get db => _opening ??= _open().catchError((Object e) {"
+          },
+          {
+            "line": 77,
+            "declaration": "Future<Database> _open() async {"
+          },
+          {
+            "line": 102,
+            "declaration": "Future<void> _onCreate(Database db, int version) async {"
+          },
+          {
+            "line": 254,
+            "declaration": "Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {"
+          },
+          {
+            "line": 353,
+            "declaration": "Future<void> _seed(Database db) async {"
+          },
+          {
+            "line": 432,
+            "declaration": "Future<void> clearDemoTransactionalData() async {"
+          },
+          {
+            "line": 474,
+            "declaration": "Future<void> factoryResetLocalData() async {"
+          },
+          {
+            "line": 518,
+            "declaration": "Future<String> _mobileDeviceCode(DatabaseExecutor d) async {"
+          },
+          {
+            "line": 541,
+            "declaration": "Future<String> nextReceiptNo({DatabaseExecutor? executor}) async {"
+          },
+          {
+            "line": 560,
+            "declaration": "Future<String> nextHoldNo() =>"
+          },
+          {
+            "line": 563,
+            "declaration": "Future<String> nextPurchaseNo() =>"
+          },
+          {
+            "line": 566,
+            "declaration": "Future<String> _reserveNumber({"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/ocr_purchase_schema.dart",
+        "sha256": "89372a756ca5845a446ebee0ce3e221d6e861305ebfa6b217ca14dbcefe866cb",
+        "lines": 246,
+        "declarations": [
+          {
+            "line": 3,
+            "declaration": "Future<void> ensureOcrPurchaseSchema(DatabaseExecutor db) async {"
+          },
+          {
+            "line": 9,
+            "declaration": "Future<void> add(String name, String sql) async {"
+          },
+          {
+            "line": 123,
+            "declaration": "Future<void> addAttachmentColumn(String name, String sql) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/document_numbers.dart",
+        "sha256": "eb9188e71fc657b035872ac28cbe510e87df30758bdf41273cfdf8097593edd2",
+        "lines": 38,
+        "declarations": [
+          {
+            "line": 8,
+            "declaration": "Future<String> reserveDocumentNumber("
+          }
+        ]
+      },
+      {
+        "path": "lib/db/einvoice_status_schema.dart",
+        "sha256": "dd0887ff1505aa610349e1b2324c4f6d13591dfb70cd6c05fcec6f1d4fa9f16f",
+        "lines": 8,
+        "declarations": [
+          {
+            "line": 2,
+            "declaration": "Future<void> ensureEInvoiceStatusSchema(DatabaseExecutor db) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/legacy_purchase_outbox_migration.dart",
+        "sha256": "4007d1d611174316c2da0c92b67e74a8248c8d37ee2b2bbebfe6bdb1aaaefd7f",
+        "lines": 584,
+        "declarations": [
+          {
+            "line": 23,
+            "declaration": "bool _wasQueued(List<Map<String, Object?>> rows, String kind, String entityId) =>"
+          },
+          {
+            "line": 26,
+            "declaration": "Future<List<Map<String, Object?>>> _normalizeLegacySaleOutbox("
+          },
+          {
+            "line": 72,
+            "declaration": "Future<void> _sortOutboxChronologically("
+          },
+          {
+            "line": 81,
+            "declaration": "int compare(Map<String, Object?> a, Map<String, Object?> b) {"
+          },
+          {
+            "line": 90,
+            "declaration": "void link(String from, String to) {"
+          },
+          {
+            "line": 202,
+            "declaration": "Future<void> enqueueLegacyUnpairedPurchases(DatabaseExecutor db) async {"
+          },
+          {
+            "line": 469,
+            "declaration": "void collectLines(Object? raw) {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/lan_sync.dart",
+        "sha256": "79db07b8044b6d7c991b0a855666601ad18d1a4394e86ce8c5d0302aa0995922",
+        "lines": 1867,
+        "declarations": [
+          {
+            "line": 65,
+            "declaration": "String toString() => message;"
+          },
+          {
+            "line": 105,
+            "declaration": "bool looksLikePairingPayload(String raw) {"
+          },
+          {
+            "line": 133,
+            "declaration": "Future<String> pullCatalog(LanSyncConfig cfg) => synchronize(cfg);"
+          },
+          {
+            "line": 134,
+            "declaration": "Future<String> pullSales(LanSyncConfig cfg) => synchronize(cfg);"
+          },
+          {
+            "line": 135,
+            "declaration": "Future<String> pushSales(LanSyncConfig cfg) => _mutex.run(() async {"
+          },
+          {
+            "line": 139,
+            "declaration": "Future<String> synchronize("
+          },
+          {
+            "line": 208,
+            "declaration": "Future<void> _syncImages(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 240,
+            "declaration": "Future<void> _pullEInvoiceStatuses(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 265,
+            "declaration": "Future<String?> _drainPending(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 437,
+            "declaration": "Future<bool> _canUploadCancelledSale("
+          },
+          {
+            "line": 463,
+            "declaration": "Map<String, String> _headers(LanSyncConfig cfg) {"
+          },
+          {
+            "line": 471,
+            "declaration": "Future<Map<String, dynamic>> health(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 483,
+            "declaration": "Future<void> saveConfig(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 499,
+            "declaration": "Future<LanSyncConfig?> loadConfig() async {"
+          },
+          {
+            "line": 509,
+            "declaration": "Future<int> countUnsyncedSales() async {"
+          },
+          {
+            "line": 521,
+            "declaration": "Future<String> _pullCatalog("
+          },
+          {
+            "line": 677,
+            "declaration": "Map<String, dynamic>.from(raw as Map),"
+          },
+          {
+            "line": 769,
+            "declaration": "String _safeCatalogCursor("
+          },
+          {
+            "line": 791,
+            "declaration": "Future<List<Map<String, String>>> _reconcileMissingCatalogRows("
+          },
+          {
+            "line": 835,
+            "declaration": "Future<void> _recordRemoteStockMoves("
+          },
+          {
+            "line": 911,
+            "declaration": "String _nextCursor("
+          },
+          {
+            "line": 933,
+            "declaration": "Future<void> _upsertProduct("
+          },
+          {
+            "line": 968,
+            "declaration": "Future<Map<String, Object?>?> candidate("
+          },
+          {
+            "line": 1069,
+            "declaration": "Future<void> _upsertCustomer("
+          },
+          {
+            "line": 1146,
+            "declaration": "Future<void> _upsertSupplier("
+          },
+          {
+            "line": 1251,
+            "declaration": "Future<void> _upsertCategory("
+          },
+          {
+            "line": 1318,
+            "declaration": "Future<void> pullProductImage("
+          },
+          {
+            "line": 1355,
+            "declaration": "Future<String> pushCategories(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 1374,
+            "declaration": "Future<String> pushBarcodeQueue(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 1420,
+            "declaration": "Future<String> _pushSales("
+          },
+          {
+            "line": 1548,
+            "declaration": "Future<String> _pullSales(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 1696,
+            "declaration": "Future<void> notifyPcSale("
+          },
+          {
+            "line": 1714,
+            "declaration": "Future<String> forceReconcile(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 1723,
+            "declaration": "Future<String> fullSync(LanSyncConfig cfg) => forceReconcile(cfg);"
+          },
+          {
+            "line": 1738,
+            "declaration": "void Function()? onRemoteChange;"
+          },
+          {
+            "line": 1739,
+            "declaration": "void Function(Map<String, dynamic> event)? onLowStock;"
+          },
+          {
+            "line": 1740,
+            "declaration": "void Function(SyncLinkState state, int pending)? onStatusChanged;"
+          },
+          {
+            "line": 1747,
+            "declaration": "Future<void> _emitStatus() async {"
+          },
+          {
+            "line": 1752,
+            "declaration": "Future<void> connect(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 1764,
+            "declaration": "Future<void> _openWebSocket() async {"
+          },
+          {
+            "line": 1798,
+            "declaration": "Future<void> _pollOnce() async {"
+          },
+          {
+            "line": 1828,
+            "declaration": "Future<void> onLocalSale(SaleRecord sale) async {"
+          },
+          {
+            "line": 1842,
+            "declaration": "Future<String> forceReconcile() async {"
+          },
+          {
+            "line": 1852,
+            "declaration": "Future<void> disconnect() async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/pos_repository.dart",
+        "sha256": "f026cc0ddbf7656af39b44c9241f09b6303a33a276601a7922abde7d037dcc47",
+        "lines": 1258,
+        "declarations": [
+          {
+            "line": 199,
+            "declaration": "Future<List<Product>> searchProducts("
+          },
+          {
+            "line": 234,
+            "declaration": "Future<int> countProducts(String query, {String? category}) async {"
+          },
+          {
+            "line": 258,
+            "declaration": "Future<Product?> findByBarcodeOrSku(String code) async {"
+          },
+          {
+            "line": 280,
+            "declaration": "Future<Product?> getProduct(String id) async {"
+          },
+          {
+            "line": 287,
+            "declaration": "Future<void> upsertProduct(Product p, {Product? original}) async {"
+          },
+          {
+            "line": 298,
+            "declaration": "Future<void> softDeleteProduct(String id) async {"
+          },
+          {
+            "line": 303,
+            "declaration": "Future<void> adjustStock({"
+          },
+          {
+            "line": 350,
+            "declaration": "Future<List<Customer>> listCustomers({"
+          },
+          {
+            "line": 371,
+            "declaration": "Future<void> _saveEntity("
+          },
+          {
+            "line": 428,
+            "declaration": "Future<void> upsertCustomer(Customer c) =>"
+          },
+          {
+            "line": 436,
+            "declaration": "Future<void> _deleteEntity(String entity, String table, String id) async {"
+          },
+          {
+            "line": 446,
+            "declaration": "Future<void> softDeleteCustomer(String id) =>"
+          },
+          {
+            "line": 448,
+            "declaration": "Future<List<Supplier>> listSuppliers({"
+          },
+          {
+            "line": 469,
+            "declaration": "Future<void> upsertSupplier(Supplier s) =>"
+          },
+          {
+            "line": 478,
+            "declaration": "Future<void> softDeleteSupplier(String id) =>"
+          },
+          {
+            "line": 481,
+            "declaration": "Future<SaleRecord> createSale({"
+          },
+          {
+            "line": 587,
+            "declaration": "Future<List<SaleRecord>> salesToday() async {"
+          },
+          {
+            "line": 599,
+            "declaration": "Future<List<SaleRecord>> salesAll({int? limit, int offset = 0}) async {"
+          },
+          {
+            "line": 610,
+            "declaration": "Future<List<SaleRecord>> salesPage({"
+          },
+          {
+            "line": 655,
+            "declaration": "Future<void> voidSale(String id, String note) async {"
+          },
+          {
+            "line": 670,
+            "declaration": "Future<HeldOrder> holdCart({"
+          },
+          {
+            "line": 701,
+            "declaration": "Future<List<HeldOrder>> listHeld({required String cashier}) async {"
+          },
+          {
+            "line": 712,
+            "declaration": "Future<CartState> resumeHeld(HeldOrder held, {CartState? currentCart}) async {"
+          },
+          {
+            "line": 713,
+            "declaration": "void requireEmptyCart() {"
+          },
+          {
+            "line": 746,
+            "declaration": "Future<List<Map<String, Object?>>> listPurchases({"
+          },
+          {
+            "line": 759,
+            "declaration": "Future<void> createPurchase({"
+          },
+          {
+            "line": 870,
+            "declaration": "Future<Map<String, int>> dashboardToday({String? businessDate}) async {"
+          },
+          {
+            "line": 919,
+            "declaration": "Future<Map<String, int>> reportByPayment({"
+          },
+          {
+            "line": 945,
+            "declaration": "Future<void> saveDailyClosing({"
+          },
+          {
+            "line": 968,
+            "declaration": "Future<List<Map<String, Object?>>> listClosings({"
+          },
+          {
+            "line": 981,
+            "declaration": "Future<List<Map<String, Object?>>> listUsers() async {"
+          },
+          {
+            "line": 986,
+            "declaration": "Future<String> getSetting(String key, {String fallback = ''}) async {"
+          },
+          {
+            "line": 993,
+            "declaration": "Future<void> setSetting(String key, String value) async {"
+          },
+          {
+            "line": 1001,
+            "declaration": "Future<void> clearDemoData() => _db.clearDemoTransactionalData();"
+          },
+          {
+            "line": 1004,
+            "declaration": "Future<void> factoryResetLocalData() => _db.factoryResetLocalData();"
+          },
+          {
+            "line": 1006,
+            "declaration": "Future<void> logAudit({"
+          },
+          {
+            "line": 1035,
+            "declaration": "Future<List<AuditEntry>> listAudit({"
+          },
+          {
+            "line": 1064,
+            "declaration": "Future<List<Category>> listCategories({bool includeDeleted = false}) async {"
+          },
+          {
+            "line": 1074,
+            "declaration": "Future<Category> upsertCategory(Category c) async {"
+          },
+          {
+            "line": 1093,
+            "declaration": "Future<void> renameCategory(String id, String newName) async {"
+          },
+          {
+            "line": 1122,
+            "declaration": "Future<int> deleteCategory(String id) async {"
+          },
+          {
+            "line": 1150,
+            "declaration": "Future<void> enqueueBarcodePrint({"
+          },
+          {
+            "line": 1173,
+            "declaration": "Future<List<Map<String, Object?>>> listBarcodeQueue({"
+          },
+          {
+            "line": 1185,
+            "declaration": "Future<void> clearBarcodeQueueItem("
+          },
+          {
+            "line": 1198,
+            "declaration": "Future<void> removeBarcodeQueueItem(String id) async {"
+          },
+          {
+            "line": 1203,
+            "declaration": "Future<bool> productImagesEnabled() async {"
+          },
+          {
+            "line": 1208,
+            "declaration": "Future<bool> btPrinterEnabled() async {"
+          },
+          {
+            "line": 1213,
+            "declaration": "Future<double> lowStockThreshold() async {"
+          },
+          {
+            "line": 1218,
+            "declaration": "Future<List<Product>> listLowStockProducts() async {"
+          },
+          {
+            "line": 1229,
+            "declaration": "Future<String> stockPolicy() async =>"
+          },
+          {
+            "line": 1232,
+            "declaration": "Future<int> holdTimeoutMinutes() async {"
+          },
+          {
+            "line": 1237,
+            "declaration": "Future<List<HeldOrder>> listOverdueHeld({"
+          },
+          {
+            "line": 1249,
+            "declaration": "Future<int> customerOutstandingCents(String customerId) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/sync_store.dart",
+        "sha256": "3c9c528a2a745cc4262030c4cb582fa6000969caa871e667131b0c527c467ad8",
+        "lines": 240,
+        "declarations": [
+          {
+            "line": 10,
+            "declaration": "Future<String> readSetting("
+          },
+          {
+            "line": 19,
+            "declaration": "Future<String> remoteEntityId("
+          },
+          {
+            "line": 38,
+            "declaration": "Future<String?> mappedLocalId("
+          },
+          {
+            "line": 52,
+            "declaration": "Future<void> rememberEntityId("
+          },
+          {
+            "line": 78,
+            "declaration": "String _hex(List<int> bytes) =>"
+          },
+          {
+            "line": 81,
+            "declaration": "Future<Map<String, Object?>> _annotateApprovedDuplicatePurchase("
+          },
+          {
+            "line": 124,
+            "declaration": "Future<void> _queueOcrOriginalAttachment("
+          },
+          {
+            "line": 175,
+            "declaration": "Future<void> queueMutation("
+          },
+          {
+            "line": 200,
+            "declaration": "Future<List<Map<String, Object?>>> listSaleVoidNeedsReview("
+          },
+          {
+            "line": 214,
+            "declaration": "Future<void> requeueSaleVoidAfterReview(Database db, String operationId) async {"
+          },
+          {
+            "line": 234,
+            "declaration": "Future<void> _tail = Future.value();"
+          },
+          {
+            "line": 235,
+            "declaration": "Future<T> run<T>(Future<T> Function() action) {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/sync_role.dart",
+        "sha256": "a14e26d685374aed23d349d6eb614cb9e041bd328000f7d231b98301a62b6509",
+        "lines": 1,
+        "declarations": []
+      },
+      {
+        "path": "lib/services/purchase_history_sync.dart",
+        "sha256": "bd5806dedc92906fdb2882bf60b9da48d33ae991d9c0ce93145654cdcf1a3584",
+        "lines": 371,
+        "declarations": [
+          {
+            "line": 41,
+            "declaration": "Future<PurchaseHistoryPullResult> pullFromSavedDesktop({"
+          },
+          {
+            "line": 286,
+            "declaration": "Future<http.Response> _requestHistory("
+          },
+          {
+            "line": 298,
+            "declaration": "Map<dynamic, dynamic> _decodeHistory(http.Response response) {"
+          },
+          {
+            "line": 312,
+            "declaration": "Future<String?> _localEntityId("
+          },
+          {
+            "line": 352,
+            "declaration": "Future<void> synchronize({bool force = false}) => _mutex.run(() async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/purchase_reverse_sync.dart",
+        "sha256": "49c8e4c3968dd8eb0b989cfabd7fe31febe134e945eda6cbabad14c45449e1a4",
+        "lines": 144,
+        "declarations": [
+          {
+            "line": 8,
+            "declaration": "Map<String, double> _quantities(Map<String, Object?> purchase) {"
+          },
+          {
+            "line": 26,
+            "declaration": "Future<void> acknowledgePurchaseReverse("
+          },
+          {
+            "line": 76,
+            "declaration": "Future<bool> rejectPurchaseReverse("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/catalog_stock_baseline.dart",
+        "sha256": "47adf025b6d4b1709601517e26cdf4edfaed55ec638cc2f7a4cbbde3d21f2897",
+        "lines": 40,
+        "declarations": [
+          {
+            "line": 8,
+            "declaration": "Future<bool> isProvenInitialStockBaseline(DatabaseExecutor txn, {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/product_image_sync_queue.dart",
+        "sha256": "f305db321dd42230928b543ebd914deeef4d74594f7dfafa1d9c46056028c4f3",
+        "lines": 61,
+        "declarations": [
+          {
+            "line": 16,
+            "declaration": "Future<Map<String, dynamic>> _read() async =>"
+          },
+          {
+            "line": 17,
+            "declaration": "Map<String, dynamic>.from(jsonDecode(await readSetting(db, key, fallback: '{}')) as Map);"
+          },
+          {
+            "line": 18,
+            "declaration": "Future<void> _write(Map<String, dynamic> jobs) async {"
+          },
+          {
+            "line": 22,
+            "declaration": "Future<bool> needsSeed() async => await readSetting(db, seedKey) != '1';"
+          },
+          {
+            "line": 23,
+            "declaration": "Future<void> markSeeded() async {"
+          },
+          {
+            "line": 27,
+            "declaration": "Future<void> enqueue(List<Map<String, dynamic>> incoming) async {"
+          },
+          {
+            "line": 42,
+            "declaration": "Future<int> drain(Future<void> Function(Map<String, dynamic>) transfer,"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/sale_reversal.dart",
+        "sha256": "93d90acee3fc2d6e296f91129c132727e665ddf7b801e07d44ed284595b1688b",
+        "lines": 74,
+        "declarations": [
+          {
+            "line": 7,
+            "declaration": "Future<void> reverseSale(DatabaseExecutor txn, String id, String note) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/purchase_reverse_plan.dart",
+        "sha256": "bf0e2ed6dc7349735d6109e59380d50986a97b0ff3685e6e5b564654466d869d",
+        "lines": 119,
+        "declarations": [
+          {
+            "line": 26,
+            "declaration": "Future<List<PurchaseReversePlan>> planPurchaseReverse("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/stock_numeric_validation.dart",
+        "sha256": "efc08018b0f4df095c51c0e63a448c236ef470a7cd96ee0c8a0626060a2e8163",
+        "lines": 31,
+        "declarations": [
+          {
+            "line": 5,
+            "declaration": "double checkedStockDifference(num target, num previous) {"
+          },
+          {
+            "line": 13,
+            "declaration": "Future<void> validateStockAddition("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/purchase_ocr_repository.dart",
+        "sha256": "f98632204a6a95b1776fe7896bdafcb5fd926633694ac1eb6d3407f8ff2931f7",
+        "lines": 1023,
+        "declarations": [
+          {
+            "line": 28,
+            "declaration": "Future<Database> _db() async {"
+          },
+          {
+            "line": 34,
+            "declaration": "Future<PurchaseDraft> prepareDraft(PurchaseDraft draft) async {"
+          },
+          {
+            "line": 173,
+            "declaration": "Future<PurchaseDraft> validateDraft(PurchaseDraft draft) async {"
+          },
+          {
+            "line": 204,
+            "declaration": "List<PurchaseWarning> _dedupeWarnings(List<PurchaseWarning> input) {"
+          },
+          {
+            "line": 212,
+            "declaration": "Future<List<ProductMatchCandidate>> candidatesFor(String rawName) async {"
+          },
+          {
+            "line": 217,
+            "declaration": "Future<Map<String, Object?>?> lookupAlias("
+          },
+          {
+            "line": 232,
+            "declaration": "Future<List<Map<String, Object?>>> listAliases({String? supplierId}) async {"
+          },
+          {
+            "line": 242,
+            "declaration": "Future<void> deleteAlias(String aliasId) async {"
+          },
+          {
+            "line": 251,
+            "declaration": "Future<void> updateAlias({"
+          },
+          {
+            "line": 278,
+            "declaration": "Future<PurchaseHistorySample> historyForProduct(String productId) async {"
+          },
+          {
+            "line": 317,
+            "declaration": "Future<void> saveDraft(PurchaseDraft draft) async {"
+          },
+          {
+            "line": 374,
+            "declaration": "Future<List<Map<String, Object?>>> listDrafts() async {"
+          },
+          {
+            "line": 383,
+            "declaration": "Future<PurchaseDraft?> loadDraft(String draftId) async {"
+          },
+          {
+            "line": 399,
+            "declaration": "List<PurchaseWarning> decodeWarnings(Object? raw) {"
+          },
+          {
+            "line": 459,
+            "declaration": "Future<void> _deleteFileIfExists(String path) async {"
+          },
+          {
+            "line": 465,
+            "declaration": "Future<void> deleteDraft(String draftId) async {"
+          },
+          {
+            "line": 496,
+            "declaration": "Future<Map<String, Object?>?> findDuplicateInvoice("
+          },
+          {
+            "line": 516,
+            "declaration": "Future<String> commitDraft("
+          },
+          {
+            "line": 810,
+            "declaration": "Future<void> _rememberAlias("
+          },
+          {
+            "line": 857,
+            "declaration": "Future<Map<String, Object?>?> getPurchase(String id) async {"
+          },
+          {
+            "line": 868,
+            "declaration": "Future<List<Map<String, Object?>>> purchaseAudit(String purchaseId) async {"
+          },
+          {
+            "line": 878,
+            "declaration": "Future<void> reversePurchase({"
+          }
+        ]
+      }
+    ]
+  },
+  "CNKH_POS_Desktop": {
+    "head": "cd6c9db754f94fd83f2b018cd7d64791ceaa3087",
+    "tables": [
+      "audit_logs",
+      "barcode_print_queue",
+      "categories",
+      "customers",
+      "daily_closings",
+      "demo_users",
+      "e_invoice_documents",
+      "e_invoice_logs",
+      "e_invoice_settings",
+      "held_orders",
+      "lan_sync_changes",
+      "lan_sync_mobile_sales",
+      "products",
+      "purchase_attachments",
+      "purchase_audit_log",
+      "purchase_reversals",
+      "purchases",
+      "sales",
+      "settings",
+      "stock_moves",
+      "stock_reversals",
+      "suppliers",
+      "sync_applied_operations",
+      "sync_entity_ids",
+      "sync_outbox",
+      "user_credentials"
+    ],
+    "indexes": [
+      "idx_einvoice_sale",
+      "idx_einvoice_sale_attempt",
+      "idx_einvoice_status",
+      "idx_lan_sync_changes_entity_seq",
+      "idx_products_barcode",
+      "idx_purchase_attachments_purchase",
+      "idx_sales_customer",
+      "idx_sales_date",
+      "idx_stock_moves_product"
+    ],
+    "triggers": [
+      "lan_sync_categories_ad",
+      "lan_sync_categories_ai",
+      "lan_sync_categories_au",
+      "lan_sync_customers_ad",
+      "lan_sync_customers_ai",
+      "lan_sync_customers_au",
+      "lan_sync_products_ad",
+      "lan_sync_products_ai",
+      "lan_sync_products_au",
+      "lan_sync_purchases_ad",
+      "lan_sync_purchases_ai",
+      "lan_sync_purchases_au",
+      "lan_sync_sales_ad",
+      "lan_sync_sales_ai",
+      "lan_sync_sales_au",
+      "lan_sync_suppliers_ad",
+      "lan_sync_suppliers_ai",
+      "lan_sync_suppliers_au"
+    ],
+    "endpoints": [
+      "/api/v1/barcode_queue",
+      "/api/v1/categories",
+      "/api/v1/customers",
+      "/api/v1/einvoices",
+      "/api/v1/events",
+      "/api/v1/health",
+      "/api/v1/mutations",
+      "/api/v1/notify",
+      "/api/v1/product_images",
+      "/api/v1/products",
+      "/api/v1/purchases",
+      "/api/v1/sales",
+      "/api/v1/stock-moves",
+      "/api/v1/suppliers",
+      "/api/v1/ws"
+    ],
+    "files": [
+      {
+        "path": "lib/db/reliability_schema.dart",
+        "sha256": "70b5a41ba36bddc4f2427f7db6caef66c224a3edfcd029bf1905428148059c97",
+        "lines": 14,
+        "declarations": [
+          {
+            "line": 2,
+            "declaration": "Future<void> ensureReliabilitySchema(DatabaseExecutor db) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/einvoice_migration.dart",
+        "sha256": "37000aa3a2ff4de7fb04eee9c8bc60541a0c2b5db37b157e59f53a79460cf733",
+        "lines": 2,
+        "declarations": []
+      },
+      {
+        "path": "lib/db/app_database.dart",
+        "sha256": "0437c0999f84b94915ec8fad9bd2ed04e23e0a069c45817d3311b7673dacfc53",
+        "lines": 717,
+        "declarations": [
+          {
+            "line": 34,
+            "declaration": "Future<void> close() async {"
+          },
+          {
+            "line": 40,
+            "declaration": "Future<Database> get db => _opening ??= _open().catchError((Object e) {"
+          },
+          {
+            "line": 77,
+            "declaration": "Future<Database> _open() async {"
+          },
+          {
+            "line": 268,
+            "declaration": "Future<void> _onCreate(Database db, int version) async {"
+          },
+          {
+            "line": 421,
+            "declaration": "Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {"
+          },
+          {
+            "line": 515,
+            "declaration": "Future<void> _seed(Database db) async {"
+          },
+          {
+            "line": 594,
+            "declaration": "Future<void> clearDemoTransactionalData() async {"
+          },
+          {
+            "line": 616,
+            "declaration": "Future<void> factoryResetLocalData() async {"
+          },
+          {
+            "line": 663,
+            "declaration": "Future<String> nextReceiptNo({DatabaseExecutor? executor}) async {"
+          },
+          {
+            "line": 681,
+            "declaration": "Future<String> nextHoldNo() =>"
+          },
+          {
+            "line": 684,
+            "declaration": "Future<String> nextPurchaseNo({DatabaseExecutor? executor}) => _reserveNumber("
+          },
+          {
+            "line": 691,
+            "declaration": "Future<String> _reserveNumber({"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/ocr_purchase_schema.dart",
+        "sha256": "b17fd0b23f0d1fdb8e3020c604f4f3d9f87678d38c3c9dbc4107acf4e046f6a1",
+        "lines": 72,
+        "declarations": [
+          {
+            "line": 3,
+            "declaration": "Future<void> ensureOcrPurchaseSchema(DatabaseExecutor db) async {"
+          },
+          {
+            "line": 7,
+            "declaration": "Future<void> add(String name, String sql) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/db/document_numbers.dart",
+        "sha256": "fa3a73cf93f6db3837d43573a57552b8bc7ed926577c49ec809577d8ee6c9271",
+        "lines": 48,
+        "declarations": [
+          {
+            "line": 8,
+            "declaration": "Future<String> reserveDocumentNumber("
+          }
+        ]
+      },
+      {
+        "path": "lib/db/einvoice_schema.dart",
+        "sha256": "c974152e1f0d6b99b383d54e18df94392c0d87e580851e32adac6a480b386b88",
+        "lines": 63,
+        "declarations": [
+          {
+            "line": 4,
+            "declaration": "Future<void> ensureEInvoiceSchema(DatabaseExecutor db) async {"
+          },
+          {
+            "line": 16,
+            "declaration": "Future<void> columns(String table, Map<String, String> additions) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/lan_sync.dart",
+        "sha256": "5f2680b6cf87cd0e1ad1fa6a5ee74687e0500c705c300b35caf7094709fc16e2",
+        "lines": 738,
+        "declarations": [
+          {
+            "line": 59,
+            "declaration": "String toString() => message;"
+          },
+          {
+            "line": 97,
+            "declaration": "bool looksLikePairingPayload(String raw) {"
+          },
+          {
+            "line": 114,
+            "declaration": "Map<String, String> _headers(LanSyncConfig cfg) {"
+          },
+          {
+            "line": 122,
+            "declaration": "Future<Map<String, dynamic>> health(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 130,
+            "declaration": "Future<void> saveConfig(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 136,
+            "declaration": "Future<LanSyncConfig?> loadConfig() async {"
+          },
+          {
+            "line": 146,
+            "declaration": "Future<int> countUnsyncedSales() async {"
+          },
+          {
+            "line": 155,
+            "declaration": "Future<String> pullCatalog(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 235,
+            "declaration": "Future<void> _upsertProduct("
+          },
+          {
+            "line": 277,
+            "declaration": "Future<void> _upsertCustomer("
+          },
+          {
+            "line": 308,
+            "declaration": "Future<void> _upsertCategory("
+          },
+          {
+            "line": 335,
+            "declaration": "Future<void> pullProductImage("
+          },
+          {
+            "line": 363,
+            "declaration": "Future<String> pushCategories(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 382,
+            "declaration": "Future<String> pushBarcodeQueue(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 415,
+            "declaration": "Future<String> pushSales(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 485,
+            "declaration": "Future<String> pullSales(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 548,
+            "declaration": "Future<void> notifyPcSale(LanSyncConfig cfg,"
+          },
+          {
+            "line": 565,
+            "declaration": "Future<String> forceReconcile(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 582,
+            "declaration": "Future<String> fullSync(LanSyncConfig cfg) => forceReconcile(cfg);"
+          },
+          {
+            "line": 597,
+            "declaration": "void Function()? onRemoteChange;"
+          },
+          {
+            "line": 598,
+            "declaration": "void Function(Map<String, dynamic> event)? onLowStock;"
+          },
+          {
+            "line": 599,
+            "declaration": "void Function(SyncLinkState state, int pending)? onStatusChanged;"
+          },
+          {
+            "line": 607,
+            "declaration": "Future<void> _emitStatus() async {"
+          },
+          {
+            "line": 612,
+            "declaration": "Future<void> connect(LanSyncConfig cfg) async {"
+          },
+          {
+            "line": 692,
+            "declaration": "Future<void> _onSaleEvent() async {"
+          },
+          {
+            "line": 702,
+            "declaration": "Future<void> onLocalSale(SaleRecord sale) async {"
+          },
+          {
+            "line": 715,
+            "declaration": "Future<String> forceReconcile() async {"
+          },
+          {
+            "line": 724,
+            "declaration": "Future<void> disconnect() async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/lan_pairing_host.dart",
+        "sha256": "0b4e83cb3a79261d0e487750a5bd09154cd35dc3a81a47c9a2663ea158b6e938",
+        "lines": 1862,
+        "declarations": [
+          {
+            "line": 34,
+            "declaration": "String buildPairingPayload({"
+          },
+          {
+            "line": 97,
+            "declaration": "Future<void> start() =>"
+          },
+          {
+            "line": 100,
+            "declaration": "Future<void> _start() async {"
+          },
+          {
+            "line": 161,
+            "declaration": "Future<LanPairingOffer> prepareOffer() async {"
+          },
+          {
+            "line": 176,
+            "declaration": "Future<String> rotatePairingToken() async {"
+          },
+          {
+            "line": 195,
+            "declaration": "Future<void> forceBroadcast() async {"
+          },
+          {
+            "line": 206,
+            "declaration": "Future<void> stop() async {"
+          },
+          {
+            "line": 226,
+            "declaration": "Future<void> stopAndDrain() async {"
+          },
+          {
+            "line": 247,
+            "declaration": "Future<String> _ensureToken() async {"
+          },
+          {
+            "line": 258,
+            "declaration": "Future<void> _ensureChangeTracking(Database db) async {"
+          },
+          {
+            "line": 403,
+            "declaration": "Future<int> _latestChangeSeq(Database db) async {"
+          },
+          {
+            "line": 410,
+            "declaration": "Future<void> _pollDatabaseChanges() async {"
+          },
+          {
+            "line": 449,
+            "declaration": "Future<void> _handle(HttpRequest request) async {"
+          },
+          {
+            "line": 647,
+            "declaration": "bool _authorized(HttpRequest request) {"
+          },
+          {
+            "line": 653,
+            "declaration": "Future<void> _handleWebSocket(HttpRequest request) async {"
+          },
+          {
+            "line": 685,
+            "declaration": "bool _isPingMessage(Object? message) {"
+          },
+          {
+            "line": 696,
+            "declaration": "void _emitConnectionCount() {"
+          },
+          {
+            "line": 702,
+            "declaration": "int _requestedCursor(HttpRequest request) {"
+          },
+          {
+            "line": 706,
+            "declaration": "Future<int> _latestStockMoveSeq(Database db) async {"
+          },
+          {
+            "line": 713,
+            "declaration": "Future<void> _getStockMoves(HttpRequest request) async {"
+          },
+          {
+            "line": 776,
+            "declaration": "Future<Map<String, Map<String, Object?>>> _changesFor("
+          },
+          {
+            "line": 796,
+            "declaration": "Future<void> _getProducts(HttpRequest request) async {"
+          },
+          {
+            "line": 852,
+            "declaration": "Map<String, Object?> _productPayload("
+          },
+          {
+            "line": 876,
+            "declaration": "Future<void> _getProductImage(HttpRequest request, String productId) async {"
+          },
+          {
+            "line": 924,
+            "declaration": "Future<void> _getCustomers(HttpRequest request) async {"
+          },
+          {
+            "line": 972,
+            "declaration": "Map<String, Object?> _customerPayload("
+          },
+          {
+            "line": 986,
+            "declaration": "Future<void> _getSuppliers(HttpRequest request) async {"
+          },
+          {
+            "line": 1035,
+            "declaration": "Map<String, Object?> _supplierPayload("
+          },
+          {
+            "line": 1050,
+            "declaration": "Future<void> _getCategories(HttpRequest request) async {"
+          },
+          {
+            "line": 1096,
+            "declaration": "Map<String, Object?> _categoryPayload("
+          },
+          {
+            "line": 1108,
+            "declaration": "Future<void> _getPurchases(HttpRequest request) async {"
+          },
+          {
+            "line": 1134,
+            "declaration": "Map<String, Object?> _purchasePayload(Map<String, Object?> m) {"
+          },
+          {
+            "line": 1168,
+            "declaration": "Future<void> _getSales(HttpRequest request) async {"
+          },
+          {
+            "line": 1216,
+            "declaration": "Map<String, Object?> _salePayload("
+          },
+          {
+            "line": 1254,
+            "declaration": "Future<void> _postSales(HttpRequest request) async {"
+          },
+          {
+            "line": 1525,
+            "declaration": "int _saleAmount("
+          },
+          {
+            "line": 1547,
+            "declaration": "bool _sameIncomingSale("
+          },
+          {
+            "line": 1594,
+            "declaration": "String _lineFingerprint(Object? rawLines) {"
+          },
+          {
+            "line": 1619,
+            "declaration": "String _shortId(String value) {"
+          },
+          {
+            "line": 1625,
+            "declaration": "String _legacySaleSuffix(Map<String, Object?> sale) {"
+          },
+          {
+            "line": 1640,
+            "declaration": "Future<void> _postCategories(HttpRequest request) async {"
+          },
+          {
+            "line": 1660,
+            "declaration": "Future<void> _postBarcodeQueue(HttpRequest request) async {"
+          },
+          {
+            "line": 1724,
+            "declaration": "void _publish(Map<String, Object?> event) {"
+          },
+          {
+            "line": 1745,
+            "declaration": "Future<Map<String, Object?>> _readJson(HttpRequest request) async {"
+          },
+          {
+            "line": 1753,
+            "declaration": "Future<void> _json("
+          },
+          {
+            "line": 1764,
+            "declaration": "Future<void> _safeJson("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/lan_mutations.dart",
+        "sha256": "2aa0aca2b50cc87349fa428ee07198eeedb52bfe87c330890dcac982ad579a86",
+        "lines": 651,
+        "declarations": [
+          {
+            "line": 13,
+            "declaration": "Future<String> _resolvePurchaseProductId("
+          },
+          {
+            "line": 34,
+            "declaration": "Future<String?> uniqueMatch(String column, String value) async {"
+          },
+          {
+            "line": 65,
+            "declaration": "Future<bool> _matchesAppliedPurchase("
+          },
+          {
+            "line": 70,
+            "declaration": "bool sameValue(String column, Object? fallback) =>"
+          },
+          {
+            "line": 128,
+            "declaration": "Future<Map<String, Object?>?> _existingCatalogIdentity("
+          },
+          {
+            "line": 133,
+            "declaration": "Future<Map<String, Object?>?> unique(String table, String where, List<Object?> args) async {"
+          },
+          {
+            "line": 173,
+            "declaration": "Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {"
+          },
+          {
+            "line": 641,
+            "declaration": "String _hex(List<int> bytes) =>"
+          },
+          {
+            "line": 646,
+            "declaration": "int _purchaseCents(Object value, String field) {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/lan_product_identity.dart",
+        "sha256": "417532a87180e47caba87508bfb3a213768931486655288881d807a9c0b488e0",
+        "lines": 73,
+        "declarations": [
+          {
+            "line": 4,
+            "declaration": "Future<String?> lanProductAlias(DatabaseExecutor db, String mobileId) async {"
+          },
+          {
+            "line": 13,
+            "declaration": "Future<void> rememberLanProductAlias(DatabaseExecutor db, String mobileId,"
+          },
+          {
+            "line": 26,
+            "declaration": "Future<Map<String, Object?>?> lanMutationIdentityAck("
+          },
+          {
+            "line": 31,
+            "declaration": "Map<String, Object?>.from(jsonDecode(rows.single['value'] as String) as Map);"
+          },
+          {
+            "line": 34,
+            "declaration": "Future<Map<String, Object?>> resolveLanSaleProduct(DatabaseExecutor db,"
+          },
+          {
+            "line": 52,
+            "declaration": "Future<Map<String, Object?>?> unique(String column, String value) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/pos_repository.dart",
+        "sha256": "9e61b81f53505b3dbb1165d87eed8e324b0c25382194071127a48a27f740fa32",
+        "lines": 1205,
+        "declarations": [
+          {
+            "line": 200,
+            "declaration": "Future<List<Product>> searchProducts("
+          },
+          {
+            "line": 235,
+            "declaration": "Future<Product?> findByBarcodeOrSku(String code) async {"
+          },
+          {
+            "line": 257,
+            "declaration": "Future<Product?> getProduct(String id) async {"
+          },
+          {
+            "line": 264,
+            "declaration": "Future<void> upsertProduct(Product p, {Product? original}) async {"
+          },
+          {
+            "line": 275,
+            "declaration": "Future<void> softDeleteProduct(String id) async {"
+          },
+          {
+            "line": 280,
+            "declaration": "Future<void> adjustStock({"
+          },
+          {
+            "line": 324,
+            "declaration": "Future<List<Customer>> listCustomers() async {"
+          },
+          {
+            "line": 334,
+            "declaration": "Future<void> _saveEntity("
+          },
+          {
+            "line": 391,
+            "declaration": "Future<void> upsertCustomer(Customer c) =>"
+          },
+          {
+            "line": 399,
+            "declaration": "Future<void> _deleteEntity(String entity, String table, String id) async {"
+          },
+          {
+            "line": 409,
+            "declaration": "Future<void> softDeleteCustomer(String id) =>"
+          },
+          {
+            "line": 411,
+            "declaration": "Future<List<Supplier>> listSuppliers() async => (await (await _db.db).query("
+          },
+          {
+            "line": 416,
+            "declaration": "Future<void> upsertSupplier(Supplier s) =>"
+          },
+          {
+            "line": 425,
+            "declaration": "Future<void> softDeleteSupplier(String id) =>"
+          },
+          {
+            "line": 428,
+            "declaration": "Future<SaleRecord> createSale({"
+          },
+          {
+            "line": 534,
+            "declaration": "Future<List<SaleRecord>> salesToday() async {"
+          },
+          {
+            "line": 546,
+            "declaration": "Future<List<SaleRecord>> salesAll({int? limit}) async {"
+          },
+          {
+            "line": 552,
+            "declaration": "Future<void> voidSale(String id, String note) async {"
+          },
+          {
+            "line": 567,
+            "declaration": "Future<HeldOrder> holdCart({"
+          },
+          {
+            "line": 598,
+            "declaration": "Future<List<HeldOrder>> listHeld({required String cashier}) async {"
+          },
+          {
+            "line": 609,
+            "declaration": "Future<CartState> resumeHeld(HeldOrder held, {CartState? currentCart}) async {"
+          },
+          {
+            "line": 610,
+            "declaration": "void requireEmptyCart() {"
+          },
+          {
+            "line": 643,
+            "declaration": "Future<List<Map<String, Object?>>> listPurchases() async {"
+          },
+          {
+            "line": 648,
+            "declaration": "Future<void> createPurchase({"
+          },
+          {
+            "line": 682,
+            "declaration": "Map<String, Object?>.from(raw as Map)"
+          },
+          {
+            "line": 791,
+            "declaration": "Future<Map<String, int>> dashboardToday({String? businessDate}) async {"
+          },
+          {
+            "line": 843,
+            "declaration": "Future<Map<String, Object?>> reportProfit({"
+          },
+          {
+            "line": 874,
+            "declaration": "Future<Map<String, int>> reportByPayment({"
+          },
+          {
+            "line": 900,
+            "declaration": "Future<void> saveDailyClosing({"
+          },
+          {
+            "line": 923,
+            "declaration": "Future<List<Map<String, Object?>>> listClosings() async {"
+          },
+          {
+            "line": 928,
+            "declaration": "Future<List<Map<String, Object?>>> listUsers() async {"
+          },
+          {
+            "line": 933,
+            "declaration": "Future<String> getSetting(String key, {String fallback = ''}) async {"
+          },
+          {
+            "line": 940,
+            "declaration": "Future<void> setSetting(String key, String value) async {"
+          },
+          {
+            "line": 948,
+            "declaration": "Future<void> clearDemoData() => _db.clearDemoTransactionalData();"
+          },
+          {
+            "line": 951,
+            "declaration": "Future<void> factoryResetLocalData() => _db.factoryResetLocalData();"
+          },
+          {
+            "line": 953,
+            "declaration": "Future<void> logAudit({"
+          },
+          {
+            "line": 982,
+            "declaration": "Future<List<AuditEntry>> listAudit({"
+          },
+          {
+            "line": 1011,
+            "declaration": "Future<List<Category>> listCategories({bool includeDeleted = false}) async {"
+          },
+          {
+            "line": 1021,
+            "declaration": "Future<Category> upsertCategory(Category c) async {"
+          },
+          {
+            "line": 1040,
+            "declaration": "Future<void> renameCategory(String id, String newName) async {"
+          },
+          {
+            "line": 1069,
+            "declaration": "Future<int> deleteCategory(String id) async {"
+          },
+          {
+            "line": 1097,
+            "declaration": "Future<void> enqueueBarcodePrint({"
+          },
+          {
+            "line": 1120,
+            "declaration": "Future<List<Map<String, Object?>>> listBarcodeQueue({"
+          },
+          {
+            "line": 1132,
+            "declaration": "Future<void> clearBarcodeQueueItem("
+          },
+          {
+            "line": 1145,
+            "declaration": "Future<void> removeBarcodeQueueItem(String id) async {"
+          },
+          {
+            "line": 1150,
+            "declaration": "Future<bool> productImagesEnabled() async {"
+          },
+          {
+            "line": 1155,
+            "declaration": "Future<bool> btPrinterEnabled() async {"
+          },
+          {
+            "line": 1160,
+            "declaration": "Future<double> lowStockThreshold() async {"
+          },
+          {
+            "line": 1165,
+            "declaration": "Future<List<Product>> listLowStockProducts() async {"
+          },
+          {
+            "line": 1176,
+            "declaration": "Future<String> stockPolicy() async =>"
+          },
+          {
+            "line": 1179,
+            "declaration": "Future<int> holdTimeoutMinutes() async {"
+          },
+          {
+            "line": 1184,
+            "declaration": "Future<List<HeldOrder>> listOverdueHeld({"
+          },
+          {
+            "line": 1196,
+            "declaration": "Future<int> customerOutstandingCents(String customerId) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/sync_store.dart",
+        "sha256": "d6e8e6a57e7d8bd67d7077aef708679166968f5e5b12e63a3d26eca5443cb18a",
+        "lines": 92,
+        "declarations": [
+          {
+            "line": 6,
+            "declaration": "Future<String> readSetting("
+          },
+          {
+            "line": 15,
+            "declaration": "Future<String> remoteEntityId("
+          },
+          {
+            "line": 34,
+            "declaration": "Future<String?> mappedLocalId("
+          },
+          {
+            "line": 48,
+            "declaration": "Future<void> rememberEntityId("
+          },
+          {
+            "line": 69,
+            "declaration": "Future<void> queueMutation("
+          },
+          {
+            "line": 86,
+            "declaration": "Future<void> _tail = Future.value();"
+          },
+          {
+            "line": 87,
+            "declaration": "Future<T> run<T>(Future<T> Function() action) {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/sync_role.dart",
+        "sha256": "a2f8e4289ec15854bc3c279788cca8e1b05bdfbe408b074350faac2fdb1c4f52",
+        "lines": 1,
+        "declarations": []
+      },
+      {
+        "path": "lib/services/desktop_backup.dart",
+        "sha256": "d52ee502ca79cfb46a4f059912591662effc9925fe438fe473cca76e7002e787",
+        "lines": 428,
+        "declarations": [
+          {
+            "line": 56,
+            "declaration": "Future<void> _cleanup(FileSystemEntity artifact) async {"
+          },
+          {
+            "line": 73,
+            "declaration": "Future<String> _dbPath() async {"
+          },
+          {
+            "line": 79,
+            "declaration": "Future<String> _imagesPath() async {"
+          },
+          {
+            "line": 85,
+            "declaration": "Future<File> createBackup(String destinationPath) async {"
+          },
+          {
+            "line": 157,
+            "declaration": "Future<BackupValidationResult> validateBackup(String backupPath) async {"
+          },
+          {
+            "line": 230,
+            "declaration": "Future<void> restoreBackup(String backupPath) async {"
+          },
+          {
+            "line": 331,
+            "declaration": "Future<void> _rebaseProductImagePaths("
+          },
+          {
+            "line": 380,
+            "declaration": "bool _safeArchiveRelativePath(String relative) {"
+          },
+          {
+            "line": 388,
+            "declaration": "Future<BackupValidationResult> _validateDatabaseBytes(Uint8List bytes) async {"
+          },
+          {
+            "line": 401,
+            "declaration": "Future<BackupValidationResult> _validateDatabaseFile(String path) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/desktop_database_maintenance.dart",
+        "sha256": "d948b6ec685e78b23551c9fb601b296a74b04e2e9b38ce05bf2aa506a587b325",
+        "lines": 45,
+        "declarations": [
+          {
+            "line": 16,
+            "declaration": "Future<T> run<T>(Future<T> Function() action) async {"
+          },
+          {
+            "line": 33,
+            "declaration": "Future<void> pauseAndDrain() async {"
+          },
+          {
+            "line": 39,
+            "declaration": "void resume() {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/sale_reversal.dart",
+        "sha256": "bf42f5608abc477bcc65581a507c88ef4c085e5bc5b2f7ec5668e01fb8552b6b",
+        "lines": 76,
+        "declarations": [
+          {
+            "line": 8,
+            "declaration": "Future<void> reverseSale(DatabaseExecutor txn, String id, String note) async {"
+          }
+        ]
+      },
+      {
+        "path": "lib/services/purchase_reverse_safety.dart",
+        "sha256": "6dae09a3edf605b9a7adb838f82739423a426317e2a08913fa59c4260187279b",
+        "lines": 95,
+        "declarations": [
+          {
+            "line": 12,
+            "declaration": "Future<void> reversePurchaseSafely("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/purchase_reverse_plan.dart",
+        "sha256": "39976ac44795b8155de95bffe443f24d682e342f2d242651da2d4a049ad220e5",
+        "lines": 99,
+        "declarations": [
+          {
+            "line": 26,
+            "declaration": "Future<List<PurchaseReversePlan>> planPurchaseReverse("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/stock_numeric_validation.dart",
+        "sha256": "efc08018b0f4df095c51c0e63a448c236ef470a7cd96ee0c8a0626060a2e8163",
+        "lines": 31,
+        "declarations": [
+          {
+            "line": 5,
+            "declaration": "double checkedStockDifference(num target, num previous) {"
+          },
+          {
+            "line": 13,
+            "declaration": "Future<void> validateStockAddition("
+          }
+        ]
+      },
+      {
+        "path": "lib/services/purchase_edit_service.dart",
+        "sha256": "26c1afcf3dafed31d1f1a171d95a428db1d66146e616a0e1717b2222ef78c4a7",
+        "lines": 195,
+        "declarations": [
+          {
+            "line": 96,
+            "declaration": "Future<void> updateMetadata({"
+          }
+        ]
+      }
+    ]
+  }
+}

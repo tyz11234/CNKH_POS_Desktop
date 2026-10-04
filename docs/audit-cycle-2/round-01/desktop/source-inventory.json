@@ -1,0 +1,267 @@
+[
+  {
+    "path": "lib/screens/admin/admin_hub.dart",
+    "sha256": "a30d7b147c7009934ccecfda75c5e1b5fdb2238ef262d1964795c0d34e35760d",
+    "lines": 1141
+  },
+  {
+    "path": "lib/screens/admin/backup_restore_page.dart",
+    "sha256": "928c5aab9ee6a950133768c09c6d76feee8c879bc53770489d0c6566704098a4",
+    "lines": 289
+  },
+  {
+    "path": "lib/screens/admin/entities_admin_page.dart",
+    "sha256": "190b99ab0db5d8cddf2af51a3d523bc18dc4f8f329f9fb136e2c80f36f286b58",
+    "lines": 354
+  },
+  {
+    "path": "lib/screens/admin/products_admin.dart",
+    "sha256": "0bff6bab3786a155478ac0112fe0f49576d2de0af97ee7debeeaeac1d1c03c56",
+    "lines": 1178
+  },
+  {
+    "path": "lib/screens/admin/purchase_create_screen.dart",
+    "sha256": "102c63894e3e37fe7a56a85c69a2751bbdb94b512cb81a7a1cbd14dbfe615a64",
+    "lines": 1226
+  },
+  {
+    "path": "lib/screens/admin/purchase_detail_page.dart",
+    "sha256": "f06ba101a9339c3583ea887562b3813c2a402bd37bb46f2447f549cbb52a1753",
+    "lines": 557
+  },
+  {
+    "path": "lib/screens/admin/user_admin_page.dart",
+    "sha256": "352ed669ee663536c6d1221a76391dc755bd22dd6e92672ad9b29e9155c00f6a",
+    "lines": 383
+  },
+  {
+    "path": "lib/screens/barcode_scan_screen.dart",
+    "sha256": "be0628fa74cf92fa8bdaecd02d928772d47c424fcaf061d1aa98ce308bfa03a5",
+    "lines": 642
+  },
+  {
+    "path": "lib/screens/cart_screen.dart",
+    "sha256": "a2ad6eb2a955965707affdfc48e328cd43b77cf90a71d7936c6416c2a3e8168d",
+    "lines": 1033
+  },
+  {
+    "path": "lib/screens/checkout_screen.dart",
+    "sha256": "ff916cde37568c263cad57ec662c8c136d26818e7034cb60e2104b764270896c",
+    "lines": 654
+  },
+  {
+    "path": "lib/screens/einvoice_setup_screen.dart",
+    "sha256": "b7373458373464669b9fa875064cb204453cfc5b26f4088f73ccc0a34df09830",
+    "lines": 165
+  },
+  {
+    "path": "lib/screens/login_screen.dart",
+    "sha256": "39c1ad14aa3c65fd214deb80fce559185842740a06e60ae44fb501945c21a697",
+    "lines": 225
+  },
+  {
+    "path": "lib/screens/qr_capture_screen.dart",
+    "sha256": "1ffa1549490d0ba17b79d1512a8e1003d296302e47692ac6395ed2051d03c6a3",
+    "lines": 120
+  },
+  {
+    "path": "lib/screens/sale_receipt_detail_screen.dart",
+    "sha256": "2d3bdee4cdc4d9fdd4f4f8a4da94547c741fe7eda8024e63e3d2049978c7a1bb",
+    "lines": 336
+  },
+  {
+    "path": "lib/screens/sales_list_screen.dart",
+    "sha256": "0f13e101888a1057d8f4dab94aa088a7e2c0f619ac859e398b5a52eaf3a41c59",
+    "lines": 361
+  },
+  {
+    "path": "lib/screens/settings_screen.dart",
+    "sha256": "3ffc0e52839f20ac3784f406a04e04cabcb9948c5e2de2869b32c1c382b764f7",
+    "lines": 637
+  },
+  {
+    "path": "lib/screens/training_page.dart",
+    "sha256": "a7a8e35788169382f1ffb03826fcccbc682447833532e00ef75c9548b6dc122e",
+    "lines": 71
+  },
+  {
+    "path": "lib/models/app_user.dart",
+    "sha256": "252eeab23a0389ceea76d7afa67fa0d6dbd2444099c6526147ca411f575c7eef",
+    "lines": 24
+  },
+  {
+    "path": "lib/models/cart_item.dart",
+    "sha256": "30c8a23ec44f468ed2efeec8cd321c8d85d6d69de2a998d0306f07b51280277c",
+    "lines": 81
+  },
+  {
+    "path": "lib/models/money.dart",
+    "sha256": "a7b1027539c16c252732e4f268538f29e75a788f1f11719da0e5ebbe46ae42d1",
+    "lines": 72
+  },
+  {
+    "path": "lib/models/product.dart",
+    "sha256": "b82b63fe805e140ad4fefafc9d0c9758a005b08e5a8806751497dbf89cec1a93",
+    "lines": 143
+  },
+  {
+    "path": "lib/widgets/cash_change_dialog.dart",
+    "sha256": "c3995fe57a9815f49290932f6489eada979e930bf16cdaf7a1691af088441614",
+    "lines": 60
+  },
+  {
+    "path": "lib/widgets/duitnow_qr_panel.dart",
+    "sha256": "fb13c1649812583f55c980049e44116de7e0103c382e41cac014c424f29403ba",
+    "lines": 201
+  },
+  {
+    "path": "lib/widgets/e_receipt_actions.dart",
+    "sha256": "43f9014f8fbd2cf2c4d69834ec376e890e0a82710ed67533046f26a7ff66ba56",
+    "lines": 197
+  },
+  {
+    "path": "lib/widgets/money_text.dart",
+    "sha256": "ab076f8f0180c9882eff20bf727c1929a4ceead76b3bcad61c8a7ccf6f76aa89",
+    "lines": 55
+  },
+  {
+    "path": "lib/widgets/receipt_preview_pane.dart",
+    "sha256": "c2d37c479033a3f2a569d2da588db23939f0c9825fbc32e578a49a7eb7e08411",
+    "lines": 80
+  },
+  {
+    "path": "lib/widgets/receipt_template_editor.dart",
+    "sha256": "abbd1fad3f1d3037288cfe5091f7395f5e0d9a62f0a3fa67756739010feb4164",
+    "lines": 378
+  },
+  {
+    "path": "lib/main.dart",
+    "sha256": "03ea474b99eaf657e37ecbaba08df2f607cb6ad9ed8cee7b026542723e23fae7",
+    "lines": 87
+  },
+  {
+    "path": "lib/desktop_shell.dart",
+    "sha256": "c846d12fdaa9c41db2ec0e71d4c2ae112f1d882446158559788f2143efa1e4e8",
+    "lines": 625
+  },
+  {
+    "path": "lib/services/auth_service.dart",
+    "sha256": "26eaf2e10f341a12891504934f4d5d4fdf3f746b090f8721ff90e8c6dcad99a6",
+    "lines": 142
+  },
+  {
+    "path": "lib/services/barcode_labels.dart",
+    "sha256": "5c4fd5de008c24c235116afe06881d0b6d64bef30a88cef0310551f6bf2893d8",
+    "lines": 315
+  },
+  {
+    "path": "lib/services/bluetooth_printer.dart",
+    "sha256": "cb28e3f720f73109dfa17952700c69ef5bcb158ba1f012e64c80c31ffb63ed7b",
+    "lines": 124
+  },
+  {
+    "path": "lib/services/daily_closing.dart",
+    "sha256": "0704689346f3d9ff9e3fcab3565ba171a1d8dadb5d36d12d17da1469cc5bd851",
+    "lines": 37
+  },
+  {
+    "path": "lib/services/desktop_backup.dart",
+    "sha256": "d52ee502ca79cfb46a4f059912591662effc9925fe438fe473cca76e7002e787",
+    "lines": 428
+  },
+  {
+    "path": "lib/services/desktop_database_maintenance.dart",
+    "sha256": "d948b6ec685e78b23551c9fb601b296a74b04e2e9b38ce05bf2aa506a587b325",
+    "lines": 45
+  },
+  {
+    "path": "lib/services/e_receipt.dart",
+    "sha256": "1c3e8a4f63028c057c624461f30545083624caa02c48c5698c5465a317616f9d",
+    "lines": 411
+  },
+  {
+    "path": "lib/services/esc_pos_receipt.dart",
+    "sha256": "10f15d04c8d8e35a5385f0d99d9fb47bcb85cc4d21adfdef696d212907b72db5",
+    "lines": 75
+  },
+  {
+    "path": "lib/services/held_cart_coordinator.dart",
+    "sha256": "24e421402d6a76df88977d6f36930f68d6f98224e24652c2f807b67c1eec272c",
+    "lines": 52
+  },
+  {
+    "path": "lib/services/owned_receipt_cache.dart",
+    "sha256": "671aafda59295422ccca6a11138a5213a4179c857ca339fedb0684802ff130b0",
+    "lines": 72
+  },
+  {
+    "path": "lib/services/pos_repository.dart",
+    "sha256": "b48852b456e13806ea4a6c239f1ad85b8d8ac6e39f3a66157d31608e69c0ba7c",
+    "lines": 1198
+  },
+  {
+    "path": "lib/services/product_images.dart",
+    "sha256": "8bf86f6a041c9b03ad23a778b59d255d69c687a0a703c928472c9a77c1aba51d",
+    "lines": 84
+  },
+  {
+    "path": "lib/services/profit_math.dart",
+    "sha256": "c0628f6397886c0528f7c7fd84e8801137ce5a4c4a2044ce2f523aa641bf7d1c",
+    "lines": 72
+  },
+  {
+    "path": "lib/services/purchase_attachment_store.dart",
+    "sha256": "9c9b36984f1973f83f1901a772a5658239ba8a9f67a7b8de7ec275b6726a83fc",
+    "lines": 136
+  },
+  {
+    "path": "lib/services/purchase_edit_service.dart",
+    "sha256": "157bad589f3e669c529c1b8a955fba64ecfb0114a37faf86d5a54ac22099d556",
+    "lines": 196
+  },
+  {
+    "path": "lib/services/purchase_invoice.dart",
+    "sha256": "57331457812f79c7df55c3d13852dd84424f72d767dda93da7b5e017da5ace9d",
+    "lines": 555
+  },
+  {
+    "path": "lib/services/purchase_invoice_ocr.dart",
+    "sha256": "6eb621ebc8d8cef7805c8973f0849a8d7133ceace52997080ff478de36899b7f",
+    "lines": 54
+  },
+  {
+    "path": "lib/services/purchase_reverse_plan.dart",
+    "sha256": "39976ac44795b8155de95bffe443f24d682e342f2d242651da2d4a049ad220e5",
+    "lines": 99
+  },
+  {
+    "path": "lib/services/purchase_reverse_safety.dart",
+    "sha256": "6dae09a3edf605b9a7adb838f82739423a426317e2a08913fa59c4260187279b",
+    "lines": 95
+  },
+  {
+    "path": "lib/services/qr_storage.dart",
+    "sha256": "53eda080f7fda926517873a1b997e15c39fe761da9affe678fc65dfec3730c1f",
+    "lines": 72
+  },
+  {
+    "path": "lib/services/receipt_template.dart",
+    "sha256": "ba1d787709e737c6e94a8bef2b1771d5aec496d4fb2c8e3101c0ad055720d5b2",
+    "lines": 401
+  },
+  {
+    "path": "lib/services/sale_reversal.dart",
+    "sha256": "5eacadec7fa22eeff89ba7a48c5eeb76d76dfcdf4c35d98cc4885115783f4820",
+    "lines": 74
+  },
+  {
+    "path": "lib/services/scan_feedback.dart",
+    "sha256": "18925b8d7893c9f1c079375ad31754017060d53902694f2b15375f8369b882c7",
+    "lines": 17
+  },
+  {
+    "path": "lib/services/user_admin_service.dart",
+    "sha256": "f84aa3df006e9825e9554f65789a92ce2610cd96c446fc79e716dc50f2a54740",
+    "lines": 102
+  }
+]

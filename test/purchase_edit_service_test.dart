@@ -7,6 +7,20 @@ import 'package:cnkh_pos_desktop/services/purchase_edit_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'purchase money parser rejects finite values whose scaled cents overflow',
+    () {
+      expect(PurchaseEditService.parseMoneyCents('1${'0' * 307}'), isNull);
+    },
+  );
+
+  test(
+    'purchase money parser rejects amounts beyond exact integer-cent precision',
+    () {
+      expect(PurchaseEditService.parseMoneyCents('90071992547409.92'), isNull);
+    },
+  );
+
   test('money parser accepts thousands but rejects malformed manual input', () {
     expect(PurchaseEditService.parseMoneyCents('RM 1,234.56'), 123456);
     expect(PurchaseEditService.parseMoneyCents('1.234,56'), 123456);

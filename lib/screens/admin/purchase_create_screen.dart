@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
+import '../../widgets/completed_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -206,6 +208,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         } else {
           for (final line in resolved) {
             final idx = _lines.indexWhere((e) {
+              // Quantity can be combined only when the invoice unit cost is
+              // the same. Repricing the existing quantity changes its total.
+              if (e.unitCostCents != line.unitCostCents) return false;
               if (line.productId != null && e.productId == line.productId) {
                 return true;
               }
@@ -219,9 +224,6 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
             });
             if (idx >= 0) {
               _lines[idx].qty += line.qty;
-              if (line.unitCostCents > 0) {
-                _lines[idx].unitCostCents = line.unitCostCents;
-              }
             } else {
               _lines.add(line);
             }
@@ -233,7 +235,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     }
   }
 
-  Future<void> _addProductScan(Product p, {double qty = 1}) async {
+  Future<bool> _addProductScan(Product p, {double qty = 1, bool feedback = true}) async {
+    if (_busy || !mounted) return false;
     await _mergeLines([
       PurchaseDraftLine(
         name: p.nameZh,
@@ -247,7 +250,9 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         matchNote: '扫码加入',
       ),
     ]);
-    await playScanFeedback(widget.repo);
+    if (!mounted) return false;
+    if (feedback) await playScanFeedback(widget.repo);
+    return true;
   }
 
   Future<void> _onWedgeSubmit(String raw) async {
@@ -384,9 +389,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       MaterialPageRoute(
         builder: (_) => BarcodeScanScreen(
           repo: widget.repo,
-          onProduct: (p) {
-            _addProductScan(p);
-          },
+          onProduct: (p) => _addProductScan(p, feedback: false),
           onPairing: null,
         ),
       ),
@@ -498,7 +501,18 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
   }
 
   Future<void> _applyOcrText(String text) async {
-    final parsed = PurchaseInvoiceTextParser.parse(text);
+    List<PurchaseDraftLine> parsed;
+    try {
+      parsed = PurchaseInvoiceTextParser.parse(text);
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      setState(() => _rawOcrText = text);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: CnkhColors.danger),
+      );
+      return;
+    }
+    if (!mounted) return;
     if (parsed.isEmpty) {
       if (!mounted) return;
       setState(() => _rawOcrText = text);
@@ -537,7 +551,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       picked = products.first;
       costCtrl.text = centsToRm(picked.costCents).toStringAsFixed(2);
     }
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -671,13 +685,28 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ),
       ),
     );
+    final q = double.tryParse(qtyCtrl.text.trim());
+    final cost = tryParseRmCents(costCtrl.text);
     productQueryCtrl.dispose();
     qtyCtrl.dispose();
     costCtrl.dispose();
     if (ok != true || picked == null) return;
-    final q = double.tryParse(qtyCtrl.text.trim()) ?? 0;
-    if (q <= 0) return;
-    final cost = rmToCents(double.tryParse(costCtrl.text.trim()) ?? 0);
+    if (!mounted) return;
+    if (q == null ||
+        !q.isFinite ||
+        q <= 0 ||
+        cost == null ||
+        cost < 0 ||
+        !(q * cost).isFinite ||
+        (q * cost).abs() > 9007199254740991) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('数量或金额格式无效 / Invalid quantity or amount'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
     await _mergeLines([
       PurchaseDraftLine(
         name: picked!.nameZh,
@@ -705,7 +734,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     );
     final barcode = TextEditingController(text: line.barcode);
     final sku = TextEditingController(text: line.sku);
-    final ok = await showDialog<bool>(
+    final ok = await showCompletedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(line.willCreate ? '编辑（将新建）' : '编辑进货行'),
@@ -768,16 +797,40 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         ],
       ),
     );
-    if (ok != true) return;
-    final q = double.tryParse(qty.text.trim()) ?? line.qty;
+    final q = double.tryParse(qty.text.trim());
+    final costCents = tryParseRmCents(cost.text);
+    final sellCents = tryParseRmCents(sell.text);
+    final lineName = name.text.trim();
+    final code = barcode.text.trim();
+    final stockCode = sku.text.trim();
+    for (final controller in [name, qty, cost, sell, barcode, sku]) {
+      controller.dispose();
+    }
+    if (ok != true || !mounted) return;
+    if (q == null ||
+        !q.isFinite ||
+        q <= 0 ||
+        costCents == null ||
+        costCents < 0 ||
+        !(q * costCents).isFinite ||
+        (q * costCents).abs() > 9007199254740991 ||
+        (line.willCreate && (sellCents == null || sellCents < 0))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('数量或金额格式无效 / Invalid quantity or amount'),
+          backgroundColor: CnkhColors.danger,
+        ),
+      );
+      return;
+    }
     setState(() {
-      line.name = name.text.trim();
-      line.barcode = barcode.text.trim();
-      line.sku = sku.text.trim();
-      line.qty = q <= 0 ? line.qty : q;
-      line.unitCostCents = rmToCents(double.tryParse(cost.text.trim()) ?? 0);
+      line.name = lineName;
+      line.barcode = code;
+      line.sku = stockCode;
+      line.qty = q;
+      line.unitCostCents = costCents;
       if (line.willCreate) {
-        line.sellPriceCents = rmToCents(double.tryParse(sell.text.trim()) ?? 0);
+        line.sellPriceCents = sellCents;
       }
     });
     // Re-resolve match after edits

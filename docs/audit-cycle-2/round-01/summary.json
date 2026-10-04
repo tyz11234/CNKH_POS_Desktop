@@ -1,0 +1,344 @@
+{
+  "round": 1,
+  "complete": true,
+  "reasons": [],
+  "finished": "2026-10-03T17:01:50.578815+00:00",
+  "review_completed_at": "2026-10-03T16:58:48.506754+00:00",
+  "commands": [
+    {
+      "name": "mobile-analyze",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "analyze",
+        "--no-pub",
+        "--no-fatal-infos",
+        "--no-fatal-warnings"
+      ],
+      "started": "2026-10-03T16:57:31.996413+00:00",
+      "ended": "2026-10-03T16:57:57.268518+00:00",
+      "exit_code": 0,
+      "tests": null,
+      "log": "evidence/round-01/mobile-analyze.log",
+      "log_sha256": "8c8a455af4071461d35d6e736424909ca75e3106ef1e7cd3db64d653f7c1c239",
+      "log_bytes": 9514
+    },
+    {
+      "name": "mobile-test",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--concurrency=4",
+        "--machine"
+      ],
+      "started": "2026-10-03T16:57:57.268698+00:00",
+      "ended": "2026-10-03T17:00:20.072128+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 160,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/mobile-test.log",
+      "log_sha256": "0c43bc32d44f48e1eb18c90bf2a41711745e1a111088c1be81491a1127ee90a3",
+      "log_bytes": 115355
+    },
+    {
+      "name": "desktop-analyze",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "analyze",
+        "--no-pub",
+        "--no-fatal-infos",
+        "--no-fatal-warnings"
+      ],
+      "started": "2026-10-03T16:57:31.996821+00:00",
+      "ended": "2026-10-03T16:57:52.409311+00:00",
+      "exit_code": 0,
+      "tests": null,
+      "log": "evidence/round-01/desktop-analyze.log",
+      "log_sha256": "82578f8048215ca3301384dd7160122b4a2e92605a02f162cb966ec734abfd13",
+      "log_bytes": 9749
+    },
+    {
+      "name": "desktop-test",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--concurrency=4",
+        "--machine"
+      ],
+      "started": "2026-10-03T16:57:52.409497+00:00",
+      "ended": "2026-10-03T17:00:30.275692+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 183,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/desktop-test.log",
+      "log_sha256": "3332f34c7e8fefd66eb383bf38bf6e7fd9395e6f26e3aecd7ca9ccf534b2bbc1",
+      "log_bytes": 124095
+    },
+    {
+      "name": "integration-analyze",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "analyze",
+        "--no-pub",
+        "--no-fatal-infos",
+        "--no-fatal-warnings"
+      ],
+      "started": "2026-10-03T16:57:31.997119+00:00",
+      "ended": "2026-10-03T16:57:32.817919+00:00",
+      "exit_code": 0,
+      "tests": null,
+      "log": "evidence/round-01/integration-analyze.log",
+      "log_sha256": "ebfadca32e2698cb473b9ce5382f169ecba2a96dbeb6f53ba0489ad6198fa06d",
+      "log_bytes": 96
+    },
+    {
+      "name": "integration-test",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--concurrency=4",
+        "--machine",
+        "test",
+        "regression"
+      ],
+      "started": "2026-10-03T16:57:32.818237+00:00",
+      "ended": "2026-10-03T16:58:01.017920+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/integration-test.log",
+      "log_sha256": "d9d1c3322ab28c07d44d61939c3dd3c42c17407058618a797537e9f830af1e09",
+      "log_bytes": 17027
+    },
+    {
+      "name": "mobile-release-gate",
+      "command": [
+        "python3",
+        "tool/test_release_gate.py"
+      ],
+      "started": "2026-10-03T17:00:30.279413+00:00",
+      "ended": "2026-10-03T17:00:30.443883+00:00",
+      "exit_code": 0,
+      "tests": null,
+      "log": "evidence/round-01/mobile-release-gate.log",
+      "log_sha256": "7e14229189b8ad9da45aa9bc0e7196055ac28c4eb39e2ac88d8f0f47a115420b",
+      "log_bytes": 3416
+    },
+    {
+      "name": "desktop-release-gate",
+      "command": [
+        "python3",
+        "tool/test_release_gate.py"
+      ],
+      "started": "2026-10-03T17:00:30.444092+00:00",
+      "ended": "2026-10-03T17:00:30.608559+00:00",
+      "exit_code": 0,
+      "tests": null,
+      "log": "evidence/round-01/desktop-release-gate.log",
+      "log_sha256": "7e14229189b8ad9da45aa9bc0e7196055ac28c4eb39e2ac88d8f0f47a115420b",
+      "log_bytes": 3416
+    },
+    {
+      "name": "desktop-training-capture",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--machine",
+        "tool/training_capture_test.dart"
+      ],
+      "started": "2026-10-03T17:00:30.608699+00:00",
+      "ended": "2026-10-03T17:01:06.584422+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/desktop-training-capture.log",
+      "log_sha256": "99166665e0ffee015b112977da4ca17e4f548d7348bdd2e5b466cdb03ae47a8c",
+      "log_bytes": 3644
+    },
+    {
+      "name": "desktop-training-view",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--machine",
+        "tool/training_view_test.dart"
+      ],
+      "started": "2026-10-03T17:01:06.584824+00:00",
+      "ended": "2026-10-03T17:01:12.068317+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/desktop-training-view.log",
+      "log_sha256": "2443dfc5797f71dfb9290ad1bfcd96d515e577df0406cbce642775cd21111626",
+      "log_bytes": 1383
+    },
+    {
+      "name": "mobile-training-capture",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--machine",
+        "tool/training_capture_test.dart"
+      ],
+      "started": "2026-10-03T17:01:12.068670+00:00",
+      "ended": "2026-10-03T17:01:44.823786+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/mobile-training-capture.log",
+      "log_sha256": "1b632cf58f789868b6e8cefed31777881f20b152a9780498e1785305628f5190",
+      "log_bytes": 3673
+    },
+    {
+      "name": "mobile-training-view",
+      "command": [
+        "/workspace/toolchains/flutter-3.47.6/bin/flutter",
+        "test",
+        "--no-pub",
+        "--machine",
+        "tool/training_view_test.dart"
+      ],
+      "started": "2026-10-03T17:01:44.825797+00:00",
+      "ended": "2026-10-03T17:01:50.526916+00:00",
+      "exit_code": 0,
+      "tests": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "all_done_success": true
+      },
+      "log": "evidence/round-01/mobile-training-view.log",
+      "log_sha256": "fb0747681d41d854aa917e269afb463d7e75354e3b5482d43912124350b3e117",
+      "log_bytes": 1392
+    }
+  ],
+  "source": {
+    "mobile": {
+      "head": "0773f646e4cf5980c93bbe025b5f3aa7ff82b9ff",
+      "remote_main": "0773f646e4cf5980c93bbe025b5f3aa7ff82b9ff",
+      "branch": "main",
+      "version": "1.10.9+37",
+      "counts": {
+        "source": 69,
+        "screens": 18,
+        "services": 29,
+        "db": 6,
+        "widgets": 7,
+        "test_files": 53
+      },
+      "reviewed_manifest_sha256": "7198f9b56da4372a71dd6f9f4fd9ddc86007d346308c1f114cf0d6e8ac0c3665",
+      "lib_source_sha256": "12dbe5f1bfdb7a97e7905f19f90e12024d04104cdfa95ea6e0e7ef93fe590211"
+    },
+    "desktop": {
+      "head": "543178e35ca2caf03b12055ba9f9cd0bb7af8a17",
+      "remote_main": "543178e35ca2caf03b12055ba9f9cd0bb7af8a17",
+      "branch": "main",
+      "version": "1.10.9+37",
+      "counts": {
+        "source": 74,
+        "screens": 17,
+        "services": 36,
+        "db": 6,
+        "widgets": 6,
+        "test_files": 54
+      },
+      "reviewed_manifest_sha256": "d98ce12b5b7f850da1d439c3c6e58fa4834c9203dd8d875e0032d49ce074c105",
+      "lib_source_sha256": "734800f7fb19016a84f117b2955ed597d1dd772b55b6f90d41a70538337e7ef9"
+    }
+  },
+  "static_checks": [
+    {
+      "repo": "mobile",
+      "version": "1.10.9+37",
+      "training_pairs": 16,
+      "packaging_script_syntax": "pass"
+    },
+    {
+      "repo": "desktop",
+      "version": "1.10.9+37",
+      "training_pairs": 11,
+      "packaging_script_syntax": "pass"
+    }
+  ],
+  "external_acceptance": [
+    "Android compatible release signing private key unverified",
+    "Android camera/upgrade on device",
+    "Windows native GUI and physical printers",
+    "store Wi-Fi",
+    "real MyInvois Sandbox/Production credentials"
+  ],
+  "domain_review": {
+    "round": 1,
+    "complete": true,
+    "completed_at": "2026-10-03T16:58:48.506754+00:00",
+    "domains": {
+      "mobile": {
+        "complete": true,
+        "report": "mobile-review.md"
+      },
+      "desktop": {
+        "complete": true,
+        "report": "desktop-review.md"
+      },
+      "sync_db": {
+        "complete": true,
+        "report": "sync-db-review.md"
+      },
+      "einvoice_platform": {
+        "complete": true,
+        "report": "einvoice-platform-review.md"
+      }
+    },
+    "new_bug_clusters": 9,
+    "test_synchronization_defects": 2
+  },
+  "review_artifacts": [
+    {
+      "path": "desktop/source-inventory.json",
+      "source": "evidence/round-01/desktop/source-inventory.json",
+      "sha256": "b0b32a751e028923574e5851f52ac91dbaedf5e11a1b7e7c7beb494ebf80e54e",
+      "bytes": 8337
+    },
+    {
+      "path": "einvoice/reviewed-files.json",
+      "source": "evidence/round-01/einvoice/reviewed-files.json",
+      "sha256": "2486f9bac3fcdbb850f5065e3a60daf049ea945655345f7fe6d278b35fb90850",
+      "bytes": 8574
+    },
+    {
+      "path": "sync/dynamic-inventory.json",
+      "source": "evidence/round-01/sync/dynamic-inventory.json",
+      "sha256": "dd8613a8b8037d6aa2089988aadf364495b75a573cae111cea193d9ada992f4e",
+      "bytes": 10124
+    }
+  ]
+}
