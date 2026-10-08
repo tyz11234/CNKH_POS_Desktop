@@ -1,6 +1,6 @@
 # CNKH POS Desktop 1.10.10+38
 
-发布准备日期：2026-10-08。**安装包待 CI 构建及核验，尚未确认本版发布成功。** 数据库 schema 保持 v10，LAN 协议保持 `cnkh-sync:v1`。
+发布日期：2026-10-08。**Windows Setup.exe 与便携 ZIP 已发布并核验。** 数据库 schema 保持 v10，LAN 协议保持 `cnkh-sync:v1`。
 
 ## 本次修复
 
@@ -27,24 +27,39 @@
 
 ## 验证记录
 
-- Mobile 完整测试 **187 项通过**；随后调整收款测试的异步等待方式，该用例定点复测通过。
-- Desktop 完整测试 **187 项通过，1 项因测试固定等待时间不足失败**；改为等待实际付款完成条件后，该用例及电子发票测试共 **25 项定点复测通过**。这不是一次重新执行的全量通过记录。
-- 两端真实 HTTP / WebSocket 配套回归 **29 项通过**。
-- 两端 `flutter analyze` 未发现 error；保留原有 warning / info。
-- 独立 ZXing 解码验证通过：两端 12 位条码均读回原内容；两端 PDF 及 384 / 576 dots ESC/POS 栅格中的 6 个二维码产物均读回正确测试内容。
-- `git diff --check`、修复源码包完整性和补丁应用检查通过。
+- Desktop 发布流水线 [37782987933](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37782987933) 全部成功：完整测试 **188 项通过**，培训截图及图片显示测试通过，Windows Release 编译、11 组培训资源、安装器及便携 ZIP 验证通过。首次安装和重复安装均核对 **56 个文件**的 SHA-256，安装测试没有启动 POS。
+- Mobile GitHub Actions [37738806385](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37738806385) 的完整测试 **187 项通过**，双端培训截图及图片显示测试通过；随后在配置 Android 发布签名时失败，APK 构建和发布步骤未执行。
+- 两端真实 HTTP / WebSocket 配套回归 [37738806372](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37738806372) **29 项通过**；实际配对源码为 Desktop `8acda041983a10ab6f83fdbaae41be7a2e3e2c2c` 与 Mobile `68ae03f9d03a10d38a1575d3cb736e04dfc9fb32`。
+- 两端 CI 的 `flutter analyze --no-fatal-infos --no-fatal-warnings` 均通过，未发现 error；保留原有 warning / info。
+- 本地独立 ZXing 解码验证通过：两端 12 位条码均读回原内容；两端 PDF 及 384 / 576 dots ESC/POS 栅格中的 6 个二维码产物均读回正确测试内容。
+- 本地 `git diff --check`、修复源码包完整性和补丁应用检查通过。
 
-以上为发布前本地验证。1.10.10+38 的 GitHub Actions 构建结果、产物大小、SHA-256 和 APK 签名核验待完成后补充。实体 Windows / Android 设备、打印机、门店网络和 MyInvois Sandbox / Production 线上验收未执行。
+Windows EXE 与 ZIP 已从正式 Release 重新下载，SHA-256、ZIP 完整性、x64 程序、运行库和 11 组培训图片 / 箭头元数据验证通过。Android Debug 签名构建进行中。实体 Windows / Android 设备、打印机、门店网络和 MyInvois Sandbox / Production 线上验收未执行。
 
 ## 安装与发布状态
 
-本次计划提供 **Windows x64 Setup.exe 安装包及完整便携 ZIP**。构建及上传完成前，本页不提供未验证的下载链接或校验值。
+Windows **1.10.10+38** 已发布并重新下载校验；Android 同版本 APK 正在按维护者要求使用 Debug 签名构建。
 
-Windows 更新前备份业务数据并关闭程序；使用便携 ZIP 时保持 EXE、DLL 和 `data` 目录完整。
+| 本次产物 | 版本 | 下载 / 状态 |
+| --- | --- | --- |
+| Windows x64 Setup.exe 安装包 | 1.10.10+38 | [下载安装包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.10/CNKH_POS_Desktop-windows-x64-v1.10.10-38-Setup.exe) |
+| Windows x64 ZIP 便携包 | 1.10.10+38 | [下载便携包](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.10/CNKH_POS_Desktop-windows-x64-v1.10.10-38.zip) |
+| Android APK | 1.10.10+38 | Debug 签名构建中；完成后补充链接 |
 
-Android 旧版 1.10.7+35 APK 使用 Debug 证书，其 SHA-256 为 `51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。**本版 APK 签名及与旧版的覆盖安装兼容性尚待核验，不承诺可直接覆盖。** 更新前先同步并备份；若 Android 提示签名不匹配，保留旧应用和本地数据，不要卸载仍含未同步业务的旧版本。
+[Windows Release v1.10.10](https://github.com/tyz11234/CNKH_POS_Desktop/releases/tag/v1.10.10) · [SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.10/SHA256SUMS.txt)
 
-下载区、实际 CI 链接及校验值统一记录于 [README](README.md#下载与更新)。
+| 发布文件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| CNKH_POS_Desktop-windows-x64-v1.10.10-38-Setup.exe | 15168784 | `9e52049b4ca56cddd4147b5ed908a4251bdddb4e82dc4a2513976399b7427b34` |
+| CNKH_POS_Desktop-windows-x64-v1.10.10-38.zip | 18350569 | `aa099af7b5153c05707324f068f74f33d0a88d3203ee329733383f3924e96f7b` |
+
+Windows 更新前先备份业务数据并关闭程序。Setup.exe 按当前用户安装到 `%LOCALAPPDATA%\Programs\CNKH POS Desktop`，支持 Windows 10 1809 及以上的 x64 环境；安装及卸载只管理程序目录，不迁移或清除文档目录中的业务数据库。便携 ZIP 请解压到独立目录，保留 EXE、DLL 和 `data` 文件夹。安装器未配置 Windows 代码签名，可用上述 SHA-256 校验下载文件。
+
+本次 Android APK 按维护者要求使用 **Debug 签名**，不保证与旧版签名一致。旧版 1.10.7+35 的证书 SHA-256 为 `51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`；本次证书指纹将在构建后补充。更新前先同步并备份；如提示签名不匹配，请保留旧应用，不要卸载仍有未同步数据的版本。
+
+历史版本可在 [Desktop Releases](https://github.com/tyz11234/CNKH_POS_Desktop/releases) 和 [Mobile Releases](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases) 查找，旧包不包含本次全部修复。
+
+下载区及校验信息同时记录于 [README](README.md#下载与更新)。
 
 ---
 # CNKH POS Desktop 1.10.9+37
