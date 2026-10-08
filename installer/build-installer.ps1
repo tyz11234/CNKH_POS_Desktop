@@ -44,9 +44,8 @@ if (-not $iscc) {
     $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
 }
 if (-not $iscc) { throw 'Inno Setup ISCC.exe was not found. Install Inno Setup 6.7.1 or newer.' }
-$compilerInfo = (Get-Item $iscc).VersionInfo
-$compilerVersion = [version]"$($compilerInfo.FileMajorPart).$($compilerInfo.FileMinorPart).$($compilerInfo.FileBuildPart)"
-if ($compilerVersion -lt [version]'6.5.0') { throw "Inno Setup 6.5.0 or newer is required; found $compilerVersion." }
+# The compiler checks its own version in the .iss file. ISCC.exe can omit
+# Windows version resources, which makes FileVersionInfo incorrectly report 0.0.0.
 
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 & $iscc "/DAppVersion=$semver" "/DAppBuild=$build" "/DBundleDir=$bundle" "/DInstallerOutputDir=$output" (Join-Path $PSScriptRoot 'cnkh-pos-desktop.iss')

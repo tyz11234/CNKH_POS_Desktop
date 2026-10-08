@@ -1,5 +1,8 @@
 ﻿; Compile with installer/build-installer.ps1 after flutter build windows --release.
 ; Keep AppId and the application data paths stable across upgrades.
+#if Ver < EncodeVer(6, 5, 0)
+  #error Inno Setup 6.5.0 or newer is required to compile this installer
+#endif
 #ifndef AppVersion
   #error AppVersion must be supplied by the release script
 #endif
