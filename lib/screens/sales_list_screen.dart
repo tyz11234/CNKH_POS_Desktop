@@ -86,8 +86,8 @@ class _SalesListScreenState extends State<SalesListScreen> {
     }
     if (_to != null) {
       final sold = DateTime.tryParse(s.soldAt);
-      final end = DateTime(_to!.year, _to!.month, _to!.day, 23, 59, 59);
-      if (sold != null && sold.isAfter(end)) return false;
+      final endExclusive = DateTime(_to!.year, _to!.month, _to!.day + 1);
+      if (sold != null && !sold.isBefore(endExclusive)) return false;
     }
     if (q.isEmpty) return true;
     final phone = (s.customerPhone ?? '').toLowerCase();

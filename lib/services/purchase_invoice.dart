@@ -248,6 +248,37 @@ class PurchaseDraftLine {
       );
 }
 
+/// Append reviewed lines without changing their product identity or invoice sum.
+/// Different cost batches stay separate; the repository supports repeated IDs.
+void appendPurchaseDraftLines(
+  List<PurchaseDraftLine> current,
+  Iterable<PurchaseDraftLine> incoming,
+) {
+  for (final line in incoming) {
+    // Only combine with the latest batch for this product. Combining with an
+    // older batch would change which cost is applied last during commit.
+    final index = current.lastIndexWhere(
+      (existing) => existing.productId == line.productId,
+    );
+    final existing = index < 0 ? null : current[index];
+    if (existing == null ||
+        line.productId == null ||
+        line.productId!.isEmpty ||
+        line.willCreate ||
+        existing.willCreate ||
+        existing.unitCostCents != line.unitCostCents ||
+        existing.selected != line.selected ||
+        // Fractional quantities can round differently when combined. Preserve
+        // both original subtotals in that case, even at an identical unit cost.
+        ((existing.qty + line.qty) * line.unitCostCents).round() !=
+            existing.subtotalCents + line.subtotalCents) {
+      current.add(line);
+    } else {
+      existing.qty += line.qty;
+    }
+  }
+}
+
 int? _asInt(Object? v) {
   if (v == null) return null;
   if (v is int) return v;
@@ -425,22 +456,31 @@ class PurchaseLineMatcher {
     final out = <PurchaseDraftLine>[];
     // Cache catalog names for name match
     final catalog = await repo.searchProducts('', limit: 5000);
-    final byNormName = <String, Product>{};
+    final byNormName = <String, Map<String, Product>>{};
     for (final p in catalog) {
       final n1 = normalizeProductName(p.nameZh);
       final n2 = normalizeProductName(p.nameEn);
-      if (n1.isNotEmpty) byNormName.putIfAbsent(n1, () => p);
-      if (n2.isNotEmpty) byNormName.putIfAbsent(n2, () => p);
+      if (n1.isNotEmpty) (byNormName[n1] ??= {})[p.id] = p;
+      if (n2.isNotEmpty) (byNormName[n2] ??= {})[p.id] = p;
     }
 
     for (final raw in input) {
       final line = raw.copy();
       Product? matched;
 
+      // A scan or manual picker has already identified the product. Its name
+      // need not be unique, and must never override that explicit identity.
+      if (line.productId != null) {
+        matched = await repo.getProduct(line.productId!);
+        if (matched == null || matched.isDeleted != 0) {
+          throw StateError('已选择的进货商品不存在，请重新选择');
+        }
+      }
+
       final code = line.barcode.trim().isNotEmpty
           ? line.barcode.trim()
           : line.sku.trim();
-      if (code.isNotEmpty) {
+      if (matched == null && code.isNotEmpty) {
         matched = await repo.findByBarcodeOrSku(code);
         if (matched != null) {
           line.matchNote = '条码/SKU 匹配';
@@ -450,28 +490,35 @@ class PurchaseLineMatcher {
         matched = await repo.findByBarcodeOrSku(line.sku.trim());
         if (matched != null) line.matchNote = 'SKU 匹配';
       }
-      if (matched == null) {
+      // An unknown explicit code is a different product, even if its name is
+      // shared with a catalog item. Name matching is only for code-less OCR.
+      if (matched == null && code.isEmpty && line.sku.trim().isEmpty) {
         final key = normalizeProductName(line.name);
         if (key.isNotEmpty) {
-          matched = byNormName[key];
+          final exact = byNormName[key];
+          if (exact?.length == 1) matched = exact!.values.single;
           if (matched != null) {
             line.matchNote = '品名匹配';
-          } else {
-            // Soft contains match (single best)
-            Product? soft;
+          } else if (exact == null) {
+            // Only use an unambiguous best name match. Equal names/scores for
+            // different IDs require review instead of choosing the first row.
+            final soft = <String, Product>{};
             var softScore = 0;
             for (final e in byNormName.entries) {
               if (e.key.length < 2 || key.length < 2) continue;
               if (e.key.contains(key) || key.contains(e.key)) {
-                final score = e.key.length < key.length ? e.key.length : key.length;
+                final score = e.key.length < key.length
+                    ? e.key.length
+                    : key.length;
                 if (score > softScore) {
                   softScore = score;
-                  soft = e.value;
+                  soft.clear();
                 }
+                if (score == softScore) soft.addAll(e.value);
               }
             }
-            if (soft != null && softScore >= 4) {
-              matched = soft;
+            if (soft.length == 1 && softScore >= 4) {
+              matched = soft.values.single;
               line.matchNote = '品名近似匹配（请核对）';
               line.confidence = (line.confidence * 0.85).clamp(0, 1);
             }
@@ -493,8 +540,9 @@ class PurchaseLineMatcher {
       } else {
         line.productId = null;
         line.willCreate = true;
-        line.matchNote =
-            line.matchNote.isEmpty ? '将新建商品' : '${line.matchNote} · 将新建';
+        line.matchNote = line.matchNote.isEmpty
+            ? '将新建商品'
+            : '${line.matchNote} · 将新建';
         line.sellPriceCents ??= line.unitCostCents;
       }
       out.add(line);

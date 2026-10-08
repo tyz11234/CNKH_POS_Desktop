@@ -1,0 +1,4 @@
+ChineseSimplified.isl is the unmodified Simplified Chinese translation supplied
+with the Inno Setup source distribution (Inno Setup 6.7.1).
+Source: https://github.com/jrsoftware/issrc/blob/is-6_7_1/Files/Languages/Unofficial/ChineseSimplified.isl
+Its original translation authors and credits are retained in the file header.

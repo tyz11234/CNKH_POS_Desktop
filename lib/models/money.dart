@@ -1,6 +1,25 @@
 /// Integer-cent money helpers (sen). Never store MYR as binary float.
 int rmToCents(double rm) => (rm * 100).round();
 
+/// Parse a non-negative cash/deposit amount without floating-point conversion.
+/// At most two decimal places and correctly grouped thousands are accepted.
+/// Keep cents within the exact integer range shared by native and web clients.
+int? tryParsePaymentCents(String text) {
+  final raw = text.trim();
+  if (!RegExp(r'^(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]{0,2})?$')
+          .hasMatch(raw) &&
+      !RegExp(r'^\.[0-9]{1,2}$').hasMatch(raw)) {
+    return null;
+  }
+  final parts = raw.replaceAll(',', '').split('.');
+  final whole = int.tryParse(parts[0].isEmpty ? '0' : parts[0]);
+  const maxCents = 9007199254740991;
+  if (whole == null || whole > maxCents ~/ 100) return null;
+  final fraction = parts.length == 1 ? '00' : parts[1].padRight(2, '0');
+  final cents = whole * 100 + int.parse(fraction);
+  return cents <= maxCents ? cents : null;
+}
+
 double centsToRm(int cents) => cents / 100.0;
 
 String formatRm(int cents) {

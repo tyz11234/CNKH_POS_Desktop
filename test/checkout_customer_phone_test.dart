@@ -62,6 +62,25 @@ void main() {
     }
   }
 
+  Future<void> waitForPayment(
+    WidgetTester tester,
+    bool Function() completed,
+  ) async {
+    final elapsed = Stopwatch()..start();
+    const timeout = Duration(seconds: 10);
+    while (!completed()) {
+      if (elapsed.elapsed >= timeout) {
+        fail('Checkout did not invoke onPaid within $timeout');
+      }
+      // SQLite runs outside the widget test's fake clock. Yield to its real
+      // event loop, then render the frame awaited before the onPaid callback.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+  }
+
   testWidgets(
     'customer changes clear old autofill while manual phone is saved and shared',
     (tester) async {
@@ -120,7 +139,7 @@ void main() {
       await tester.tap(find.text('卡\nCard'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认收款 / Confirm'));
-      await flush(tester);
+      await waitForPayment(tester, () => saved != null);
 
       expect(saved, isNotNull);
       expect(saved!.customerId, 'customer-b');

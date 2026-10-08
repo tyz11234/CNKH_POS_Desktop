@@ -12,8 +12,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'pos_repository.dart';
 import '../db/app_database.dart';
 import 'owned_receipt_cache.dart';
+
 import 'package:path/path.dart' as p;
+
 import 'receipt_template.dart';
+import 'receipt_qr.dart';
 
 export 'receipt_template.dart'
     show
@@ -172,6 +175,8 @@ Future<File> writeReceiptPdfTemp(
     );
   }
   final text = effective.renderFromSale(sale);
+  final qr = effective.showDuitNowQr ? await ReceiptQrImage.load() : null;
+  final qrImage = qr == null ? null : pw.MemoryImage(qr.pngBytes());
   final font = await _loadReceiptPdfFont();
   final doc = pw.Document();
   // 80mm thermal-ish page width — Noto Sans SC embeds CJK (Courier cannot).
@@ -190,7 +195,24 @@ Future<File> writeReceiptPdfTemp(
       maxPages: 1000,
       // Return breakable receipt rows directly; a Column around all rows is
       // one indivisible child and still overflows under MultiPage.
-      build: (ctx) => [for (final line in lines) pw.Text(line, style: style)],
+      build: (ctx) => [
+        for (final line in lines) pw.Text(line, style: style),
+        if (qrImage != null)
+          pw.Center(
+            child: pw.Column(
+              children: [
+                pw.SizedBox(height: 4 * PdfPageFormat.mm),
+                pw.Text('DuitNow QR / Scan to pay / 扫码付款', style: style),
+                pw.Image(
+                  qrImage,
+                  width: 60 * PdfPageFormat.mm,
+                  height: 60 * PdfPageFormat.mm,
+                  fit: pw.BoxFit.contain,
+                ),
+              ],
+            ),
+          ),
+      ],
     ),
   );
   final dir = await getTemporaryDirectory();
@@ -260,9 +282,8 @@ Future<String> defaultEReceiptCachePath() async {
 Future<Directory> eReceiptCacheDir({PosRepository? repo}) async {
   String custom = '';
   try {
-    custom = (await (repo ?? PosRepository()).getSetting(
-      kEReceiptCacheDirKey,
-    )).trim();
+    custom = (await (repo ?? PosRepository()).getSetting(kEReceiptCacheDirKey))
+        .trim();
   } catch (_) {}
   final path = custom.isNotEmpty ? custom : await defaultEReceiptCachePath();
   final dir = Directory(p.join(path, OwnedReceiptCache.folder));

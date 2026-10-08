@@ -363,7 +363,7 @@ class _DesktopShellState extends State<DesktopShell> {
       case 'purchases':
         return PurchasesPage(repo: widget.repo, user: widget.user);
       case 'reports':
-        return ReportsPage(repo: widget.repo);
+        return ReportsPage(repo: widget.repo, refreshToken: _dataEpoch);
       case 'admin':
         return AdminHub(
           user: widget.user,
@@ -399,7 +399,9 @@ class _DesktopShellState extends State<DesktopShell> {
             onDestinationSelected: (i) {
               setState(() {
                 _index = i;
-                if (items[i].id == 'today') _dataEpoch++;
+                if (items[i].id == 'today' || items[i].id == 'reports') {
+                  _dataEpoch++;
+                }
               });
             },
             leading: Padding(

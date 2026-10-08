@@ -4,9 +4,58 @@
 
 技术栈为 **Flutter / Dart / SQLite**，保持现有 POS/LAN 架构与收银 UI。
 
-> README 最后更新：**2026-10-03**。默认源码与发布分支：main。
+> README 最后更新：**2026-10-08**。默认源码与发布分支：main。
 
-## 2026-10-03 · Desktop 1.10.9+37 已发布
+## 2026-10-08 · Desktop 1.10.10+38 修复发布准备
+
+本次修复审查发现的 16 项问题，涵盖购物车折扣、进货金额与商品匹配、未同步销售保护、条码 / SKU 唯一性、电子发票签名、双端销售对账、挂单价格、报表刷新、金额输入和 DuitNow 收据输出。SQLite schema 保持 **v10**，LAN 协议保持 **`cnkh-sync:v1`**。
+
+- 收银与商品：删空购物车清除旧折扣；新挂单保留原售价；拒绝歧义条码 / SKU 和非法金额；12 位条码标签原样输出。
+- 进货与报表：不同成本批次及不同商品不再误合并；电脑报表及时刷新，日期筛选不再漏掉最后一秒。
+- 同步与电子发票：保护未上传销售；完整对账处理电脑恢复旧备份后的缺失销售；待核对作废仍更新发票状态；同步设置立即重载；更正发票状态正确关联，签名使用最终 1.1 内容。
+- 收据：PDF 与蓝牙打印输出已配置的 DuitNow 付款图片，缺图不显示扫码提示。
+
+完整逐项说明见 [变更记录](CHANGELOG.md) 和 [Release Notes](RELEASE_NOTES.md)。此前 [Bug Audit](docs/BUG_AUDIT.md) 与 [回归矩阵](docs/FEATURE_TEST_MATRIX.md) 保留历史审查记录，本次验证以本页和 Release Notes 为准。
+
+## 当前源码与发布包
+
+| 项目 | 本次源码版本 | 本次安装包状态 |
+| --- | --- | --- |
+| Desktop | **1.10.10+38** | Windows x64 Setup.exe 与 ZIP 待 CI 构建、核验及上传 |
+| Mobile | **1.10.10+38** | Android APK 待 CI 构建、签名核验及上传 |
+| 数据兼容 | schema v10 / cnkh-sync:v1 | 保留现有数据库增量迁移 |
+
+## 下载与更新
+
+**本版下载区待构建和核验完成后更新。下表暂不表示安装包已经发布。**
+
+| 本次产物 | 版本 | 下载 / 校验状态 |
+| --- | --- | --- |
+| Windows x64 Setup.exe 安装包 | 1.10.10+38 | 待上传；大小与 SHA-256 待核验 |
+| Windows x64 ZIP 便携包 | 1.10.10+38 | 待上传；大小与 SHA-256 待核验 |
+| Android APK | 1.10.10+38 | 待上传；大小、SHA-256 与签名待核验 |
+
+已发布旧版本可在 [Desktop Releases](https://github.com/tyz11234/CNKH_POS_Desktop/releases) 和 [Mobile Releases](https://github.com/tyz11234/CNKH_POS_Mobile_APK/releases) 查找。旧包不包含本次 16 项修复；历史版本及校验记录见下方折叠区域。
+
+Windows 更新前先备份业务数据并关闭程序。使用便携 ZIP 时，解压到独立目录并保留 EXE、DLL 和 `data` 文件夹；本次 Setup.exe 的实际产物状态以发布后的下载区为准。
+
+Android 现有 1.10.7+35 APK 使用 Debug 证书，证书 SHA-256 为 `51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。**本次 APK 的签名和覆盖安装兼容性尚待核验。** 更新前同步业务并备份；如果 Android 报告签名不匹配，保留旧应用，不要卸载仍存有未同步业务的版本。
+
+## 本次验证
+
+- Mobile 完整测试 **187 项通过**；随后调整收款测试的异步等待方式，该用例定点复测通过。
+- Desktop 完整测试 **187 项通过，1 项因测试固定等待时间不足失败**；改为等待实际付款完成条件后，该用例及电子发票测试共 **25 项定点复测通过**。这不是一次重新执行的全量通过记录。
+- 两端真实 HTTP / WebSocket 配套回归 **29 项通过**。
+- 两端 `flutter analyze` 未发现 error；保留原有 warning / info。
+- 独立 ZXing 解码验证通过：两端 12 位条码均读回原内容；两端 PDF 及 384 / 576 dots ESC/POS 栅格中的 6 个二维码产物均读回正确测试内容。
+- `git diff --check`、修复源码包完整性和补丁应用检查通过。
+
+以上为发布前本地验证。1.10.10+38 的 GitHub Actions 构建结果、产物大小、SHA-256 和 APK 签名核验待完成后补充。实体 Windows / Android 设备、打印机、门店网络和 MyInvois Sandbox / Production 线上验收未执行。
+
+<details>
+<summary>历史记录：1.10.9+37 源码、旧版安装包和验证（2026-10-03）</summary>
+
+### 2026-10-03 · Desktop 1.10.9+37 已发布
 
 本版更新 About 的版本读取方式，并固定双端配对 CI 所用源码引用。Mobile 商品图片异步写入错误处理也已合并到配套源码。SQLite schema 保持 v10，LAN 协议保持 `cnkh-sync:v1`。
 
@@ -18,7 +67,7 @@ Desktop Windows x64 便携 ZIP 已发布并重新下载验证：**17,516,801 字
 
 详见 [变更记录](CHANGELOG.md)、[Release Notes](RELEASE_NOTES.md)、[Bug Audit](docs/BUG_AUDIT.md) 与 [完整回归矩阵](docs/FEATURE_TEST_MATRIX.md)。
 
-## 当前源码与发布包
+### 当前源码与发布包
 
 | 项目 | 当前源码 | 最新可下载包 |
 | --- | --- | --- |
@@ -26,7 +75,7 @@ Desktop Windows x64 便携 ZIP 已发布并重新下载验证：**17,516,801 字
 | 配套 Mobile main | **1.10.9+37** | Android APK **1.10.7+35**（签名兼容性限制） |
 | LAN 协议 | cnkh-sync:v1 | schema v10，增量升级旧数据库 |
 
-## 下载与更新
+### 下载与更新
 
 - [Windows x64 ZIP 便携包（1.10.9+37）](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.9/CNKH_POS_Desktop-windows-x64-v1.10.9-37.zip)
 - [Windows ZIP SHA-256 校验文件](https://github.com/tyz11234/CNKH_POS_Desktop/releases/download/v1.10.9/SHA256SUMS.txt)
@@ -46,6 +95,8 @@ Windows ZIP 为完整便携包，不含安装向导。先备份业务数据并�
 Android 更新前先同步业务并备份。若系统提示签名不匹配，停止安装并保留旧应用；不要卸载仍保存未同步业务的旧版本。当前 APK 证书 SHA-256 为 `51d08c3a894a972f03cfd99dac38a468ffba9de58f0062f6a3bba5b07da57406`。
 
 Mobile 主线 CI [37129727944](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37129727944)、按配对 SHA 的 HTTP 集成 [37129727823](https://github.com/tyz11234/CNKH_POS_Mobile_APK/actions/runs/37129727823)、Desktop Windows Release [37130267034](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37130267034) 均成功。桌面培训资源检查 [37130266986](https://github.com/tyz11234/CNKH_POS_Desktop/actions/runs/37130266986) 通过。
+
+</details>
 
 ## 2026-10-01 · 1.10.6+34
 

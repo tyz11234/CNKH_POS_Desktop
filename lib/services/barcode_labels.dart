@@ -37,7 +37,9 @@ class BarcodeLabelService {
 
   Barcode _codecFor(String code) {
     final digits = code.replaceAll(RegExp(r'\D'), '');
-    if ((digits.length == 12 || digits.length == 13) && digits == code) {
+    // EAN-13 adds a check digit to 12-digit input. Preserve stored codes
+    // exactly: only complete EAN-13 values use EAN, all others use Code128.
+    if (digits.length == 13 && digits == code) {
       final ean = Barcode.ean13();
       if (ean.isValid(code)) return ean;
     }

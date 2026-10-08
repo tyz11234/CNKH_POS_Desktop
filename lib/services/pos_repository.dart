@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'auth_service.dart';
 import 'sale_reversal.dart';
 import 'sync_store.dart';
@@ -11,6 +12,7 @@ import '../models/cart_item.dart';
 import '../models/money.dart';
 import '../models/product.dart';
 import 'profit_math.dart';
+import 'product_identity.dart';
 
 class Customer {
   final String id;
@@ -232,25 +234,8 @@ class PosRepository {
   }
 
   Future<Product?> findByBarcodeOrSku(String code) async {
-    final q = code.trim();
-    if (q.isEmpty) return null;
-    final d = await _db.db;
-    final exact = await d.query(
-      'products',
-      where: 'is_deleted=0 AND (barcode=? OR sku=?)',
-      whereArgs: [q, q],
-      limit: 1,
-    );
-    if (exact.isNotEmpty) return Product.fromMap(exact.first);
-    // Case-insensitive sku fallback
-    final rows = await d.rawQuery(
-      """SELECT * FROM products
-         WHERE is_deleted=0 AND (lower(barcode)=lower(?) OR lower(sku)=lower(?))
-         LIMIT 1""",
-      [q, q],
-    );
-    if (rows.isEmpty) return null;
-    return Product.fromMap(rows.first);
+    final row = await findUniqueProductByCode(await _db.db, code);
+    return row == null ? null : Product.fromMap(row);
   }
 
   Future<Product?> getProduct(String id) async {
@@ -356,6 +341,9 @@ class PosRepository {
           merged[entry.key] = entry.value;
         }
         row = merged;
+      }
+      if (entity == 'product') {
+        await requireUniqueProductCodes(txn, row);
       }
       if (entity == 'product' &&
           old.isNotEmpty &&
@@ -569,11 +557,16 @@ class PosRepository {
     if (cart.items.isEmpty) throw StateError('empty cart');
     // Build the immutable payload before the first SQLite await.
     final payload = {
+      'version': 2,
       'orderDiscountCents': cart.orderDiscountCents,
       'items': [
         for (final i in cart.items)
           {
             'productId': i.product.id,
+            'unitPriceCents': i.product.priceCents,
+            'nameZh': i.product.nameZh,
+            'nameEn': i.product.nameEn,
+            'unit': i.product.unit,
             'qty': i.qty,
             'discountCents': i.discountCents,
           },
@@ -618,10 +611,20 @@ class PosRepository {
     for (final raw in (payload['items'] as List)) {
       final m = raw as Map<String, dynamic>;
       final product = await getProduct(m['productId'] as String);
-      if (product == null) continue;
+      if (product == null) {
+        throw StateError('挂单商品已不存在，挂单已保留，请先核对商品资料');
+      }
+      // Keep current identifiers, stock and deletion state. Only the sale's
+      // price/display snapshot is restored; old holds use current values.
+      final heldProduct = product.copyWith(
+        priceCents: (m['unitPriceCents'] as num?)?.toInt(),
+        nameZh: m['nameZh'] as String?,
+        nameEn: m['nameEn'] as String?,
+        unit: m['unit'] as String?,
+      );
       cart.items.add(
         CartItem(
-          product: product,
+          product: heldProduct,
           qty: m['qty'] as int,
           discountCents: m['discountCents'] as int? ?? 0,
         ),
@@ -688,18 +691,7 @@ class PosRepository {
       }
       final no = await _db.nextPurchaseNo(executor: txn);
       for (final product in newProducts) {
-        for (final code in ['sku', 'barcode']) {
-          final value = product.toMap()[code]?.toString() ?? '';
-          if (value.isNotEmpty &&
-              (await txn.query(
-                'products',
-                columns: ['id'],
-                where: '$code=? AND is_deleted=0',
-                whereArgs: [value],
-              )).isNotEmpty) {
-            throw StateError('新商品 $code 已存在，请重新匹配');
-          }
-        }
+        await requireUniqueProductCodes(txn, product.toMap());
         await txn.insert('products', product.toMap());
         await queueMutation(txn, 'product_upsert', product.id, {
           'row': product.toMap(),
@@ -840,8 +832,7 @@ class PosRepository {
     final d = await _db.db;
     final rows = await d.query(
       'sales',
-      where:
-          'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
+      where: 'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
       whereArgs: [startDay, endDay],
     );
     final products = await d.query(
@@ -871,8 +862,7 @@ class PosRepository {
     final d = await _db.db;
     final rows = await d.query(
       'sales',
-      where:
-          'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
+      where: 'voided=0 AND substr(sold_at,1,10) >= ? AND substr(sold_at,1,10) <= ?',
       whereArgs: [startDay, endDay],
     );
     final out = <String, int>{

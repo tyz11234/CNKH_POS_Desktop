@@ -120,7 +120,8 @@ void main() {
       expect(text, contains('Hardware Store'));
       expect(text, contains('谢谢光临'));
       expect(text, contains('Keep receipt'));
-      expect(text, contains('[DuitNow QR]'));
+      expect(text, isNot(contains('[DuitNow QR]')));
+      expect(text, isNot(contains('Scan to pay')));
     });
   });
 

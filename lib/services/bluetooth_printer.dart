@@ -5,13 +5,14 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 import 'esc_pos_receipt.dart';
 import 'receipt_template.dart';
+import 'receipt_qr.dart';
 import 'pos_repository.dart';
 
 /// Optional Bluetooth ESC/POS receipt printer (Android-first).
 /// Never blocks checkout — callers treat failures as snackbar-only.
 class BluetoothPrinterService {
   BluetoothPrinterService(this.repo, {BluetoothPrinterTransport? transport})
-      : _transport = transport ?? _NativeBluetoothTransport();
+    : _transport = transport ?? _NativeBluetoothTransport();
   final BluetoothPrinterTransport _transport;
   final PosRepository repo;
 
@@ -88,9 +89,20 @@ class BluetoothPrinterService {
       final effective = storeName != null && storeName.trim().isNotEmpty
           ? template.copyWith(storeName: storeName.trim())
           : template;
-      final text = effective.renderFromSale(sale);
-      final dots = int.tryParse(await repo.getSetting('bt_printer_width_dots', fallback: '384')) ?? 384;
-      final bytes = await buildReceiptBytes(text, widthDots: dots);
+      final qr = effective.showDuitNowQr ? await ReceiptQrImage.load() : null;
+      final text =
+          effective.renderFromSale(sale) +
+          (qr != null ? '\nDuitNow QR / Scan to pay / 扫码付款' : '');
+      final dots =
+          int.tryParse(
+            await repo.getSetting('bt_printer_width_dots', fallback: '384'),
+          ) ??
+          384;
+      final bytes = await buildReceiptBytes(
+        text,
+        widthDots: dots,
+        paymentQr: qr,
+      );
       final ok = await _transport.writeBytes(bytes);
       return ok ? 'ok' : '打印失败 / Print failed';
     } catch (e) {
@@ -99,8 +111,15 @@ class BluetoothPrinterService {
   }
 
   /// Shared by the actual print entry and automated raster-output tests.
-  Future<List<int>> buildReceiptBytes(String text, {int widthDots = 384}) =>
-      EscPosReceiptEncoder().encode(text, widthDots: widthDots);
+  Future<List<int>> buildReceiptBytes(
+    String text, {
+    int widthDots = 384,
+    ReceiptQrImage? paymentQr,
+  }) => EscPosReceiptEncoder().encode(
+    text,
+    widthDots: widthDots,
+    paymentQr: paymentQr,
+  );
 }
 
 /// The production adapter and tests use the same print entry, including
@@ -115,10 +134,22 @@ abstract class BluetoothPrinterTransport {
 }
 
 class _NativeBluetoothTransport implements BluetoothPrinterTransport {
-  @override bool get supported => BluetoothPrinterService.isPlatformSupported;
-  @override Future<List<BluetoothInfo>> bondedDevices() => PrintBluetoothThermal.pairedBluetooths;
-  @override Future<bool> connect(String address) => PrintBluetoothThermal.connect(macPrinterAddress: address);
-  @override Future<void> disconnect() async { await PrintBluetoothThermal.disconnect; }
-  @override Future<bool> isConnected() => PrintBluetoothThermal.connectionStatus;
-  @override Future<bool> writeBytes(List<int> bytes) => PrintBluetoothThermal.writeBytes(bytes);
+  @override
+  bool get supported => BluetoothPrinterService.isPlatformSupported;
+  @override
+  Future<List<BluetoothInfo>> bondedDevices() =>
+      PrintBluetoothThermal.pairedBluetooths;
+  @override
+  Future<bool> connect(String address) =>
+      PrintBluetoothThermal.connect(macPrinterAddress: address);
+  @override
+  Future<void> disconnect() async {
+    await PrintBluetoothThermal.disconnect;
+  }
+
+  @override
+  Future<bool> isConnected() => PrintBluetoothThermal.connectionStatus;
+  @override
+  Future<bool> writeBytes(List<int> bytes) =>
+      PrintBluetoothThermal.writeBytes(bytes);
 }

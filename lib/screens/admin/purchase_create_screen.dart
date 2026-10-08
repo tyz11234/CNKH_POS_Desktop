@@ -157,9 +157,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     final n = name.text.trim();
     if (n.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请填写供应商名称')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请填写供应商名称')));
       return;
     }
     final s = Supplier(
@@ -190,51 +189,37 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
   int get _existCount =>
       _lines.where((l) => l.selected && !l.willCreate).length;
 
-  Future<void> _mergeLines(
+  Future<bool> _mergeLines(
     List<PurchaseDraftLine> incoming, {
     bool replace = false,
   }) async {
     setState(() => _busy = true);
     try {
       final resolved = await _matcher.resolve(incoming);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         if (replace) {
           _lines
             ..clear()
             ..addAll(resolved);
         } else {
-          for (final line in resolved) {
-            final idx = _lines.indexWhere((e) {
-              if (line.productId != null && e.productId == line.productId) {
-                return true;
-              }
-              final code = line.barcode.isNotEmpty ? line.barcode : line.sku;
-              if (code.isNotEmpty && (e.barcode == code || e.sku == code)) {
-                return true;
-              }
-              return normalizeProductName(e.name) ==
-                      normalizeProductName(line.name) &&
-                  line.name.trim().isNotEmpty;
-            });
-            if (idx >= 0) {
-              _lines[idx].qty += line.qty;
-              if (line.unitCostCents > 0) {
-                _lines[idx].unitCostCents = line.unitCostCents;
-              }
-            } else {
-              _lines.add(line);
-            }
-          }
+          appendPurchaseDraftLines(_lines, resolved);
         }
       });
+      return true;
+    } on StateError catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _addProductScan(Product p, {double qty = 1}) async {
-    await _mergeLines([
+    final added = await _mergeLines([
       PurchaseDraftLine(
         name: p.nameZh,
         qty: qty,
@@ -247,7 +232,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
         matchNote: '扫码加入',
       ),
     ]);
-    await playScanFeedback(widget.repo);
+    if (added) await playScanFeedback(widget.repo);
   }
 
   Future<void> _onWedgeSubmit(String raw) async {
@@ -261,7 +246,16 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       return;
     }
 
-    final product = await widget.repo.findByBarcodeOrSku(code);
+    Product? product;
+    try {
+      product = await widget.repo.findByBarcodeOrSku(code);
+    } on StateError catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+      return;
+    }
     if (!mounted) return;
     if (product == null) {
       final action = await showDialog<String>(
@@ -362,8 +356,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     if (payload.notes.isNotEmpty) {
       _notes.text = payload.notes;
     }
-    await _mergeLines(payload.lines, replace: _lines.isEmpty);
-    if (!mounted) return;
+    final added = await _mergeLines(payload.lines, replace: _lines.isEmpty);
+    if (!mounted || !added) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('已导入进货单 ${payload.lines.length} 行，请核对'),
@@ -461,9 +455,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('无法打开相机/相册：$e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('无法打开相机/相册：$e')));
       return;
     }
     if (file == null) return;
@@ -511,8 +504,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       return;
     }
     setState(() => _rawOcrText = text);
-    await _mergeLines(parsed, replace: false);
-    if (!mounted) return;
+    final added = await _mergeLines(parsed, replace: false);
+    if (!mounted || !added) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('识别到 ${parsed.length} 行（请核对品名/数量/进货价）'),
@@ -596,9 +589,8 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
                           ? (picked?.id == id ? picked : null)
                           : selected.first;
                       if (picked != null) {
-                        costCtrl.text = centsToRm(
-                          picked!.costCents,
-                        ).toStringAsFixed(2);
+                        costCtrl.text = centsToRm(picked!.costCents)
+                            .toStringAsFixed(2);
                       }
                     }),
                   ),
@@ -694,7 +686,7 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
   }
 
   Future<void> _editLine(int index) async {
-    final line = _lines[index];
+    final line = _lines[index].copy();
     final name = TextEditingController(text: line.name);
     final qty = TextEditingController(text: line.qty.toString());
     final cost = TextEditingController(
@@ -771,6 +763,10 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
     if (ok != true) return;
     final q = double.tryParse(qty.text.trim()) ?? line.qty;
     setState(() {
+      if (line.barcode != barcode.text.trim() || line.sku != sku.text.trim()) {
+        // Editing a code explicitly requests a fresh catalog match.
+        line.productId = null;
+      }
       line.name = name.text.trim();
       line.barcode = barcode.text.trim();
       line.sku = sku.text.trim();
@@ -781,9 +777,16 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
       }
     });
     // Re-resolve match after edits
-    final resolved = await _matcher.resolve([line]);
-    if (!mounted || resolved.isEmpty) return;
-    setState(() => _lines[index] = resolved.first..selected = line.selected);
+    try {
+      final resolved = await _matcher.resolve([line]);
+      if (!mounted || resolved.isEmpty) return;
+      setState(() => _lines[index] = resolved.first..selected = line.selected);
+    } on StateError catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   void _showFormatHelp() {
@@ -806,16 +809,14 @@ class _PurchaseCreateScreenState extends State<PurchaseCreateScreen> {
 
   Future<void> _commit() async {
     if (_supplier == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请选择或新增供应商')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请选择或新增供应商')));
       return;
     }
     final selected = _lines.where((l) => l.selected).toList();
     if (selected.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请至少勾选一行')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请至少勾选一行')));
       return;
     }
     final createN = selected.where((l) => l.willCreate).length;

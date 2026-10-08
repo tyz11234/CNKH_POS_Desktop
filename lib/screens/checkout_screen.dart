@@ -108,12 +108,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _savedSale?.roundingCents ??
       (_method == PayMethod.credit ? 0 : checkoutRoundingAdjustment(_raw));
 
-  int _parseRm(String text) {
-    final raw = text.trim().replaceAll(',', '');
-    final rm = double.tryParse(raw);
-    if (rm == null) return 0;
-    return rmToCents(rm);
-  }
+  static const _amountError = '金额无效或过大，请输入非负金额（最多两位小数）';
 
   String _methodKey(PayMethod m) => switch (m) {
     PayMethod.cash => 'CASH',
@@ -143,6 +138,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _confirmOnce() async {
+    final isCredit = _method == PayMethod.credit;
+    final paid = isCredit
+        ? tryParsePaymentCents(_depositCtrl.text)
+        : (_method == PayMethod.cash
+              ? tryParsePaymentCents(_cashCtrl.text)
+              : _due);
+    if (paid == null) {
+      _toast(_amountError, error: true);
+      return;
+    }
     final policy = await widget.repo.stockPolicy();
     if (!mounted) return;
     for (final item in widget.cart.items) {
@@ -187,7 +192,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _toast('赊账必须选择客户 / Credit requires a customer', error: true);
         return;
       }
-      final deposit = _parseRm(_depositCtrl.text);
+      final deposit = paid;
       if (deposit > _raw) {
         _toast('定金不能超过应付 / Deposit exceeds total', error: true);
         return;
@@ -197,7 +202,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
     } else {
-      final paid = _method == PayMethod.cash ? _parseRm(_cashCtrl.text) : _due;
       if (paid < _due) {
         _toast('金额不足 / Insufficient', error: true);
         return;
@@ -206,10 +210,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _busy = true);
     try {
-      final isCredit = _method == PayMethod.credit;
-      final paid = isCredit
-          ? _parseRm(_depositCtrl.text)
-          : (_method == PayMethod.cash ? _parseRm(_cashCtrl.text) : _due);
       final phone = _phoneCtrl.text.trim();
       final sale = await widget.repo.createSale(
         cart: widget.cart,
@@ -290,8 +290,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tendered = _parseRm(_cashCtrl.text);
-    final change = tendered - _due;
+    final tendered = tryParsePaymentCents(_cashCtrl.text);
+    final deposit = tryParsePaymentCents(_depositCtrl.text);
+    final change = tendered == null ? null : tendered - _due;
+    final hasEnoughCash = change != null && change >= 0;
 
     return PopScope(
       canPop: !_busy,
@@ -484,9 +486,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: '收取现金 / Cash tendered',
                           prefixText: 'RM ',
+                          errorText: tendered == null ? _amountError : null,
+                          errorMaxLines: 2,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -494,12 +498,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                         decoration: BoxDecoration(
-                          color: change >= 0
+                          color: hasEnoughCash
                               ? const Color(0xFFE8F8EE)
                               : const Color(0xFFFFEBEE),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: change >= 0
+                            color: hasEnoughCash
                                 ? CnkhColors.success
                                 : CnkhColors.danger,
                           ),
@@ -508,11 +512,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              change >= 0
+                              tendered == null
+                                  ? '金额无效 / Invalid amount'
+                                  : hasEnoughCash
                                   ? '找零 / Change'
                                   : '金额不足 / Insufficient',
                               style: TextStyle(
-                                color: change >= 0
+                                color: hasEnoughCash
                                     ? CnkhColors.successDeep
                                     : CnkhColors.danger,
                                 fontWeight: FontWeight.w700,
@@ -523,9 +529,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                formatRm(change < 0 ? 0 : change),
+                                change == null
+                                    ? '—'
+                                    : formatRm(change < 0 ? 0 : change),
                                 style: TextStyle(
-                                  color: change >= 0
+                                  color: hasEnoughCash
                                       ? CnkhColors.success
                                       : CnkhColors.danger,
                                   fontWeight: FontWeight.w900,
@@ -558,9 +566,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: '定金金额 / Deposit amount',
                           prefixText: 'RM ',
+                          errorText: deposit == null ? _amountError : null,
+                          errorMaxLines: 2,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -589,11 +599,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ],
                       ),
                       if (_deposit == PayMethod.duitnow &&
-                          _parseRm(_depositCtrl.text) > 0) ...[
+                          deposit != null &&
+                          deposit > 0) ...[
                         const SizedBox(height: 12),
                         DuitNowQrPanel(
                           imagePath: _qrPath,
-                          amountCents: _parseRm(_depositCtrl.text),
+                          amountCents: deposit,
                         ),
                       ],
                       const SizedBox(height: 10),
@@ -606,7 +617,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           border: Border.all(color: CnkhColors.border),
                         ),
                         child: Text(
-                          '赊账余额 / Outstanding: ${formatRm((_raw - _parseRm(_depositCtrl.text)).clamp(0, _raw))}',
+                          '赊账余额 / Outstanding: ${deposit == null ? '—' : formatRm((_raw - deposit).clamp(0, _raw))}',
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             color: CnkhColors.navy,

@@ -75,7 +75,15 @@ void main() {
       final held = (await repo.listHeld(cashier: 'admin')).single;
       final payload = jsonDecode(held.payloadJson) as Map;
       expect(payload['items'], [
-        {'productId': 'p1', 'qty': 1, 'discountCents': 0},
+        {
+          'productId': 'p1',
+          'unitPriceCents': 100,
+          'nameZh': '商品一',
+          'nameEn': 'One',
+          'unit': 'pcs',
+          'qty': 1,
+          'discountCents': 0,
+        },
       ]);
       expect(cart.items.map((item) => item.product.id), ['p1', 'p2']);
       expect(cart.items.first.qty, 3);

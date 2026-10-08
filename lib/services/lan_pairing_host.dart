@@ -529,10 +529,12 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           request.uri.queryParameters['status_version'] == '2';
       final rows = await db.rawQuery(
         '''SELECT d.id AS document_id, d.sale_id,
-        COALESCE(m.client_sale_id,'') AS client_sale_id, d.invoice_no AS receipt_no,
+        COALESCE(m.client_sale_id,'') AS client_sale_id,
+        COALESCE(s.receipt_no,d.invoice_no) AS receipt_no, d.invoice_no,
         d.environment, CASE WHEN d.status='invalid' AND ?=0 THEN 'rejected' ELSE d.status END AS status,
         d.updated_at FROM e_invoice_documents d
         LEFT JOIN lan_sync_mobile_sales m ON m.sale_id=d.sale_id
+        LEFT JOIN sales s ON s.id=d.sale_id
         WHERE d.id>? AND NOT EXISTS(SELECT 1 FROM e_invoice_documents newer
           WHERE newer.sale_id=d.sale_id AND newer.environment=d.environment
             AND newer.attempt_no>d.attempt_no)

@@ -59,6 +59,16 @@ jobs:
       - name: Verify training assets in Windows bundle
         run: python tool/verify_training_bundle.py build/windows/x64/runner/Release --kind desktop
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco upgrade innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed: $LASTEXITCODE" }
+
+      - name: Build per-user Windows installer and bundle Visual C++ runtime
+        shell: pwsh
+        run: ./installer/build-installer.ps1
+
       - name: Stage package
         shell: pwsh
         run: |
@@ -71,10 +81,19 @@ jobs:
           Compress-Archive -Path "$src/*" -DestinationPath "dist/$name.zip" -Force
           "PACKAGE_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "RELEASE_TAG=v$semver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
-          "$hash  $name.zip" | Set-Content "dist/SHA256SUMS.txt" -Encoding ascii
+          $artifacts = @("$name.zip", "$name-Setup.exe")
+          $hashes = foreach ($artifact in $artifacts) {
+            if (-not (Test-Path "dist/$artifact")) { throw "Missing release artifact: $artifact" }
+            $hash = (Get-FileHash "dist/$artifact" -Algorithm SHA256).Hash.ToLower()
+            "$hash  $artifact"
+          }
+          $hashes | Set-Content "dist/SHA256SUMS.txt" -Encoding ascii
           Get-ChildItem dist | Format-Table Name, Length
           Get-Content "dist/SHA256SUMS.txt"
+
+      - name: Verify silent installation and upgrade without starting POS
+        shell: pwsh
+        run: ./installer/verify-install.ps1 -Installer "dist/${{ env.PACKAGE_NAME }}-Setup.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

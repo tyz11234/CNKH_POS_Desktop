@@ -93,8 +93,11 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
       await tester.pump();
+      final dropdowns = find.byType(DropdownButton<String>);
+      // Importing QR lines temporarily replaces the form with its busy state.
+      if (dropdowns.evaluate().isEmpty) continue;
       final dropdown = tester.widget<DropdownButton<String>>(
-        find.byType(DropdownButton<String>).first,
+        dropdowns.first,
       );
       final selectedId = dropdown.value;
       if (selectedId == null) continue;

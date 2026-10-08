@@ -4,12 +4,18 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 
+import 'receipt_qr.dart';
+
 /// ESC/POS GS v 0 raster output avoids printer-specific Chinese code pages.
 /// Printers must support this raster command; physical acceptance is separate.
 class EscPosReceiptEncoder {
   static Future<void>? _font;
 
-  Future<List<int>> encode(String text, {int widthDots = 384}) async {
+  Future<List<int>> encode(
+    String text, {
+    int widthDots = 384,
+    ReceiptQrImage? paymentQr,
+  }) async {
     if (widthDots != 384 && widthDots != 576) {
       throw ArgumentError('打印宽度仅支持 384 / 576 dots');
     }
@@ -17,10 +23,16 @@ class EscPosReceiptEncoder {
     final bytes = <int>[0x1b, 0x40, 0x1b, 0x61, 0];
     for (final line in text.replaceAll('\r\n', '\n').split('\n')) {
       final painter = TextPainter(
-        text: TextSpan(text: line.isEmpty ? ' ' : line,
-          style: const TextStyle(color: Color(0xff000000), fontSize: 18,
-            height: 1.3, fontFamily: 'CNKHReceiptSC',
-            fontFamilyFallback: ['monospace'])),
+        text: TextSpan(
+          text: line.isEmpty ? ' ' : line,
+          style: const TextStyle(
+            color: Color(0xff000000),
+            fontSize: 18,
+            height: 1.3,
+            fontFamily: 'CNKHReceiptSC',
+            fontFamilyFallback: ['monospace'],
+          ),
+        ),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: widthDots.toDouble());
       final height = math.max(24, painter.height.ceil());
@@ -35,8 +47,14 @@ class EscPosReceiptEncoder {
         if (data == null) throw StateError('无法生成打印图像');
         bytes.addAll(packRaster(data.buffer.asUint8List(), widthDots, height));
       } finally {
-        image.dispose(); picture.dispose(); painter.dispose();
+        image.dispose();
+        picture.dispose();
+        painter.dispose();
       }
+    }
+    if (paymentQr != null) {
+      final qr = paymentQr.raster(widthDots: widthDots);
+      bytes.addAll(packRaster(qr.getBytes(), qr.width, qr.height));
     }
     bytes.addAll([0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0]);
     return bytes;
@@ -50,20 +68,33 @@ class EscPosReceiptEncoder {
 
   /// Banding limits printer buffers; every output value is an unsigned byte.
   static List<int> packRaster(Uint8List rgba, int width, int height) {
-    if (width <= 0 || width % 8 != 0 || height <= 0 || rgba.length != width * height * 4) {
+    if (width <= 0 ||
+        width % 8 != 0 ||
+        height <= 0 ||
+        rgba.length != width * height * 4) {
       throw ArgumentError('invalid raster dimensions');
     }
     final out = <int>[];
     final stride = width ~/ 8;
     for (var top = 0; top < height; top += 128) {
       final rows = math.min(128, height - top);
-      out.addAll([0x1d, 0x76, 0x30, 0, stride & 255, stride >> 8, rows & 255, rows >> 8]);
+      out.addAll([
+        0x1d,
+        0x76,
+        0x30,
+        0,
+        stride & 255,
+        stride >> 8,
+        rows & 255,
+        rows >> 8,
+      ]);
       for (var y = top; y < top + rows; y++) {
         for (var x = 0; x < width; x += 8) {
           var packed = 0;
           for (var bit = 0; bit < 8; bit++) {
             final i = (y * width + x + bit) * 4;
-            final luminance = (rgba[i] * 299 + rgba[i + 1] * 587 + rgba[i + 2] * 114) ~/ 1000;
+            final luminance =
+                (rgba[i] * 299 + rgba[i + 1] * 587 + rgba[i + 2] * 114) ~/ 1000;
             if (rgba[i + 3] > 127 && luminance < 160) packed |= 0x80 >> bit;
           }
           out.add(packed);

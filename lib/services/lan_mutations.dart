@@ -8,6 +8,7 @@ import '../db/ocr_purchase_schema.dart';
 import 'purchase_reverse_safety.dart';
 import 'sale_reversal.dart';
 import 'lan_product_identity.dart';
+import 'product_identity.dart';
 
 Future<String> _resolvePurchaseProductId(
   DatabaseExecutor txn,
@@ -274,16 +275,11 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
             !(row['stock'] as num).isFinite) {
           throw const FormatException('invalid product');
         }
-        for (final key in ['barcode', 'sku']) {
-          if ((row[key]?.toString() ?? '').isEmpty) continue;
-          if ((await txn.query(
-            'products',
-            where: '$key=? AND id<>? AND is_deleted=0',
-            whereArgs: [row[key], entityId],
-          )).isNotEmpty) {
-            throw StateError('商品 $key 重复，请核对关联');
-          }
-        }
+        await requireUniqueProductCodes(txn, {
+          if (existing.isNotEmpty) ...existing.single,
+          ...changes,
+          'id': entityId,
+        });
       }
       if (entity == 'product') await rememberLanProductAlias(txn, mobileEntityId, entityId, id);
       if (existing.isEmpty) {

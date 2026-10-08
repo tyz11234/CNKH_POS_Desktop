@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:pkcs12_parser/pkcs12_parser.dart';
+import 'package:pointycastle/export.dart';
 import 'package:cnkh_pos_desktop/db/app_database.dart';
 import 'package:cnkh_pos_desktop/db/einvoice_schema.dart';
 import 'package:cnkh_pos_desktop/services/lan_pairing_host.dart';
@@ -131,7 +134,7 @@ void main() {
       expect(await db.query('e_invoice_logs',where:"action='submit_start'"),hasLength(1));
     } finally { if(!release.isCompleted) release.complete(); await host.stop(); service.dispose(); }
   });
-  test('PFX profile is checked and generated signature is mathematically valid', () async {
+  test('PFX profile and signature cover the final submitted 1.1 document', () async {
     final signer = EInvoiceSigner();
     final pfx = base64Decode(_testPfxB64);
     await signer.validateCertificate(
@@ -158,12 +161,80 @@ void main() {
       expectedBrn: '202001234567',
     );
     final payload = jsonDecode(signed) as Map<String, dynamic>;
+    // Independently check the actual transmitted document, excluding only the
+    // UBL signature fields. Do not let our own validator normalize its version.
+    final invoice = (payload['Invoice'] as List).single as Map;
+    expect(invoice['InvoiceTypeCode'][0]['listVersionID'], '1.1');
+    final signature = invoice['UBLExtensions'][0]['UBLExtension'][0]
+        ['ExtensionContent'][0]['UBLDocumentSignatures'][0]
+        ['SignatureInformation'][0]['Signature'][0] as Map;
+    final unsignedInvoice = Map<String, dynamic>.from(invoice)
+      ..remove('UBLExtensions')
+      ..remove('Signature');
+    final transmittedBytes = Uint8List.fromList(utf8.encode(jsonEncode({
+      ...payload,
+      'Invoice': [unsignedInvoice],
+    })));
+    final documentReference =
+        signature['SignedInfo'][0]['Reference'][1] as Map;
+    expect(
+      documentReference['DigestValue'][0]['_'],
+      base64Encode(SHA256Digest().process(transmittedBytes)),
+    );
+    final certificate = Pkcs12.load(Uint8List.fromList(pfx), _testPfxPassword);
+    final verifier = RSASigner(SHA256Digest(), '0609608648016503040201')
+      ..init(false, PublicKeyParameter<RSAPublicKey>(
+        certificate.publicKey as RSAPublicKey,
+      ));
+    expect(verifier.verifySignature(
+      transmittedBytes,
+      RSASignature(base64Decode(signature['SignatureValue'][0]['_'] as String)),
+    ), isTrue);
     expect(() => EInvoiceSigner.requireSignedInvoice(payload), returnsNormally);
     ((payload['Invoice'] as List).single as Map)['ID'][0]['_'] = 'TAMPERED';
     expect(
       () => EInvoiceSigner.requireSignedInvoice(payload),
       throwsStateError,
     );
+  });
+
+  test('legacy signature over 1.0 cannot validate a submitted 1.1 invoice', () async {
+    final pfx = Uint8List.fromList(base64Decode(_testPfxB64));
+    final signed = await EInvoiceSigner().sign(
+      '{"Invoice":[{"InvoiceTypeCode":[{"_":"01","listVersionID":"1.0"}],"ID":[{"_":"LEGACY-1"}]}]}',
+      pfx: pfx,
+      password: _testPfxPassword,
+      expectedTin: 'C1234567890',
+      expectedBrn: '202001234567',
+    );
+    final payload = jsonDecode(signed) as Map<String, dynamic>;
+    final invoice = (payload['Invoice'] as List).single as Map;
+    final signature = invoice['UBLExtensions'][0]['UBLExtension'][0]
+        ['ExtensionContent'][0]['UBLDocumentSignatures'][0]
+        ['SignatureInformation'][0]['Signature'][0] as Map;
+    final legacyInvoice = Map<String, dynamic>.from(invoice)
+      ..remove('UBLExtensions')
+      ..remove('Signature');
+    legacyInvoice['InvoiceTypeCode'] = [
+      {...Map<String, dynamic>.from(invoice['InvoiceTypeCode'][0] as Map),
+        'listVersionID': '1.0'},
+    ];
+    final legacyBytes = Uint8List.fromList(utf8.encode(jsonEncode({
+      ...payload,
+      'Invoice': [legacyInvoice],
+    })));
+    final certificate = Pkcs12.load(pfx, _testPfxPassword);
+    final legacySigner = RSASigner(SHA256Digest(), '0609608648016503040201')
+      ..init(true, PrivateKeyParameter<RSAPrivateKey>(
+        certificate.privateKey as RSAPrivateKey,
+      ));
+    signature['SignedInfo'][0]['Reference'][1]['DigestValue'][0]['_'] =
+        base64Encode(SHA256Digest().process(legacyBytes));
+    signature['SignatureValue'][0]['_'] = base64Encode(
+      legacySigner.generateSignature(legacyBytes).bytes,
+    );
+    expect(invoice['InvoiceTypeCode'][0]['listVersionID'], '1.1');
+    expect(() => EInvoiceSigner.requireSignedInvoice(payload), throwsStateError);
   });
 
   test('fresh install and v8 upgrade preserve all business rows', () async {

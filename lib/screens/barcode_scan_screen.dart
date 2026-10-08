@@ -223,6 +223,15 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
           ),
         );
       }
+    } on StateError catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message.toString()),
+            backgroundColor: CnkhColors.danger,
+          ),
+        );
+      }
     } finally {
       _handling = false;
     }

@@ -539,7 +539,8 @@ class UsersPage extends StatelessWidget {
 
 class ReportsPage extends StatefulWidget {
   final PosRepository repo;
-  const ReportsPage({super.key, required this.repo});
+  final int refreshToken;
+  const ReportsPage({super.key, required this.repo, this.refreshToken = 0});
   @override
   State<ReportsPage> createState() => _ReportsPageState();
 }
@@ -550,27 +551,43 @@ class _ReportsPageState extends State<ReportsPage> {
   late String _startDay;
   late String _endDay;
   bool _loading = true;
+  bool _showToday = true;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    final day = DateTime.now().toIso8601String().substring(0, 10);
-    _startDay = day;
-    _endDay = day;
     _reload();
   }
 
+  @override
+  void didUpdateWidget(covariant ReportsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken ||
+        oldWidget.repo != widget.repo) {
+      _reload();
+    }
+  }
+
   Future<void> _reload() async {
+    final generation = ++_loadGeneration;
+    if (_showToday) {
+      final day = DateTime.now().toIso8601String().substring(0, 10);
+      _startDay = day;
+      _endDay = day;
+    }
+    final startDay = _startDay;
+    final endDay = _endDay;
     setState(() => _loading = true);
     final pay = await widget.repo.reportByPayment(
-      startDay: _startDay,
-      endDay: _endDay,
+      startDay: startDay,
+      endDay: endDay,
     );
     final profit = await widget.repo.reportProfit(
-      startDay: _startDay,
-      endDay: _endDay,
+      startDay: startDay,
+      endDay: endDay,
     );
-    if (!mounted) return;
+    if (!mounted || generation != _loadGeneration) return;
     setState(() {
       _pay = pay;
       _profit = profit;
@@ -591,6 +608,7 @@ class _ReportsPageState extends State<ReportsPage> {
     );
     if (range == null) return;
     setState(() {
+      _showToday = false;
       _startDay = range.start.toIso8601String().substring(0, 10);
       _endDay = range.end.toIso8601String().substring(0, 10);
     });
@@ -600,6 +618,7 @@ class _ReportsPageState extends State<ReportsPage> {
   void _setToday() {
     final day = DateTime.now().toIso8601String().substring(0, 10);
     setState(() {
+      _showToday = true;
       _startDay = day;
       _endDay = day;
     });

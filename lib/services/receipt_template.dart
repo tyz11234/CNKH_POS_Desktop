@@ -323,10 +323,8 @@ class ReceiptTemplate {
     if (notes.trim().isNotEmpty) {
       _addCenteredBlock(out, notes, w);
     }
-    if (showDuitNowQr) {
-      out.add(center('[DuitNow QR]', w));
-      out.add(center('Scan to pay / 扫码付款', w));
-    }
+    // Payment QR is an image, appended by PDF / printer output only when
+    // the configured local image is available. Plain text cannot carry it.
     return out.join('\n');
   }
 

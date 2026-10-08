@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../services/pos_repository.dart';
 import '../services/receipt_template.dart';
+import '../services/receipt_qr.dart';
 import '../theme/cnkh_theme.dart';
 import 'receipt_preview_pane.dart';
 
@@ -43,6 +44,7 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
   bool _showUnitPrice = true;
   bool _showQty = true;
   bool _showDuitNowQr = false;
+  Uint8List? _qrPreview;
 
   late final VoidCallback _rebuild;
 
@@ -107,6 +109,7 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
 
   Future<void> _load() async {
     final t = await ReceiptTemplate.load(widget.repo);
+    final qr = await ReceiptQrImage.load();
     if (!mounted) return;
     setState(() {
       _store.text = t.storeName;
@@ -125,8 +128,14 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
       _showUnitPrice = t.showUnitPrice;
       _showQty = t.showQty;
       _showDuitNowQr = t.showDuitNowQr;
+      _qrPreview = qr?.pngBytes();
       _loading = false;
     });
+  }
+
+  Future<void> _reloadQr() async {
+    final qr = await ReceiptQrImage.load();
+    if (mounted) setState(() => _qrPreview = qr?.pngBytes());
   }
 
   Future<void> _save() async {
@@ -200,16 +209,16 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('小票格式 / Receipt',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '小票格式 / Receipt',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 4),
             Text(
               widget.canEdit
                   ? '左侧编辑即时预览右侧 80mm 小票；打印与电子收据共用此模板。'
                   : '仅管理员可编辑小票格式 · Staff view-only',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
+              style: Theme.of(context).textTheme.bodySmall
                   ?.copyWith(color: CnkhColors.muted),
             ),
             const SizedBox(height: 12),
@@ -220,13 +229,39 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
                 final preview = Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('实时预览 / Live preview (80mm)',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: CnkhColors.muted,
-                              fontWeight: FontWeight.w600,
-                            )),
+                    Text(
+                      '实时预览 / Live preview (80mm)',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: CnkhColors.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ReceiptPreviewPane(text: previewText),
+                    if (_showDuitNowQr) ...[
+                      const SizedBox(height: 8),
+                      if (_qrPreview != null)
+                        Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            children: [
+                              const Text('DuitNow QR / 扫码付款'),
+                              Image.memory(
+                                _qrPreview!,
+                                height: 200,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.none,
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        const Text(
+                          '尚未设置有效收款码，请到设置导入。小票将省略二维码。',
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
                   ],
                 );
                 if (wide) {
@@ -241,11 +276,7 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
                 }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    editors,
-                    const SizedBox(height: 16),
-                    preview,
-                  ],
+                  children: [editors, const SizedBox(height: 16), preview],
                 );
               },
             ),
@@ -312,9 +343,7 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
           controller: _notes,
           enabled: enabled,
           maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: '备注 / Notes',
-          ),
+          decoration: const InputDecoration(labelText: '备注 / Notes'),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -339,8 +368,10 @@ class _ReceiptTemplateEditorState extends State<ReceiptTemplateEditor> {
             _sw('折扣行', _showDiscount, (v) => _toggle(() => _showDiscount = v)),
             _sw('单价', _showUnitPrice, (v) => _toggle(() => _showUnitPrice = v)),
             _sw('数量', _showQty, (v) => _toggle(() => _showQty = v)),
-            _sw('DuitNow QR', _showDuitNowQr,
-                (v) => _toggle(() => _showDuitNowQr = v)),
+            _sw('DuitNow QR', _showDuitNowQr, (v) {
+              _toggle(() => _showDuitNowQr = v);
+              if (v) _reloadQr();
+            }),
           ],
         ),
         if (enabled) ...[

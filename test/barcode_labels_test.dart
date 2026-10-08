@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:barcode/barcode.dart';
 
 import 'package:cnkh_pos_desktop/services/barcode_labels.dart';
 import 'package:cnkh_pos_desktop/services/pos_repository.dart';
@@ -55,6 +58,41 @@ void main() {
       productName: 'English Product Name',
     );
     expectRealBars(bytes);
+  });
+
+  test('12-digit label encodes the stored value without an added digit', () async {
+    const code = '123456789012';
+    const width = 640;
+    const sampleY = 80;
+    final bytes = await BarcodeLabelService(PosRepository()).renderPng(
+      barcode: code,
+      productName: '12 digit product',
+      width: width,
+    );
+    final artifactDir = Platform.environment['CNKH_BARCODE_ARTIFACT_DIR'];
+    if (artifactDir != null && artifactDir.isNotEmpty) {
+      await Directory(artifactDir).create(recursive: true);
+      await File('$artifactDir/CNKH_POS_Desktop-12-digit.png').writeAsBytes(bytes);
+    }
+    final png = img.decodePng(bytes)!;
+    // Check the exported bars, not the human-readable footer. Code128 must
+    // preserve all 12 digits; EAN-13 would silently encode 1234567890128.
+    final expected = List<bool>.filled(width, false);
+    final bars = Barcode.code128()
+        .make(code, width: width.toDouble(), height: 168, drawText: false)
+        .whereType<BarcodeBar>()
+        .where((bar) => bar.black);
+    for (final bar in bars) {
+      final start = bar.left.floor().clamp(0, width - 1);
+      final end = (bar.left + bar.width).ceil().clamp(1, width);
+      for (var x = start; x < end; x++) {
+        expected[x] = true;
+      }
+    }
+    final actual = [
+      for (var x = 0; x < width; x++) png.getPixel(x, sampleY).r < 128,
+    ];
+    expect(actual, expected);
   });
 
   test('renderPng rejects empty barcode', () async {

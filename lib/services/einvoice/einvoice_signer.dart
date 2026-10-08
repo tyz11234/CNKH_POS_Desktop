@@ -118,12 +118,6 @@ class EInvoiceSigner {
       final canonicalInvoice = Map<String, dynamic>.from(invoice)
         ..remove('UBLExtensions')
         ..remove('Signature');
-      canonicalInvoice['InvoiceTypeCode'] =
-          (canonicalInvoice['InvoiceTypeCode'] as List).map((raw) {
-        final code = Map<String, dynamic>.from(raw as Map);
-        code['listVersionID'] = '1.0';
-        return code;
-      }).toList();
       final canonicalPayload = Map<String, dynamic>.from(payload)
         ..['Invoice'] = <Object?>[canonicalInvoice];
       final documentBytes = utf8.encode(jsonEncode(canonicalPayload));
@@ -196,6 +190,14 @@ class EInvoiceSigner {
     final cert = _certificateInfo(certPem);
     final timestamp = DateTime.now().toUtc().toIso8601String().replaceFirst(RegExp(r'\.\d+Z$'), 'Z');
 
+    // Sign the exact version that will be submitted. Changing this field after
+    // hashing produces a signature for a different document.
+    invoice['InvoiceTypeCode'] = (invoice['InvoiceTypeCode'] as List)
+        .map((raw) => {
+              ...Map<String, dynamic>.from(raw as Map),
+              'listVersionID': '1.1',
+            })
+        .toList();
     final canonicalInvoice = Map<String, dynamic>.from(invoice)
       ..remove('UBLExtensions')
       ..remove('Signature');
@@ -220,7 +222,6 @@ class EInvoiceSigner {
     final signature = base64Encode((signer.generateSignature(Uint8List.fromList(documentBytes)) as RSASignature).bytes);
     final x509 = base64Encode(certDer);
 
-    invoice['InvoiceTypeCode'] = (invoice['InvoiceTypeCode'] as List).map((e) => {...Map<String, dynamic>.from(e as Map), 'listVersionID': '1.1'}).toList();
     invoice['UBLExtensions'] = [{ 'UBLExtension': [{
       'ExtensionURI': [{'_' : _signatureUri}],
       'ExtensionContent': [{'UBLDocumentSignatures': [{'SignatureInformation': [{
