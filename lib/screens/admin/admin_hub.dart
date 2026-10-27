@@ -10,6 +10,7 @@ import '../../widgets/money_text.dart';
 import '../sales_list_screen.dart';
 import 'backup_restore_page.dart';
 import 'entities_admin_page.dart';
+import 'payment_records_page.dart';
 import 'products_admin.dart';
 import 'purchase_create_screen.dart';
 import 'purchase_detail_page.dart';
@@ -60,6 +61,11 @@ class AdminHub extends StatelessWidget {
             body: SalesListScreen(repo: repo, todayOnly: false, canVoid: true),
           ),
         ),
+      ),
+      _Tile(
+        '收款记录 Payments',
+        Icons.payments_outlined,
+        () => _open(context, PaymentRecordsPage(repo: repo)),
       ),
       _Tile(
         '客户 Customers',
