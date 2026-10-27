@@ -17,6 +17,8 @@ import 'services/desktop_database_maintenance.dart';
 import 'services/qr_storage.dart';
 import 'services/bluetooth_printer.dart';
 import 'services/lan_pairing_host.dart';
+import 'services/payment_broadcast_listener.dart';
+import 'services/scan_feedback.dart';
 import 'services/lan_sync.dart' show LanSyncConfig;
 import 'theme/cnkh_theme.dart';
 import 'widgets/e_receipt_actions.dart';
@@ -78,6 +80,22 @@ class _DesktopShellState extends State<DesktopShell> {
       if (!mounted) return;
       _refreshOverdueHolds();
     });
+    PaymentBroadcastListener.instance.addListener(_onPaymentBroadcast);
+    unawaited(PaymentBroadcastListener.instance.start(repo: widget.repo));
+  }
+
+  void _onPaymentBroadcast(Map<String, dynamic> event) {
+    if (!mounted) return;
+    final rm = event['amount_rm']?.toString() ?? '';
+    final ref = event['ref_no']?.toString() ?? '';
+    final bank = event['bank']?.toString() ?? 'Public Bank';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('💰 $bank 到账 RM $rm (Ref: $ref)'),
+        backgroundColor: CnkhColors.success,
+        duration: const Duration(seconds: 8),
+      ),
+    );
   }
 
   Future<void> _refreshOverdueHolds() async {
@@ -94,6 +112,7 @@ class _DesktopShellState extends State<DesktopShell> {
 
   @override
   void dispose() {
+    PaymentBroadcastListener.instance.removeListener(_onPaymentBroadcast);
     _holdPoll?.cancel();
     _hostSub?.cancel();
     _hostDataSub?.cancel();
