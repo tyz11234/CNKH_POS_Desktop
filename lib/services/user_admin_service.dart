@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'auth_service.dart';
 
 import '../db/app_database.dart';
@@ -41,6 +43,7 @@ class UserAdminService {
       'role': normalizedRole,
       'is_active': isActive ? 1 : 0,
     });
+    unawaited(repo.auth.pushAuthToServer());
   }
 
   Future<void> updateUser({
@@ -86,6 +89,7 @@ class UserAdminService {
         whereArgs: [id],
       );
     });
+    unawaited(repo.auth.pushAuthToServer());
   }
 
   Future<void> setPin(String username, String pin) {
