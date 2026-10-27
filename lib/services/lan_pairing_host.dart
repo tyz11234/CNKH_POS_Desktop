@@ -60,8 +60,16 @@ class LanPairingHost {
   }) : _db = database;
   static final Expando<LanPairingHost> _hosts = Expando<LanPairingHost>();
 
-  static LanPairingHost shared(PosRepository repo) {
-    return _hosts[repo.database] ??= LanPairingHost._(repo);
+  static LanPairingHost shared(
+    PosRepository repo, {
+    int configuredPort = 8787,
+    String name = 'CNKH-PC',
+  }) {
+    return _hosts[repo.database] ??= LanPairingHost._(
+      repo,
+      configuredPort: configuredPort,
+      name: name,
+    );
   }
 
   static const String _tokenSetting = 'lan_host_token';
@@ -474,6 +482,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'einvoice_status_v1',
           'stock_moves_v1',
           'mutation_rejections_v1',
+          'auth_v1',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -639,6 +648,97 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       return;
     }
 
+    // --- Server-primary accounts (auth_v1): the host keeps the master copy
+    // of demo_users + user_credentials so every client shares one login. ---
+    if (request.method == 'GET' && path == '/api/v1/auth/users') {
+      final db = await _db.db;
+      final users = await db.query('demo_users', orderBy: 'role, username');
+      final creds = await db.query('user_credentials', columns: ['username']);
+      final withPin = <String>{
+        for (final c in creds) (c['username'] as String).toLowerCase(),
+      };
+      await _json(request.response, HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'any_credential': creds.isNotEmpty,
+        'users': <Map<String, Object?>>[
+          for (final u in users)
+            <String, Object?>{
+              'username': u['username'],
+              'role': u['role'],
+              'display_name': u['display_name'],
+              'is_active': u['is_active'],
+              'has_pin': withPin.contains(
+                (u['username'] as String).toLowerCase(),
+              ),
+            },
+        ],
+      });
+      return;
+    }
+    if (request.method == 'POST' && path == '/api/v1/auth/login') {
+      final body = await _readJson(request);
+      final username = (body['username'] ?? '').toString();
+      final pin = (body['pin'] ?? '').toString();
+      try {
+        final user = await repo.auth.verifyUserPin(username, pin);
+        if (user == null) {
+          await _json(
+            request.response,
+            HttpStatus.unauthorized,
+            <String, Object?>{'ok': false, 'error': '账号或 PIN 无效'},
+          );
+          return;
+        }
+        await _json(request.response, HttpStatus.ok, <String, Object?>{
+          'ok': true,
+          'user': <String, Object?>{
+            'username': user.username,
+            'role': user.isAdmin ? 'ADMIN' : 'STAFF',
+            'display_name': user.displayName,
+          },
+        });
+      } on StateError catch (e) {
+        await _json(request.response, HttpStatus.locked, <String, Object?>{
+          'ok': false,
+          'error': e.message,
+        });
+      }
+      return;
+    }
+    if (request.method == 'POST' && path == '/api/v1/auth/import') {
+      final body = await _readJson(request);
+      await repo.auth.importAuthData(body);
+      await _json(request.response, HttpStatus.ok, <String, Object?>{
+        'ok': true,
+      });
+      return;
+    }
+    if (request.method == 'POST' && path == '/api/v1/auth/initialize-admin') {
+      final body = await _readJson(request);
+      final pin = (body['pin'] ?? '').toString();
+      try {
+        if (!await repo.auth.needsSetup()) {
+          await _json(
+            request.response,
+            HttpStatus.conflict,
+            <String, Object?>{'ok': false, 'error': '服务器已有账号'},
+          );
+          return;
+        }
+        await repo.auth.initializeAdmin(pin);
+        await _json(request.response, HttpStatus.ok, <String, Object?>{
+          'ok': true,
+        });
+      } on StateError catch (e) {
+        await _json(
+          request.response,
+          HttpStatus.badRequest,
+          <String, Object?>{'ok': false, 'error': e.message},
+        );
+      }
+      return;
+    }
+
     await _json(request.response, HttpStatus.notFound, <String, Object?>{
       'ok': false,
       'error': 'not_found',
@@ -661,7 +761,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
     }
 
     final socket = await WebSocketTransformer.upgrade(request);
-    socket.pingInterval = const Duration(seconds: 20);
+    socket.pingInterval = const Duration(seconds: 30);
     _sockets.add(socket);
     _emitConnectionCount();
     socket.add(jsonEncode(<String, Object?>{'type': 'ready', 'role': 'host'}));
