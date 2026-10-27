@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../services/lan_sync.dart';
+import '../../services/payment_broadcast_listener.dart';
 import '../../services/pos_repository.dart';
 import '../../theme/cnkh_theme.dart';
 
@@ -79,6 +80,17 @@ class _PaymentRecordsPageState extends State<PaymentRecordsPage> {
         _loading = false;
       });
     }
+  }
+
+  /// Re-announces this record's amount with the same voice path as the
+  /// live payment broadcast (amount only, no reference number).
+  void _replay(Map<String, dynamic> it) {
+    final cents = (it['amount_cents'] as num?)?.toInt() ?? 0;
+    final rm = (cents / 100).toStringAsFixed(2);
+    PaymentBroadcastListener.instance.announcePayment(<String, dynamic>{
+      'amount_rm': rm,
+      'ref_no': it['ref_no'],
+    });
   }
 
   static String _rm(int cents) {
@@ -222,6 +234,12 @@ class _PaymentRecordsPageState extends State<PaymentRecordsPage> {
                     '流水号 Ref: ${it['ref_no'] ?? '-'}\n${_fmtTime('${it['time'] ?? ''}') }',
                   ),
                   isThreeLine: true,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.volume_up,
+                        color: CnkhColors.primary),
+                    tooltip: '重新播报 Replay',
+                    onPressed: () => _replay(it),
+                  ),
                 ),
               ),
             ),
