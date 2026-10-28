@@ -31,6 +31,7 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_contacts: ^1.1.9+2
   http: ^1.2.2
+  qr_flutter: ^4.1.0
   web_socket_channel: ^3.0.2
   pdf: ^3.11.3
   share_plus: ^10.1.4
