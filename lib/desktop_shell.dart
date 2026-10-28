@@ -113,6 +113,7 @@ class _DesktopShellState extends State<DesktopShell> {
   @override
   void dispose() {
     PaymentBroadcastListener.instance.removeListener(_onPaymentBroadcast);
+    unawaited(PaymentBroadcastListener.instance.stop());
     _holdPoll?.cancel();
     _hostSub?.cancel();
     _hostDataSub?.cancel();
