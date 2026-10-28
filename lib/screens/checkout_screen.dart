@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import '../models/cart_item.dart';
 import '../models/money.dart';
+import '../services/payment_broadcast_listener.dart';
 import '../services/pos_repository.dart';
 import '../services/qr_storage.dart';
 import '../theme/cnkh_theme.dart';
@@ -53,12 +56,141 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   SaleRecord? _savedSale;
   int _outstandingCents = 0;
 
+  // --- DuitNow auto-reconciliation: when a bank-arrival push matches the
+  // amount due exactly while this checkout waits on the QR panel, show a
+  // green confirmation with a 5-second veto window, then complete the sale
+  // through the normal confirm path. Refs are remembered for the whole app
+  // run so one arrival can never settle two checkouts.
+  static final Set<String> _autoHandledRefs = <String>{};
+  Timer? _autoTimer;
+  int _autoSecondsLeft = 0;
+  int? _autoAmountCents;
+  String? _autoRef;
+
   @override
   void initState() {
     super.initState();
     _load();
     _cashCtrl.addListener(() => setState(() {}));
     _depositCtrl.addListener(() => setState(() {}));
+    PaymentBroadcastListener.instance.addListener(_onPaymentEvent);
+  }
+
+  void _onPaymentEvent(Map<String, dynamic> event) {
+    if (!mounted || _busy || _savedSale != null) return;
+    if (_method != PayMethod.duitnow) return;
+    final raw = event['amount_cents'];
+    final cents = raw is num
+        ? raw.toInt()
+        : int.tryParse(raw?.toString() ?? '');
+    if (cents == null || cents <= 0 || cents != _due) return;
+    final ref = event['ref_no']?.toString() ?? '';
+    if (ref.isNotEmpty && _autoHandledRefs.contains(ref)) return;
+    if (_autoTimer != null) return; // a match is already counting down
+    setState(() {
+      _autoAmountCents = cents;
+      _autoRef = ref;
+      _autoSecondsLeft = 5;
+    });
+    _autoTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_savedSale != null || _busy) {
+        _stopAutoCountdown();
+        return;
+      }
+      if (_autoSecondsLeft <= 1) {
+        _autoSettleNow();
+      } else {
+        setState(() => _autoSecondsLeft--);
+      }
+    });
+  }
+
+  void _clearAutoState() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+    _autoSecondsLeft = 0;
+    _autoAmountCents = null;
+    _autoRef = null;
+  }
+
+  void _stopAutoCountdown() {
+    if (!mounted) {
+      _clearAutoState();
+      return;
+    }
+    setState(_clearAutoState);
+  }
+
+  void _vetoAutoSettle() {
+    final ref = _autoRef;
+    if (ref != null && ref.isNotEmpty) _autoHandledRefs.add(ref);
+    _stopAutoCountdown();
+  }
+
+  Future<void> _autoSettleNow() async {
+    final ref = _autoRef;
+    if (ref != null && ref.isNotEmpty) _autoHandledRefs.add(ref);
+    _autoTimer?.cancel();
+    _autoTimer = null;
+    if (mounted) {
+      setState(() {
+        _autoSecondsLeft = 0;
+        _autoAmountCents = null;
+        _autoRef = null;
+      });
+    }
+    await _confirm();
+  }
+
+  Widget _autoSettleBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: CnkhColors.success.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CnkhColors.success, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: CnkhColors.success, size: 30),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '已到账 ${formatRm(_autoAmountCents ?? 0)} · 与应付一致',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: CnkhColors.navy,
+                  ),
+                ),
+                Text(
+                  (_autoRef != null && _autoRef!.isNotEmpty)
+                      ? 'Ref ${_autoRef!} · $_autoSecondsLeft 秒后自动入账'
+                      : '$_autoSecondsLeft 秒后自动入账',
+                  style: const TextStyle(fontSize: 12, color: CnkhColors.muted),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _autoSettleNow,
+            child: const Text('立即入账'),
+          ),
+          TextButton(
+            onPressed: _vetoAutoSettle,
+            child: const Text('不是这单'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -92,6 +224,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    PaymentBroadcastListener.instance.removeListener(_onPaymentEvent);
+    _autoTimer?.cancel();
     _cashCtrl.dispose();
     _depositCtrl.dispose();
     _phoneCtrl.dispose();
@@ -258,6 +392,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => setState(() {
+            if (_method != m) _clearAutoState();
             _method = m;
             _syncCashField();
           }),
@@ -313,6 +448,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    if (_autoSecondsLeft > 0) _autoSettleBanner(),
                     Card(
                       color: CnkhColors.softBlue,
                       child: Padding(
