@@ -52,6 +52,18 @@ class LanSyncConfig {
 }
 
 /// Parse pairing QR: `cnkh-sync:v1|{json}` or raw JSON with baseUrl.
+/// Thrown when the server reports a newer data epoch than this device
+/// has seen: the server data was wiped (go-live reset) and this device
+/// must NOT push its pre-wipe data back. The device clears the block by
+/// running a local factory reset, after which it adopts the new epoch.
+class ServerWipedException implements Exception {
+  final int serverEpoch;
+  ServerWipedException(this.serverEpoch);
+  @override
+  String toString() =>
+      '服务器数据已被清空（清零代号 $serverEpoch），本机数据已停止同步，请先做本机初始化';
+}
+
 class PairingExpiredException implements Exception {
   final String message;
   PairingExpiredException([this.message = 'pairing QR expired']);
@@ -152,7 +164,90 @@ class LanSyncClient {
     return n;
   }
 
+  /// Refuses to sync when the server was wiped after this device last
+  /// synced. First contact adopts the server's epoch; a factory reset
+  /// wipes the stored epoch, which also unblocks the device.
+  Future<void> _guardDataEpoch(LanSyncConfig cfg) async {
+    final h = await health(cfg);
+    final serverEpoch = (h['data_epoch'] as num?)?.toInt();
+    if (serverEpoch == null) return; // older host without wipe support
+    final stored = int.tryParse(await repo.getSetting('server_data_epoch'));
+    if (stored == null) {
+      await repo.setSetting('server_data_epoch', '$serverEpoch');
+    } else if (serverEpoch > stored) {
+      throw ServerWipedException(serverEpoch);
+    } else if (serverEpoch < stored) {
+      await repo.setSetting('server_data_epoch', '$serverEpoch');
+    }
+  }
+
+  /// Checkbox server wipe (host data). Returns the decoded response.
+  Future<Map<String, dynamic>> adminWipe(
+    LanSyncConfig cfg,
+    List<String> categories, {
+    bool dryRun = false,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('${cfg.normalizedBase}/api/v1/admin/wipe'),
+          headers: _headers(cfg),
+          body: jsonEncode({'categories': categories, 'dry_run': dryRun}),
+        )
+        .timeout(const Duration(seconds: 30));
+    final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    if (res.statusCode != 200 || body['ok'] != true) {
+      throw StateError('${body['error'] ?? '服务器拒绝了清空请求'}');
+    }
+    return body;
+  }
+
+  /// Checkbox server wipe for the payment-records ledger (ai helper).
+  Future<Map<String, dynamic>> adminWipePayments(
+    LanSyncConfig cfg, {
+    bool dryRun = false,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('${cfg.normalizedBase}/api/v1/admin/wipe-payments'),
+          headers: _headers(cfg),
+          body: jsonEncode({'dry_run': dryRun}),
+        )
+        .timeout(const Duration(seconds: 30));
+    final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    if (res.statusCode != 200 || body['ok'] != true) {
+      throw StateError('${body['error'] ?? '服务器拒绝了清空请求'}');
+    }
+    return body;
+  }
+
+  /// Decodes a QR image (bytes) through the server's QR decoder and
+  /// returns its EMV payload, or null when no QR could be read. Used
+  /// when the merchant QR is imported in Settings.
+  Future<String?> decodeQrPayload(LanSyncConfig cfg, List<int> bytes) async {
+    try {
+      final req = http.MultipartRequest(
+        'POST',
+        Uri.parse('${cfg.normalizedBase}/api/v1/qr/decode'),
+      );
+      if (cfg.token.trim().isNotEmpty) {
+        req.headers['X-CNKH-' 'Token'] = cfg.token.trim();
+      }
+      req.files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: 'qr.jpg'),
+      );
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final payload = (body['payload'] ?? '').toString();
+      return payload.isEmpty ? null : payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<String> pullCatalog(LanSyncConfig cfg) async {
+    await _guardDataEpoch(cfg);
     lastError = null;
     try {
       final since = await repo.getSetting('lan_sync_products_cursor');
@@ -413,6 +508,7 @@ class LanSyncClient {
   }
 
   Future<String> pushSales(LanSyncConfig cfg) async {
+    await _guardDataEpoch(cfg);
     lastError = null;
     try {
       final d = await _db.db;
@@ -483,6 +579,7 @@ class LanSyncClient {
   }
 
   Future<String> pullSales(LanSyncConfig cfg) async {
+    await _guardDataEpoch(cfg);
     lastError = null;
     try {
       final since = await repo.getSetting('lan_sync_sales_cursor');
@@ -563,6 +660,7 @@ class LanSyncClient {
 
   /// Force full reconcile: pull catalog + sales, push pending.
   Future<String> forceReconcile(LanSyncConfig cfg) async {
+    await _guardDataEpoch(cfg);
     final a = await pullCatalog(cfg);
     final b = await pullSales(cfg);
     final c = await pushSales(cfg);
@@ -597,6 +695,15 @@ class LanLiveSync {
   void Function()? onRemoteChange;
   void Function(Map<String, dynamic> event)? onLowStock;
   void Function(SyncLinkState state, int pending)? onStatusChanged;
+  bool serverWipeDetected = false;
+  void Function()? onServerWipeDetected;
+
+  void _noteWipe(Object e) {
+    if (e is ServerWipedException && !serverWipeDetected) {
+      serverWipeDetected = true;
+      onServerWipeDetected?.call();
+    }
+  }
 
   SyncLinkState get linkState {
     if (!connected) return SyncLinkState.offline;
@@ -661,7 +768,9 @@ class LanLiveSync {
         onRemoteChange?.call();
         _ws?.sink.add(jsonEncode({'type': 'ping'}));
         await _emitStatus();
-      } catch (_) {}
+      } catch (e) {
+        _noteWipe(e);
+      }
     });
 
     // Auto-retry pending pushes every 12s while connected
@@ -685,7 +794,9 @@ class LanLiveSync {
       await client.pullCatalog(cfg);
       await client.pullSales(cfg);
       await client.pushSales(cfg);
-    } catch (_) {}
+    } catch (e) {
+      _noteWipe(e);
+    }
     await _emitStatus();
   }
 
