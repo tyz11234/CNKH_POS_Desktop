@@ -89,6 +89,7 @@ class _PaymentRecordsPageState extends State<PaymentRecordsPage> {
     final rm = (cents / 100).toStringAsFixed(2);
     PaymentBroadcastListener.instance.announcePayment(<String, dynamic>{
       'amount_rm': rm,
+      'amount_cents': cents,
       'ref_no': it['ref_no'],
     });
   }
