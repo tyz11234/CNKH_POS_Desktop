@@ -10,6 +10,8 @@ import '../models/app_user.dart';
 import '../services/pos_repository.dart';
 import '../app_release_notes.dart';
 import '../services/qr_storage.dart';
+import '../services/duitnow_qr.dart';
+import 'server_wipe_dialog.dart';
 import '../services/lan_sync.dart';
 import '../services/e_receipt.dart';
 import '../theme/cnkh_theme.dart';
@@ -34,6 +36,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _path;
+  String? _qrPayee;
   bool _loading = true;
   final _syncHost = TextEditingController();
   final _syncToken = TextEditingController();
@@ -59,6 +62,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _reload() async {
     final p = await widget.qrStorage.getLocalPath();
+    final payload = await widget.qrStorage.getPayload();
+    _qrPayee = payload == null ? null : DuitNowQr.payeeName(payload);
     final host = await widget.repo.getSetting('lan_sync_host');
     final token = await widget.repo.getSetting('lan_sync_token');
     final last = await widget.repo.getSetting('lan_sync_last_full');
@@ -112,9 +117,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final saved = await widget.qrStorage.saveFromPicker(file.path);
       if (!mounted) return;
       setState(() => _path = saved);
+      // Try to decode the QR content through the server so checkout can
+      // generate amount-locked dynamic QRs. Failure just keeps the
+      // static image behaviour.
+      var decodedNote = '已保存本机 DuitNow QR（静态码）';
+      try {
+        final bytes = await file.readAsBytes();
+        final decoded = await LanSyncClient(
+          widget.repo,
+        ).decodeQrPayload(_cfg, bytes);
+        if (decoded != null && DuitNowQr.isValid(decoded)) {
+          await widget.qrStorage.setPayload(decoded);
+          _qrPayee = DuitNowQr.payeeName(decoded);
+          decodedNote =
+              '已识别收款码${_qrPayee == null ? '' : '（$_qrPayee）'}：结账时将生成金额锁定的动态码';
+        } else {
+          await widget.qrStorage.setPayload(null);
+          _qrPayee = null;
+        }
+      } catch (_) {
+        await widget.qrStorage.setPayload(null);
+        _qrPayee = null;
+      }
+      if (!mounted) return;
+      setState(() {});
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已保存本机 DuitNow QR')));
+      ).showSnackBar(SnackBar(content: Text(decodedNote)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,7 +156,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!canEdit) return;
     await widget.qrStorage.clear();
     if (!mounted) return;
-    setState(() => _path = null);
+    setState(() {
+      _path = null;
+      _qrPayee = null;
+    });
+  }
+
+  Future<void> _openServerWipe() async {
+    if (_cfg.baseUrl.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先填写服务器地址与令牌')),
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ServerWipeDialog(repo: widget.repo, cfg: _cfg),
+    );
   }
 
   @override
@@ -257,6 +302,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('清除本机 QR / Clear local QR'),
                   ),
+                if (_path != null) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        _qrPayee != null
+                            ? Icons.verified_outlined
+                            : Icons.image_outlined,
+                        size: 18,
+                        color: _qrPayee != null
+                            ? CnkhColors.success
+                            : CnkhColors.muted,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _qrPayee != null
+                              ? '动态码可用 · 收款人 $_qrPayee（结账自动锁定金额）'
+                              : '静态码：未能识别码内容，顾客需手输金额。可在联网时重新导入以启用动态码。',
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 ] else
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -491,6 +561,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ? null
                           : () => _runSync((c) => c.pushSales(_cfg)),
                       child: const Text('推送销售'),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: CnkhColors.danger,
+                        side: const BorderSide(color: CnkhColors.danger),
+                      ),
+                      onPressed: canEdit ? _openServerWipe : null,
+                      icon: const Icon(Icons.cloud_off_outlined),
+                      label: const Text('清空服务器测试数据（勾选）'),
                     ),
                     FilledButton(
                       style: FilledButton.styleFrom(
