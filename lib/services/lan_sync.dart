@@ -9,6 +9,8 @@ import '../db/app_database.dart';
 import '../models/product.dart';
 import 'pos_repository.dart';
 import 'product_images.dart';
+import 'qr_storage.dart';
+import 'sync_store.dart';
 
 const String kPairingPrefix = 'cnkh-sync:v1|';
 
@@ -320,6 +322,23 @@ class LanSyncClient {
         'lan_sync_last_pull',
         DateTime.now().toIso8601String(),
       );
+      // Shop-level state that used to live only on this device.
+      try {
+        final h = await health(cfg);
+        final caps = h['capabilities'] as List? ?? const [];
+        if (caps.contains('store_settings_v1')) {
+          try { await _syncStoreSettings(cfg); } catch (_) {}
+        }
+        if (caps.contains('held_orders_v1')) {
+          try { await _syncHeldOrders(cfg); } catch (_) {}
+        }
+        if (caps.contains('daily_closings_v1')) {
+          try { await _syncDailyClosings(cfg); } catch (_) {}
+        }
+        if (caps.contains('product_image_upload_v1')) {
+          try { await _uploadProductImages(cfg); } catch (_) {}
+        }
+      } catch (_) {}
       return 'Pulled ${products.length} products, ${customers.length} customers, ${categories.length} categories';
     } catch (e) {
       lastError = '$e';
@@ -454,6 +473,377 @@ class LanSyncClient {
           where: 'id=?', whereArgs: [localProductId]);
     }
   }
+
+  /// Settings keys that belong to the shop (not to one device) and are
+  /// exchanged with the server's store-settings store. Device-bound keys
+  /// (printer, sync connection, cursors) are deliberately excluded.
+  static const _storeSettingDbKeys = <String>[
+    'store_name',
+    'store_address',
+    'store_phone',
+    'receipt_header',
+    'receipt_footer',
+    'receipt_notes',
+    'receipt_show_sku',
+    'receipt_show_cashier',
+    'receipt_show_datetime',
+    'receipt_show_payment',
+    'receipt_show_change',
+    'receipt_show_discount',
+    'receipt_show_unit_price',
+    'receipt_show_qty',
+    'receipt_show_duitnow_qr',
+    'receipt_char_width',
+    'low_stock_threshold',
+    'stock_policy',
+    'hold_timeout_minutes',
+    'product_images_enabled',
+    'scan_feedback',
+  ];
+
+  static String _fnvHash(String s) {
+    var h = 0x811c9dc5;
+    for (final c in s.codeUnits) {
+      h ^= c;
+      h = (h * 0x01000193) & 0xffffffff;
+    }
+    return h.toRadixString(16);
+  }
+
+  static String _snapshotHash(Map<String, String> m) {
+    final keys = m.keys.toList()..sort();
+    return _fnvHash(keys.map((k) => '$k=${m[k]}').join('\n'));
+  }
+
+  static String _bytesHash(List<int> bytes) {
+    // 32-bit FNV-1a: 64-bit literals cannot be represented in JS, and this
+    // code also compiles into the web build.
+    var h = 0x811c9dc5;
+    for (final b in bytes) {
+      h ^= b;
+      h = (h * 0x01000193) & 0xffffffff;
+    }
+    return '${bytes.length}-${h.toRadixString(16)}';
+  }
+
+  Future<Map<String, String>> _storeSnapshot() async {
+    final out = <String, String>{};
+    for (final k in _storeSettingDbKeys) {
+      final v = await repo.getSetting(k);
+      if (v.isNotEmpty) out[k] = v;
+    }
+    final payload = await QrStorage().getPayload();
+    if (payload != null && payload.isNotEmpty) {
+      out['duitnow_qr_payload'] = payload;
+    }
+    return out;
+  }
+
+  /// Two-way store settings exchange. Local edits win (pushed); when the
+  /// local copy is unchanged since the last exchange, server changes are
+  /// applied. The server POST is upsert-only, so pushing can never delete
+  /// keys another device set.
+  Future<void> _syncStoreSettings(LanSyncConfig cfg) async {
+    final uri = Uri.parse('${cfg.normalizedBase}/api/v1/store-settings');
+    final res = await http
+        .get(uri, headers: _headers(cfg))
+        .timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) return;
+    final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    if (body['ok'] != true) return;
+    final serverSettings = <String, String>{
+      for (final e in (body['settings'] as Map? ?? const {}).entries)
+        '${e.key}': '${e.value}',
+    };
+    final version = (body['version'] as num?)?.toInt() ?? 0;
+    final local = await _storeSnapshot();
+    final localHash = _snapshotHash(local);
+    final syncedHash = await repo.getSetting('store_settings_hash');
+    final seenVersion =
+        int.tryParse(await repo.getSetting('store_settings_version')) ?? -1;
+    if (local.isNotEmpty && localHash != syncedHash) {
+      final post = await http
+          .post(
+            uri,
+            headers: _headers(cfg),
+            body: jsonEncode({'settings': local}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (post.statusCode == 200) {
+        final pb =
+            jsonDecode(utf8.decode(post.bodyBytes)) as Map<String, dynamic>;
+        if (pb['ok'] == true) {
+          await repo.setSetting('store_settings_hash', localHash);
+          await repo.setSetting(
+            'store_settings_version',
+            '${(pb['version'] as num?)?.toInt() ?? version}',
+          );
+        }
+      }
+      return;
+    }
+    if (version != seenVersion) {
+      for (final e in serverSettings.entries) {
+        if (e.key == 'duitnow_qr_payload') {
+          await QrStorage().setPayload(e.value);
+        } else if (_storeSettingDbKeys.contains(e.key)) {
+          await repo.setSetting(e.key, e.value);
+        }
+      }
+      final applied = await _storeSnapshot();
+      await repo.setSetting('store_settings_hash', _snapshotHash(applied));
+      await repo.setSetting('store_settings_version', '$version');
+    }
+  }
+
+  Future<String> _translateHeldPayload(
+    String payloadJson,
+    Future<String> Function(String) mapId,
+  ) async {
+    try {
+      final m = jsonDecode(payloadJson) as Map<String, dynamic>;
+      for (final raw in (m['items'] as List? ?? const [])) {
+        final item = raw as Map<String, dynamic>;
+        final pid = item['productId']?.toString();
+        if (pid != null && pid.isNotEmpty) item['productId'] = await mapId(pid);
+      }
+      return jsonEncode(m);
+    } catch (_) {
+      return payloadJson;
+    }
+  }
+
+  Future<bool> _postMutations(
+    LanSyncConfig cfg,
+    List<Map<String, Object?>> ops,
+  ) async {
+    if (ops.isEmpty) return true;
+    final res = await http
+        .post(
+          Uri.parse('${cfg.normalizedBase}/api/v1/mutations'),
+          headers: _headers(cfg),
+          body: jsonEncode({'operations': ops}),
+        )
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) return false;
+    final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    return body['ok'] == true;
+  }
+
+  /// Held orders are immutable create/delete records, so reconciliation is
+  /// a set merge: push local-only/changed holds, propagate tombstoned
+  /// deletions, pull server-only holds. Product ids inside the payload
+  /// are translated through the sync id map in both directions.
+  Future<void> _syncHeldOrders(LanSyncConfig cfg) async {
+    final d = await _db.db;
+    final res = await http
+        .get(
+          Uri.parse('${cfg.normalizedBase}/api/v1/held-orders'),
+          headers: _headers(cfg),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) return;
+    final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    if (body['ok'] != true) return;
+    final serverRows = <Map<String, dynamic>>[
+      for (final r in (body['items'] as List? ?? const []))
+        Map<String, dynamic>.from(r as Map),
+    ];
+    final serverById = <String, Map<String, dynamic>>{
+      for (final r in serverRows) '${r['id']}': r,
+    };
+    var tombstones = <String>[];
+    try {
+      final raw = await repo.getSetting('held_tombstones');
+      if (raw.isNotEmpty) {
+        tombstones = (jsonDecode(raw) as List).map((e) => '$e').toList();
+      }
+    } catch (_) {}
+    final tombSet = tombstones.toSet();
+    final localRows = await d.query('held_orders');
+    final localById = <String, Map<String, Object?>>{
+      for (final r in localRows) '${r['id']}': r,
+    };
+    final ops = <Map<String, Object?>>[];
+    for (final id in tombSet) {
+      if (serverById.containsKey(id)) {
+        ops.add({
+          'id': AppDatabase.newId(),
+          'kind': 'held_delete',
+          'client_entity_id': id,
+          'payload': {'id': id},
+        });
+      }
+    }
+    for (final r in localRows) {
+      final id = '${r['id']}';
+      if (tombSet.contains(id)) continue;
+      final translated = await _translateHeldPayload(
+        '${r['payload_json']}',
+        (localId) async => remoteEntityId(d, 'product', localId),
+      );
+      final s = serverById[id];
+      if (s == null ||
+          '${s['payload_json']}' != translated ||
+          '${s['hold_no']}' != '${r['hold_no']}' ||
+          '${s['cashier']}' != '${r['cashier']}' ||
+          '${s['held_at']}' != '${r['held_at']}') {
+        ops.add({
+          'id': AppDatabase.newId(),
+          'kind': 'held_upsert',
+          'client_entity_id': id,
+          'payload': {
+            'row': {
+              'id': id,
+              'hold_no': '${r['hold_no']}',
+              'cashier': '${r['cashier']}',
+              'held_at': '${r['held_at']}',
+              'payload_json': translated,
+            },
+          },
+        });
+      }
+    }
+    if (!await _postMutations(cfg, ops)) return; // retry next cycle
+    if (tombstones.isNotEmpty) {
+      await repo.setSetting('held_tombstones', '[]');
+    }
+    for (final s in serverRows) {
+      final id = '${s['id']}';
+      if (localById.containsKey(id) || tombSet.contains(id)) continue;
+      final translated = await _translateHeldPayload(
+        '${s['payload_json']}',
+        (remoteId) async =>
+            await mappedLocalId(d, 'product', remoteId) ?? remoteId,
+      );
+      await d.insert('held_orders', {
+        'id': id,
+        'hold_no': '${s['hold_no']}',
+        'cashier': '${s['cashier']}',
+        'held_at': '${s['held_at']}',
+        'payload_json': translated,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  /// Daily closings: one row per business date; the later closed_at wins.
+  Future<void> _syncDailyClosings(LanSyncConfig cfg) async {
+    final d = await _db.db;
+    final res = await http
+        .get(
+          Uri.parse('${cfg.normalizedBase}/api/v1/daily-closings'),
+          headers: _headers(cfg),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) return;
+    final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    if (body['ok'] != true) return;
+    Map<String, Object?> closingRow(Map<String, dynamic> r) => {
+      'id': '${r['id']}',
+      'business_date': '${r['business_date']}',
+      'opening_cash_cents': (r['opening_cash_cents'] as num?)?.toInt() ?? 0,
+      'counted_cash_cents': (r['counted_cash_cents'] as num?)?.toInt() ?? 0,
+      'system_cash_cents': (r['system_cash_cents'] as num?)?.toInt() ?? 0,
+      'notes': '${r['notes'] ?? ''}',
+      'closed_at': '${r['closed_at']}',
+      'closed_by': '${r['closed_by']}',
+    };
+    final serverByDate = <String, Map<String, dynamic>>{
+      for (final r in (body['items'] as List? ?? const []))
+        '${(r as Map)['business_date']}': Map<String, dynamic>.from(r),
+    };
+    final localRows = await d.query('daily_closings');
+    final localByDate = <String, Map<String, Object?>>{
+      for (final r in localRows) '${r['business_date']}': r,
+    };
+    final ops = <Map<String, Object?>>[];
+    for (final e in localByDate.entries) {
+      final s = serverByDate[e.key];
+      if (s == null ||
+          '${s['closed_at']}'.compareTo('${e.value['closed_at']}') < 0) {
+        ops.add({
+          'id': AppDatabase.newId(),
+          'kind': 'daily_closing_upsert',
+          'client_entity_id': '${e.value['id']}',
+          'payload': {'row': closingRow(Map<String, dynamic>.from(e.value))},
+        });
+        serverByDate[e.key] = Map<String, dynamic>.from(e.value);
+      }
+    }
+    if (!await _postMutations(cfg, ops)) return;
+    for (final e in serverByDate.entries) {
+      final l = localByDate[e.key];
+      if (l == null ||
+          '${e.value['closed_at']}'.compareTo('${l['closed_at']}') > 0) {
+        await d.delete(
+          'daily_closings',
+          where: 'business_date=?',
+          whereArgs: [e.key],
+        );
+        await d.insert('daily_closings', closingRow(e.value));
+      }
+    }
+  }
+
+  /// Uploads locally-set product images to the server so other clients can
+  /// pull them through the existing image download path. A stored content
+  /// hash per product keeps this a no-op when nothing changed.
+  Future<void> _uploadProductImages(LanSyncConfig cfg) async {
+    final d = await _db.db;
+    final rows = await d.query(
+      'products',
+      columns: ['id', 'image_path'],
+      where: "image_path IS NOT NULL AND image_path<>''",
+    );
+    final store = ProductImageStore();
+    for (final r in rows) {
+      final localId = '${r['id']}';
+      final bytes = await store.readBytes(localId);
+      if (bytes == null || bytes.isEmpty) continue;
+      final hash = _bytesHash(bytes);
+      final doneKey = 'product_image_uploaded_$localId';
+      if (await repo.getSetting(doneKey) == hash) continue;
+      final remoteId = await remoteEntityId(d, 'product', localId);
+      final uri = Uri.parse(
+        '${cfg.normalizedBase}/api/v1/product_images/${Uri.encodeComponent(remoteId)}',
+      );
+      var uploaded = false;
+      try {
+        final get = await http
+            .get(uri, headers: _headers(cfg))
+            .timeout(const Duration(seconds: 10));
+        if (get.statusCode == 200) {
+          final gb =
+              jsonDecode(utf8.decode(get.bodyBytes)) as Map<String, dynamic>;
+          final b64 = gb['base64'] as String?;
+          if (b64 != null &&
+              b64.isNotEmpty &&
+              _bytesHash(base64Decode(b64)) == hash) {
+            uploaded = true;
+          }
+        }
+      } catch (_) {}
+      if (!uploaded) {
+        final path = '${r['image_path']}';
+        final dot = path.lastIndexOf('.');
+        final ext = dot >= 0 ? path.substring(dot + 1).toLowerCase() : 'jpg';
+        final post = await http
+            .post(
+              uri,
+              headers: _headers(cfg),
+              body: jsonEncode({'base64': base64Encode(bytes), 'ext': ext}),
+            )
+            .timeout(const Duration(seconds: 30));
+        if (post.statusCode == 200) {
+          final pb =
+              jsonDecode(utf8.decode(post.bodyBytes)) as Map<String, dynamic>;
+          uploaded = pb['ok'] == true;
+        }
+      }
+      if (uploaded) await repo.setSetting(doneKey, hash);
+    }
+  }
+
 
   Future<String> pushCategories(LanSyncConfig cfg) async {
     final cats = await repo.listCategories();
