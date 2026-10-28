@@ -638,6 +638,20 @@ class PosRepository {
       whereArgs: [held.id],
     );
     if (removed != 1) throw StateError('挂单已被取出，请刷新');
+    // Tombstone so the sync layer can propagate this deletion to the
+    // server (and from there to the other clients). Stored in settings
+    // because it must survive until the next successful sync.
+    try {
+      final raw = await getSetting('held_tombstones');
+      final list = raw.isEmpty
+          ? <String>[]
+          : (jsonDecode(raw) as List).map((e) => '$e').toList();
+      if (!list.contains(held.id)) {
+        list.add(held.id);
+        if (list.length > 200) list.removeRange(0, list.length - 200);
+        await setSetting('held_tombstones', jsonEncode(list));
+      }
+    } catch (_) {}
     return cart;
   }
 
