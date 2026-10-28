@@ -12,6 +12,18 @@ import 'scan_feedback.dart';
 
 typedef PaymentReceivedCallback = void Function(Map<String, dynamic> paymentEvent);
 
+/// Broadcast wording requested by the shop: whole ringgit and sen spoken
+/// separately, e.g. 3550 cents -> 'DuitNow 收款成功，35 令吉 50 仙'.
+String paymentSpeechText(int cents) {
+  final rm = cents ~/ 100;
+  final sen = cents % 100;
+  var amt = '';
+  if (rm > 0) amt = '$rm 令吉';
+  if (sen > 0) amt = amt.isEmpty ? '$sen 仙' : '$amt $sen 仙';
+  if (amt.isEmpty) amt = '0 令吉';
+  return 'DuitNow 收款成功，$amt';
+}
+
 /// 监听 Linux 云端 /api/v1/pay-ws 推送的 Public Bank 到账通知，自动下载云端 /api/v1/tts 语音并朗读播报
 class PaymentBroadcastListener {
   PaymentBroadcastListener._();
@@ -52,10 +64,17 @@ class PaymentBroadcastListener {
   /// 自动请求云端 /api/v1/tts 合成语音 MP3 并调用系统原生播放器朗读；若失败则回退系统本地 TTS 或提示音
   Future<void> announcePayment(Map<String, dynamic> event) async {
     final r = _repo ?? PosRepository();
-    final rm = event['amount_rm']?.toString() ?? '';
-    final ttsText = (event['tts_text']?.toString() ?? '').trim().isNotEmpty
-        ? event['tts_text'].toString().trim()
-        : (rm.isNotEmpty ? 'Public Bank 收款成功，$rm 令吉' : 'Public Bank 收款成功');
+    final provided = (event['tts_text']?.toString() ?? '').trim();
+    var cents = event['amount_cents'] is num
+        ? (event['amount_cents'] as num).toInt()
+        : int.tryParse(event['amount_cents']?.toString() ?? '');
+    if (cents == null) {
+      final rmVal = double.tryParse(event['amount_rm']?.toString() ?? '');
+      if (rmVal != null) cents = (rmVal * 100).round();
+    }
+    final ttsText = provided.isNotEmpty
+        ? provided
+        : (cents != null ? paymentSpeechText(cents) : 'DuitNow 收款成功');
 
     // 先触发收银提示音/震动提醒
     unawaited(playScanFeedback(r));
