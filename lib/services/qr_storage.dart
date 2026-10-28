@@ -4,10 +4,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'duitnow_qr.dart';
+
 /// Device-local DuitNow QR image storage.
 /// Production: sync from Admin desktop later (TBD).
 class QrStorage {
   static const _keyPath = 'duitnow_qr_local_path';
+  static const _keyPayload = 'duitnow_qr_payload';
 
   Future<String?> getLocalPath() async {
     final prefs = await SharedPreferences.getInstance();
@@ -51,5 +54,30 @@ class QrStorage {
       }
     }
     await prefs.remove(_keyPath);
+    await prefs.remove(_keyPayload);
+  }
+
+  /// The decoded EMV payload of the imported QR image, when the image
+  /// could be decoded (via the server's /api/v1/qr/decode). With a
+  /// payload the checkout can generate amount-locked dynamic QRs.
+  Future<String?> getPayload() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final payload = prefs.getString(_keyPayload);
+      if (payload == null || payload.isEmpty) return null;
+      if (!DuitNowQr.isValid(payload)) return null;
+      return payload;
+    } catch (_) {
+      return null; // storage unavailable (e.g. tests) — static QR still works
+    }
+  }
+
+  Future<void> setPayload(String? payload) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (payload == null || payload.isEmpty) {
+      await prefs.remove(_keyPayload);
+    } else {
+      await prefs.setString(_keyPayload, payload);
+    }
   }
 }
