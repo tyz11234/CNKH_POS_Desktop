@@ -483,6 +483,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'stock_moves_v1',
           'mutation_rejections_v1',
           'auth_v1',
+          'admin_wipe_v1',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -490,6 +491,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         'name': name,
         'clients': connectedClients,
         'cursor': await _latestChangeSeq(db),
+        'data_epoch': await _dataEpoch(db),
         'stock_moves_cursor': await _latestStockMoveSeq(db),
       });
       return;
@@ -713,6 +715,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       });
       return;
     }
+    if (request.method == 'POST' && path == '/api/v1/admin/wipe') {
+      await _handleAdminWipe(request);
+      return;
+    }
     if (request.method == 'POST' && path == '/api/v1/auth/initialize-admin') {
       final body = await _readJson(request);
       final pin = (body['pin'] ?? '').toString();
@@ -892,6 +898,134 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       if (id.isNotEmpty) latestById[id] = row;
     }
     return latestById;
+  }
+
+  Future<int> _dataEpoch(DatabaseExecutor db) async {
+    try {
+      final rows = await db.query(
+        'settings',
+        columns: ['value'],
+        where: 'key=?',
+        whereArgs: ['data_epoch'],
+        limit: 1,
+      );
+      if (rows.isEmpty) return 0;
+      return int.tryParse('${rows.first['value']}') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Checkbox-driven server data wipe for the go-live reset. Table names
+  /// come only from this fixed map, never from the request. Accounts
+  /// (demo_users / user_credentials) are never touched. A real wipe
+  /// clears the sync bookkeeping and bumps data_epoch so app clients
+  /// refuse to push pre-wipe data back (see LanSyncClient epoch guard).
+  static const Map<String, List<String>> _wipeTables =
+      <String, List<String>>{
+        'sales': ['sales', 'lan_sync_mobile_sales'],
+        'purchases': [
+          'purchases',
+          'purchase_drafts',
+          'purchase_draft_lines',
+          'purchase_attachments',
+          'purchase_audit_log',
+          'purchase_reversals',
+          'purchase_commit_keys',
+        ],
+        'stock_moves': ['stock_moves', 'stock_reversals'],
+        'held_orders': ['held_orders'],
+        'daily_closings': ['daily_closings'],
+        'einvoices': ['e_invoice_documents'],
+        'products': ['products'],
+        'customers': ['customers'],
+        'suppliers': ['suppliers', 'supplier_product_aliases'],
+        'categories': ['categories'],
+        'audit': ['audit_logs', 'barcode_print_queue'],
+      };
+
+  Future<void> _handleAdminWipe(HttpRequest request) async {
+    final body = await _readJson(request);
+    final raw = body['categories'];
+    final requested = <String>{
+      if (raw is List) ...raw.map((e) => e.toString()),
+    };
+    final dryRun = body['dry_run'] == true;
+    final db = await _db.db;
+    final counts = <String, int>{};
+    final valid = requested
+        .where((c) => _wipeTables.containsKey(c) || c == 'stock_zero')
+        .toList();
+    if (valid.isEmpty && !dryRun) {
+      await _json(request.response, HttpStatus.badRequest, <String, Object?>{
+        'ok': false,
+        'error': 'no valid categories',
+      });
+      return;
+    }
+    await db.transaction((txn) async {
+      for (final cat in valid) {
+        if (cat == 'stock_zero') {
+          if (dryRun) {
+            final r = await txn.rawQuery(
+              'SELECT COUNT(*) AS c FROM products WHERE stock<>0',
+            );
+            counts[cat] = (r.first['c'] as int?) ?? 0;
+          } else {
+            counts[cat] = await txn.update('products', {'stock': 0});
+          }
+          continue;
+        }
+        var n = 0;
+        for (final table in _wipeTables[cat]!) {
+          try {
+            if (dryRun) {
+              final r = await txn.rawQuery(
+                'SELECT COUNT(*) AS c FROM $table',
+              );
+              n += (r.first['c'] as int?) ?? 0;
+            } else {
+              n += await txn.delete(table);
+            }
+          } catch (_) {
+            // Table may not exist in older schemas; skip it.
+          }
+        }
+        counts[cat] = n;
+      }
+      if (!dryRun) {
+        for (final t in [
+          'sync_outbox',
+          'sync_applied_operations',
+          'sync_entity_ids',
+          'lan_sync_changes',
+        ]) {
+          try {
+            await txn.delete(t);
+          } catch (_) {}
+        }
+        final epoch = await _dataEpoch(txn) + 1;
+        await txn.insert('settings', {
+          'key': 'data_epoch',
+          'value': '$epoch',
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        counts['_epoch'] = epoch;
+      }
+    });
+    if (!dryRun) {
+      _publish(<String, Object?>{
+        'type': 'wipe',
+        'data_epoch': counts['_epoch'],
+      });
+      _publish(<String, Object?>{'type': 'catalog'});
+      _publish(<String, Object?>{'type': 'sale'});
+    }
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'dry_run': dryRun,
+      'counts': counts,
+      'data_epoch': await _dataEpoch(db),
+    });
   }
 
   Future<void> _getProducts(HttpRequest request) async {
@@ -1615,6 +1749,7 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'skipped': skipped,
       'receipts': receipts,
       'cursor': await _latestChangeSeq(db),
+        'data_epoch': await _dataEpoch(db),
     });
   }
 
