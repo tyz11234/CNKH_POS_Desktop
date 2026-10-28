@@ -281,6 +281,9 @@ class AuthService {
       );
       await txn.insert('user_credentials', credential);
     });
+    // The server verified this login: adopt it as the local session too,
+    // so session-gated actions (admin PIN management, audit) keep working.
+    _session = user;
   }
 
   /// Refreshes local demo_users rows from the server's master list.
