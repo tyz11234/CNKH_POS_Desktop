@@ -10,6 +10,7 @@ import '../models/product.dart';
 import 'lan_sync.dart' show kPairingPrefix;
 import 'pos_repository.dart';
 import 'lan_mutations.dart';
+import 'product_images.dart';
 import 'einvoice/sale_submission_guard.dart';
 import 'lan_product_identity.dart';
 import 'sale_reversal.dart';
@@ -484,6 +485,10 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
           'mutation_rejections_v1',
           'auth_v1',
           'admin_wipe_v1',
+          'store_settings_v1',
+          'held_orders_v1',
+          'daily_closings_v1',
+          'product_image_upload_v1',
         ],
         'stock_policy': await repo.stockPolicy(),
         'role': 'host',
@@ -515,6 +520,43 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
         request.uri.pathSegments[1] == 'v1' &&
         request.uri.pathSegments[2] == 'product_images') {
       await _getProductImage(request, request.uri.pathSegments[3]);
+      return;
+    }
+    if (request.method == 'POST' &&
+        request.uri.pathSegments.length == 4 &&
+        request.uri.pathSegments[0] == 'api' &&
+        request.uri.pathSegments[1] == 'v1' &&
+        request.uri.pathSegments[2] == 'product_images') {
+      await _postProductImage(request, request.uri.pathSegments[3]);
+      return;
+    }
+    if (request.method == 'GET' && path == '/api/v1/store-settings') {
+      await _getStoreSettings(request);
+      return;
+    }
+    if (request.method == 'POST' && path == '/api/v1/store-settings') {
+      await _postStoreSettings(request);
+      return;
+    }
+    if (request.method == 'GET' && path == '/api/v1/held-orders') {
+      final db = await _db.db;
+      final rows = await db.query(
+        'held_orders',
+        columns: ['id', 'hold_no', 'cashier', 'held_at', 'payload_json'],
+      );
+      await _json(request.response, HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'items': rows,
+      });
+      return;
+    }
+    if (request.method == 'GET' && path == '/api/v1/daily-closings') {
+      final db = await _db.db;
+      final rows = await db.query('daily_closings');
+      await _json(request.response, HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'items': rows,
+      });
       return;
     }
     if (request.method == 'GET' && path == '/api/v1/customers') {
@@ -1153,6 +1195,144 @@ CREATE TABLE IF NOT EXISTS lan_sync_mobile_sales (
       'ext': ext,
       'bytes': bytes.length,
       'base64': base64Encode(bytes),
+    });
+  }
+
+  Future<void> _postProductImage(HttpRequest request, String productId) async {
+    final db = await _db.db;
+    final rows = await db.query(
+      'products',
+      columns: ['id'],
+      where: 'id=?',
+      whereArgs: <Object?>[productId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      await _json(request.response, HttpStatus.notFound, <String, Object?>{
+        'ok': false,
+        'error': 'product_not_found',
+      });
+      return;
+    }
+    final body = await _readJson(request);
+    final b64 = body['base64']?.toString() ?? '';
+    var ext = (body['ext']?.toString() ?? 'jpg')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toLowerCase();
+    if (ext.isEmpty) ext = 'jpg';
+    final saved = await ProductImageStore().saveBase64(productId, b64, ext: ext);
+    if (saved == null) {
+      await _json(request.response, HttpStatus.badRequest, <String, Object?>{
+        'ok': false,
+        'error': 'invalid_image',
+      });
+      return;
+    }
+    await db.update(
+      'products',
+      <String, Object?>{'image_path': saved},
+      where: 'id=?',
+      whereArgs: <Object?>[productId],
+    );
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+    });
+  }
+
+  /// Store-profile / receipt / operational settings shared by every client.
+  /// Only these keys may live on the server; device-local settings (printer,
+  /// sync endpoint, tokens) never leave the device.
+  static const List<String> _storeSettingKeys = <String>[
+    'store_name',
+    'store_address',
+    'store_phone',
+    'receipt_header',
+    'receipt_footer',
+    'receipt_notes',
+    'receipt_show_sku',
+    'receipt_show_cashier',
+    'receipt_show_datetime',
+    'receipt_show_payment',
+    'receipt_show_change',
+    'receipt_show_discount',
+    'receipt_show_unit_price',
+    'receipt_show_qty',
+    'receipt_show_duitnow_qr',
+    'receipt_char_width',
+    'low_stock_threshold',
+    'stock_policy',
+    'hold_timeout_minutes',
+    'product_images_enabled',
+    'scan_feedback',
+    'duitnow_qr_payload',
+  ];
+
+  Future<int> _storeSettingsVersion(DatabaseExecutor db) async {
+    try {
+      final rows = await db.query(
+        'settings',
+        columns: ['value'],
+        where: 'key=?',
+        whereArgs: ['store_settings_version'],
+        limit: 1,
+      );
+      if (rows.isEmpty) return 0;
+      return int.tryParse('${rows.first['value']}') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> _getStoreSettings(HttpRequest request) async {
+    final db = await _db.db;
+    final placeholders = List<String>.filled(_storeSettingKeys.length, '?').join(',');
+    final rows = await db.query(
+      'settings',
+      columns: ['key', 'value'],
+      where: 'key IN ($placeholders)',
+      whereArgs: _storeSettingKeys,
+    );
+    final settings = <String, Object?>{
+      for (final row in rows) '${row['key']}': row['value'],
+    };
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'settings': settings,
+      'version': await _storeSettingsVersion(db),
+    });
+  }
+
+  Future<void> _postStoreSettings(HttpRequest request) async {
+    final body = await _readJson(request);
+    final incoming = body['settings'];
+    final db = await _db.db;
+    var version = await _storeSettingsVersion(db);
+    await db.transaction((txn) async {
+      if (incoming is Map) {
+        for (final entry in incoming.entries) {
+          final key = entry.key.toString();
+          if (!_storeSettingKeys.contains(key)) continue;
+          await txn.insert(
+            'settings',
+            <String, Object?>{'key': key, 'value': '${entry.value}'},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+      version += 1;
+      await txn.insert(
+        'settings',
+        <String, Object?>{
+          'key': 'store_settings_version',
+          'value': '$version',
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+    _publish(<String, Object?>{'type': 'store_settings', 'version': version});
+    await _json(request.response, HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'version': version,
     });
   }
 
