@@ -46,6 +46,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   PayMethod _method = PayMethod.cash;
   PayMethod _deposit = PayMethod.cash;
   String? _qrPath;
+  String? _qrPayload;
   final _cashCtrl = TextEditingController();
   final _depositCtrl = TextEditingController(text: '0.00');
   final _phoneCtrl = TextEditingController();
@@ -202,6 +203,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _customers = customers;
       _syncCashField();
     });
+    // Load the dynamic-QR payload independently so a slow or failing
+    // payload read can never delay the customer/cart data above.
+    final qrPayload = await widget.qrStorage.getPayload();
+    if (!mounted) return;
+    setState(() => _qrPayload = qrPayload);
   }
 
   void _syncCashField() {
@@ -592,18 +598,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           padding: const EdgeInsets.all(16),
                           child: DuitNowQrPanel(
                             imagePath: _qrPath,
+                            payload: _qrPayload,
                             amountCents: _due,
                             fullscreenFriendly: true,
                             onPickImage: () => _toast(
                               '请到设置导入 QR（仅管理员）/ Import QR in Settings (Admin)',
                             ),
-                            onTapExpand: _qrPath == null
+                            onTapExpand: _qrPath == null && _qrPayload == null
                                 ? null
                                 : () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder: (_) => DuitNowQrFullscreen(
-                                          imagePath: _qrPath!,
+                                          imagePath: _qrPath ?? '',
+                                          payload: _qrPayload,
                                           amountCents: _due,
                                         ),
                                       ),
@@ -740,6 +748,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         const SizedBox(height: 12),
                         DuitNowQrPanel(
                           imagePath: _qrPath,
+                          payload: _qrPayload,
                           amountCents: deposit,
                         ),
                       ],
