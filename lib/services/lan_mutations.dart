@@ -185,7 +185,56 @@ Future<void> applyLanMutation(Database db, Map<String, dynamic> op) async {
       return;
     }
     final now = DateTime.now().toIso8601String();
-    if (kind.endsWith('_upsert')) {
+    if (kind == 'held_upsert') {
+      final row = Map<String, Object?>.from(p['row'] as Map);
+      final heldId = row['id']?.toString() ?? '';
+      if (heldId.isEmpty) {
+        throw const FormatException('held order id required');
+      }
+      await txn.insert(
+        'held_orders',
+        <String, Object?>{
+          'id': heldId,
+          'hold_no': row['hold_no']?.toString() ?? '',
+          'cashier': row['cashier']?.toString() ?? '',
+          'held_at': row['held_at']?.toString() ?? '',
+          'payload_json': row['payload_json']?.toString() ?? '',
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } else if (kind == 'held_delete') {
+      final heldId = p['id']?.toString() ?? '';
+      if (heldId.isEmpty) {
+        throw const FormatException('held order id required');
+      }
+      await txn.delete('held_orders', where: 'id=?', whereArgs: [heldId]);
+    } else if (kind == 'daily_closing_upsert') {
+      int centsOf(Object? v) =>
+          v is num ? v.toInt() : (int.tryParse('${v ?? ''}') ?? 0);
+      final row = Map<String, Object?>.from(p['row'] as Map);
+      final closingId = row['id']?.toString() ?? '';
+      final businessDate = row['business_date']?.toString() ?? '';
+      if (closingId.isEmpty || businessDate.isEmpty) {
+        throw const FormatException(
+            'daily closing id and business_date required');
+      }
+      // One row per business day: drop any previous closing for the date.
+      await txn.delete(
+        'daily_closings',
+        where: 'business_date=?',
+        whereArgs: [businessDate],
+      );
+      await txn.insert('daily_closings', <String, Object?>{
+        'id': closingId,
+        'business_date': businessDate,
+        'opening_cash_cents': centsOf(row['opening_cash_cents']),
+        'counted_cash_cents': centsOf(row['counted_cash_cents']),
+        'system_cash_cents': centsOf(row['system_cash_cents']),
+        'notes': row['notes']?.toString() ?? '',
+        'closed_at': row['closed_at']?.toString() ?? now,
+        'closed_by': row['closed_by']?.toString() ?? '',
+      });
+    } else if (kind.endsWith('_upsert')) {
       final entity = kind.substring(0, kind.length - 7);
       final table = switch (entity) {
         'product' => 'products',
