@@ -2,11 +2,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'package:qr_flutter/qr_flutter.dart';
+
 import '../models/cart_item.dart';
+import '../services/duitnow_qr.dart';
 import '../theme/cnkh_theme.dart';
 
 class DuitNowQrPanel extends StatelessWidget {
   final String? imagePath;
+
+  /// Decoded EMV payload of the imported QR. When present, the panel
+  /// renders a dynamic QR with the amount locked to [amountCents]
+  /// instead of the static imported image.
+  final String? payload;
   final int amountCents;
   final bool fullscreenFriendly;
   final VoidCallback? onTapExpand;
@@ -15,6 +23,7 @@ class DuitNowQrPanel extends StatelessWidget {
   const DuitNowQrPanel({
     super.key,
     required this.imagePath,
+    this.payload,
     required this.amountCents,
     this.fullscreenFriendly = false,
     this.onTapExpand,
@@ -23,6 +32,9 @@ class DuitNowQrPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dynamicData = payload == null
+        ? null
+        : DuitNowQr.buildDynamic(payload!, amountCents);
     final hasImage = imagePath != null && File(imagePath!).existsSync();
     final size = fullscreenFriendly
         ? MediaQuery.sizeOf(context).shortestSide * 0.72
@@ -61,7 +73,7 @@ class DuitNowQrPanel extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         GestureDetector(
-          onTap: hasImage ? onTapExpand : onPickImage,
+          onTap: (hasImage || dynamicData != null) ? onTapExpand : onPickImage,
           child: Container(
             width: size,
             height: size,
@@ -78,20 +90,31 @@ class DuitNowQrPanel extends StatelessWidget {
               ],
             ),
             clipBehavior: Clip.antiAlias,
-            child: hasImage
+            child: dynamicData != null
+                ? Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: QrImageView(
+                      data: dynamicData,
+                      version: QrVersions.auto,
+                      backgroundColor: Colors.white,
+                    ),
+                  )
+                : hasImage
                 ? Image.file(File(imagePath!), fit: BoxFit.contain)
                 : _Placeholder(onPick: onPickImage),
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          hasImage
+          dynamicData != null
+              ? '动态码 · 金额已锁定，顾客扫码直接付款\nDynamic QR — amount locked, just scan & pay'
+              : hasImage
               ? '请顾客扫描此码付款 / Ask customer to scan'
               : '尚未设置收款码 — 请到设置导入 / No QR yet — import in Settings',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (hasImage && onTapExpand != null) ...[
+        if ((hasImage || dynamicData != null) && onTapExpand != null) ...[
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: onTapExpand,
@@ -134,13 +157,29 @@ class _Placeholder extends StatelessWidget {
 /// Full-screen QR for counter presentation.
 class DuitNowQrFullscreen extends StatelessWidget {
   final String imagePath;
+  final String? payload;
   final int amountCents;
 
   const DuitNowQrFullscreen({
     super.key,
     required this.imagePath,
+    this.payload,
     required this.amountCents,
   });
+
+  Widget _fullscreenQr() {
+    final dynamicData = payload == null
+        ? null
+        : DuitNowQr.buildDynamic(payload!, amountCents);
+    if (dynamicData != null) {
+      return QrImageView(
+        data: dynamicData,
+        version: QrVersions.auto,
+        backgroundColor: Colors.white,
+      );
+    }
+    return Image.file(File(imagePath), fit: BoxFit.contain);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +222,7 @@ class DuitNowQrFullscreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     padding: const EdgeInsets.all(16),
-                    child: Image.file(File(imagePath), fit: BoxFit.contain),
+                    child: _fullscreenQr(),
                   ),
                 ),
                 const SizedBox(height: 20),
